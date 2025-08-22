@@ -1,7 +1,7 @@
 import { Component, ReactNode, ErrorInfo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { AlertTriangle } from '@phosphor-icons/react'
+import { Warning } from '@phosphor-icons/react'
 
 interface Props {
   children: ReactNode
@@ -44,7 +44,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <Card className="max-w-md w-full">
             <CardHeader className="text-center">
               <div className="flex justify-center mb-4">
-                <AlertTriangle size={48} className="text-destructive" />
+                <Warning size={48} className="text-destructive" />
               </div>
               <CardTitle>Something went wrong</CardTitle>
             </CardHeader>

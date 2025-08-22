@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useKV } from '@github/spark/hooks'
+import { useKV } from '../../hooks/useKV'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Plus, Pencil, Trash, UserCheck, UserX, Download, Filter, Search, ChevronDown, ChevronRight, Users } from '@phosphor-icons/react'
+import { Plus, Pencil, Trash, UserCheck, UserMinus, Download, Funnel, MagnifyingGlass, CaretDown, CaretRight, Users } from '@phosphor-icons/react'
 import { User, UserRole, Trainee, Faculty } from '../../lib/types'
 import { toast } from 'sonner'
 
@@ -544,7 +544,7 @@ export function UserManagement() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Filter size={20} />
+                <Funnel size={20} />
                 Filters
               </CardTitle>
             </CardHeader>
@@ -553,7 +553,7 @@ export function UserManagement() {
                 <div>
                   <Label htmlFor="search">Search Users</Label>
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2" size={16} />
+                    <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2" size={16} />
                     <Input
                       id="search"
                       placeholder="Search by name or email"
@@ -607,7 +607,7 @@ export function UserManagement() {
                 <CollapsibleTrigger asChild>
                   <Button variant="ghost" className="p-0 h-auto font-semibold text-xl">
                     <div className="flex items-center gap-2">
-                      {isTraineesOpen ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                      {isTraineesOpen ? <CaretDown size={20} /> : <CaretRight size={20} />}
                       <Users size={20} />
                       Trainees ({trainees.length})
                     </div>
@@ -673,7 +673,7 @@ export function UserManagement() {
                               size="sm"
                               onClick={() => handleToggleUserStatus(user.id)}
                             >
-                              {user.isActive ? <UserX size={16} /> : <UserCheck size={16} />}
+                              {user.isActive ? <UserMinus size={16} /> : <UserCheck size={16} />}
                               {user.isActive ? 'Deactivate' : 'Activate'}
                             </Button>
                             
@@ -735,7 +735,7 @@ export function UserManagement() {
                 <CollapsibleTrigger asChild>
                   <Button variant="ghost" className="p-0 h-auto font-semibold text-xl">
                     <div className="flex items-center gap-2">
-                      {isFacultyOpen ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                      {isFacultyOpen ? <CaretDown size={20} /> : <CaretRight size={20} />}
                       <Users size={20} />
                       Faculty & Leadership ({faculty.length})
                     </div>
@@ -796,7 +796,7 @@ export function UserManagement() {
                               size="sm"
                               onClick={() => handleToggleUserStatus(user.id)}
                             >
-                              {user.isActive ? <UserX size={16} /> : <UserCheck size={16} />}
+                              {user.isActive ? <UserMinus size={16} /> : <UserCheck size={16} />}
                               {user.isActive ? 'Deactivate' : 'Activate'}
                             </Button>
                             
@@ -903,7 +903,7 @@ export function UserManagement() {
                             size="sm"
                             onClick={() => handleToggleUserStatus(user.id)}
                           >
-                            {user.isActive ? <UserX size={16} /> : <UserCheck size={16} />}
+                            {user.isActive ? <UserMinus size={16} /> : <UserCheck size={16} />}
                             {user.isActive ? 'Deactivate' : 'Activate'}
                           </Button>
                           

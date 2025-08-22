@@ -14,7 +14,7 @@ import {
   Plus,
   FileText,
   Users,
-  Settings,
+  Gear,
   Flag,
   Download,
   List,
@@ -62,7 +62,7 @@ export function Dashboard() {
     
     // Admin items
     { id: 'users', label: 'User Management', icon: Users, roles: ['admin', 'system-admin'] },
-    { id: 'epa-bank', label: 'EPA Bank', icon: Settings, roles: ['admin', 'system-admin'] },
+    { id: 'epa-bank', label: 'EPA Bank', icon: Gear, roles: ['admin', 'system-admin'] },
     { id: 'milestone-mapping', label: 'Milestone Mapping', icon: Target, roles: ['admin', 'system-admin'] },
     { id: 'all-assessments', label: 'All Assessments', icon: FileText, roles: ['admin', 'leadership'] },
     

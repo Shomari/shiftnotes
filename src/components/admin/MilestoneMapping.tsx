@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useKV } from '@github/spark/hooks'
+import { useKV } from '../../hooks/useKV'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,12 +15,12 @@ import { EPA } from '@/lib/types'
 import { COMPETENCIES, getSubCompetencyById } from '@/data/milestones'
 import { 
   Plus, 
-  ChevronDown, 
-  ChevronUp, 
+  CaretDown, 
+  CaretUp, 
   Pencil, 
   Trash, 
   Target,
-  Link2,
+  Link,
   Gear
 } from '@phosphor-icons/react'
 
@@ -440,7 +440,7 @@ export function MilestoneMapping() {
                         <p className="text-muted-foreground text-sm mt-1.5">{category.description}</p>
                       </div>
                     </div>
-                    {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                    {isExpanded ? <CaretUp className="w-5 h-5" /> : <CaretDown className="w-5 h-5" />}
                   </div>
                 </CollapsibleTrigger>
 
@@ -461,7 +461,7 @@ export function MilestoneMapping() {
                                 </Badge>
                                 <h5 className="font-medium text-sm">{subComp.name}</h5>
                                 <Badge variant="default" className="text-xs">
-                                  <Link2 className="w-3 h-3 mr-1" />
+                                  <Link className="w-3 h-3 mr-1" />
                                   {mappedEPAIds.length} EPA{mappedEPAIds.length !== 1 ? 's' : ''}
                                 </Badge>
                               </div>
@@ -785,7 +785,7 @@ export function MilestoneMapping() {
                     </Badge>
                     <span className="font-medium">{subComp.name}</span>
                     <Badge variant="default" className="ml-auto">
-                      <Link2 className="w-3 h-3 mr-1" />
+                      <Link className="w-3 h-3 mr-1" />
                       {mappedEPAIds.length} EPA{mappedEPAIds.length !== 1 ? 's' : ''} mapped
                     </Badge>
                   </div>

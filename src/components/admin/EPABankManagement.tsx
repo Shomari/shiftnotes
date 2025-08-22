@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useKV } from '@github/spark/hooks'
+import { useKV } from '../../hooks/useKV'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { toast } from 'sonner'
 import { EPA } from '../../lib/types'
-import { Plus, Pencil, Trash, Save, X, CaretDown } from '@phosphor-icons/react'
+import { Plus, Pencil, Trash, FloppyDisk, X, CaretDown } from '@phosphor-icons/react'
 
 export function EPABankManagement() {
   const [epas, setEPAs] = useKV<EPA[]>('epas', [])
@@ -431,7 +431,7 @@ export function EPABankManagement() {
                   <span className="ml-2">Cancel</span>
                 </Button>
                 <Button onClick={handleSubmit}>
-                  <Save size={16} />
+                  <FloppyDisk size={16} />
                   <span className="ml-2">{editingEPA ? 'Update' : 'Create'} EPA</span>
                 </Button>
               </div>

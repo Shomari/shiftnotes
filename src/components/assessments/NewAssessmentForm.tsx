@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../lib/auth'
-import { useKV } from '@github/spark/hooks'
+import { useKV } from '../../hooks/useKV'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,7 +12,7 @@ import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
 import { Assessment, EPA, AssessmentEPA, ENTRUSTMENT_LEVELS, User } from '../../lib/types'
 import { toISOString } from '@/lib/utils'
-import { Plus, Trash2, Save, Send } from '@phosphor-icons/react'
+import { Plus, Trash, FloppyDisk, PaperPlaneRight } from '@phosphor-icons/react'
 
 export function NewAssessmentForm() {
   const { user } = useAuth()
@@ -391,7 +391,7 @@ export function NewAssessmentForm() {
                       disabled={isLoading || selectedEPAs.length === 0}
                       size="sm"
                     >
-                      <Save size={16} />
+                      <FloppyDisk size={16} />
                       <span className="ml-2">Save Draft</span>
                     </Button>
                     
@@ -400,7 +400,7 @@ export function NewAssessmentForm() {
                       disabled={isLoading || selectedEPAs.length === 0}
                       size="sm"
                     >
-                      <Send size={16} />
+                      <PaperPlaneRight size={16} />
                       <span className="ml-2">Submit</span>
                     </Button>
                   </div>
@@ -441,7 +441,7 @@ export function NewAssessmentForm() {
                   className="w-full"
                   disabled={isLoading || selectedEPAs.length === 0}
                 >
-                  <Save size={16} />
+                  <FloppyDisk size={16} />
                   <span className="ml-2">Save Draft</span>
                 </Button>
                 
@@ -450,7 +450,7 @@ export function NewAssessmentForm() {
                   className="w-full"
                   disabled={isLoading || selectedEPAs.length === 0}
                 >
-                  <Send size={16} />
+                  <PaperPlaneRight size={16} />
                   <span className="ml-2">Submit Assessment</span>
                 </Button>
               </div>
