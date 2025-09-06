@@ -1,0 +1,810 @@
+/**
+ * Competency Management component for managing core competencies and sub-competencies
+ */
+
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  Pressable,
+  Alert,
+  Modal,
+  Dimensions,
+} from 'react-native';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
+import { Input } from '../ui/Input';
+import { Button } from '../ui/Button';
+import { Select } from '../ui/Select';
+import { 
+  apiClient, 
+  ApiCoreCompetency, 
+  ApiSubCompetency,
+  ApiProgram
+} from '../../lib/api';
+import { useAuth } from '../../contexts/AuthContext';
+import { 
+  PencilSimple, 
+  Trash, 
+  X,
+  Plus,
+  CaretDown,
+  CaretRight
+} from 'phosphor-react-native';
+
+const { width } = Dimensions.get('window');
+const isTablet = width > 768;
+
+interface CompetencyFormData {
+  code: string;
+  title: string;
+  program: string;
+}
+
+interface SubCompetencyFormData {
+  code: string;
+  title: string;
+  core_competency: string;
+  program: string;
+  milestone_level_1: string;
+  milestone_level_2: string;
+  milestone_level_3: string;
+  milestone_level_4: string;
+  milestone_level_5: string;
+}
+
+interface GroupedSubCompetencies {
+  [coreCompetencyId: string]: {
+    coreCompetency: ApiCoreCompetency;
+    subCompetencies: ApiSubCompetency[];
+  };
+}
+
+export function CompetencyManagement() {
+  const { user } = useAuth();
+  const [coreCompetencies, setCoreCompetencies] = useState<ApiCoreCompetency[]>([]);
+  const [subCompetencies, setSubCompetencies] = useState<ApiSubCompetency[]>([]);
+  const [programs, setPrograms] = useState<ApiProgram[]>([]);
+  const [selectedProgram, setSelectedProgram] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showSubCompetencyModal, setShowSubCompetencyModal] = useState(false);
+  const [editingCompetency, setEditingCompetency] = useState<ApiCoreCompetency | null>(null);
+  const [editingSubCompetency, setEditingSubCompetency] = useState<ApiSubCompetency | null>(null);
+  const [expandedCompetencies, setExpandedCompetencies] = useState<Set<string>>(new Set());
+  
+  // Form state
+  const [formData, setFormData] = useState<CompetencyFormData>({
+    code: '',
+    title: '',
+    program: '',
+  });
+
+  const [subCompetencyFormData, setSubCompetencyFormData] = useState<SubCompetencyFormData>({
+    code: '',
+    title: '',
+    core_competency: '',
+    program: '',
+    milestone_level_1: '',
+    milestone_level_2: '',
+    milestone_level_3: '',
+    milestone_level_4: '',
+    milestone_level_5: '',
+  });
+
+  // Load data on component mount and when user changes
+  useEffect(() => {
+    if (user?.organization) {
+      loadData();
+    }
+  }, [user]);
+
+  // Reload competencies when program changes
+  useEffect(() => {
+    if (selectedProgram && user?.organization) {
+      loadCompetencies();
+    }
+  }, [selectedProgram]);
+
+  const loadData = async () => {
+    if (!user?.organization) {
+      console.error('No user organization found');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const [programsResponse] = await Promise.all([
+        apiClient.getPrograms(user.organization),
+      ]);
+
+      setPrograms(programsResponse.results || []);
+    } catch (error) {
+      console.error('Error loading data:', error);
+      Alert.alert('Error', 'Failed to load data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadCompetencies = async () => {
+    if (!selectedProgram) return;
+
+    setLoading(true);
+    try {
+      const [coreCompetenciesResponse, subCompetenciesResponse] = await Promise.all([
+        apiClient.getCoreCompetencies(selectedProgram),
+        apiClient.getSubCompetencies(undefined, selectedProgram),
+      ]);
+
+      setCoreCompetencies(coreCompetenciesResponse.results || []);
+      setSubCompetencies(subCompetenciesResponse.results || []);
+    } catch (error) {
+      console.error('Error loading competencies:', error);
+      Alert.alert('Error', 'Failed to load competencies');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Group sub-competencies by core competency
+  const groupedSubCompetencies: GroupedSubCompetencies = subCompetencies.reduce((acc, subComp) => {
+    const coreId = subComp.core_competency;
+    if (!acc[coreId]) {
+      const coreComp = coreCompetencies.find(c => c.id === coreId);
+      if (coreComp) {
+        acc[coreId] = {
+          coreCompetency: coreComp,
+          subCompetencies: []
+        };
+      }
+    }
+    if (acc[coreId]) {
+      acc[coreId].subCompetencies.push(subComp);
+    }
+    return acc;
+  }, {} as GroupedSubCompetencies);
+
+  const handleCreateCompetency = () => {
+    setFormData({
+      code: '',
+      title: '',
+      program: selectedProgram,
+    });
+    setEditingCompetency(null);
+    setShowCreateModal(true);
+  };
+
+  const handleEditCompetency = (competency: ApiCoreCompetency) => {
+    setFormData({
+      code: competency.code,
+      title: competency.title,
+      program: competency.program,
+    });
+    setEditingCompetency(competency);
+    setShowCreateModal(true);
+  };
+
+  const handleSaveCompetency = async () => {
+    if (!formData.code.trim() || !formData.title.trim()) {
+      Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+
+    try {
+      if (editingCompetency) {
+        await apiClient.updateCoreCompetency(editingCompetency.id, formData);
+      } else {
+        await apiClient.createCoreCompetency(formData);
+      }
+      
+      setShowCreateModal(false);
+      loadCompetencies();
+      Alert.alert('Success', `Competency ${editingCompetency ? 'updated' : 'created'} successfully`);
+    } catch (error) {
+      console.error('Error saving competency:', error);
+      Alert.alert('Error', 'Failed to save competency');
+    }
+  };
+
+  const handleDeleteCompetency = (competency: ApiCoreCompetency) => {
+    Alert.alert(
+      'Delete Competency',
+      `Are you sure you want to delete "${competency.title}"? This will also delete all associated sub-competencies.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await apiClient.deleteCoreCompetency(competency.id);
+              loadCompetencies();
+              Alert.alert('Success', 'Competency deleted successfully');
+            } catch (error) {
+              console.error('Error deleting competency:', error);
+              Alert.alert('Error', 'Failed to delete competency');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleCreateSubCompetency = (coreCompetency: ApiCoreCompetency) => {
+    setSubCompetencyFormData({
+      code: '',
+      title: '',
+      core_competency: coreCompetency.id,
+      program: selectedProgram,
+      milestone_level_1: '',
+      milestone_level_2: '',
+      milestone_level_3: '',
+      milestone_level_4: '',
+      milestone_level_5: '',
+    });
+    setEditingSubCompetency(null);
+    setShowSubCompetencyModal(true);
+  };
+
+  const handleEditSubCompetency = (subCompetency: ApiSubCompetency) => {
+    setSubCompetencyFormData({
+      code: subCompetency.code,
+      title: subCompetency.title,
+      core_competency: subCompetency.core_competency,
+      program: subCompetency.program,
+      milestone_level_1: subCompetency.milestone_level_1 || '',
+      milestone_level_2: subCompetency.milestone_level_2 || '',
+      milestone_level_3: subCompetency.milestone_level_3 || '',
+      milestone_level_4: subCompetency.milestone_level_4 || '',
+      milestone_level_5: subCompetency.milestone_level_5 || '',
+    });
+    setEditingSubCompetency(subCompetency);
+    setShowSubCompetencyModal(true);
+  };
+
+  const handleSaveSubCompetency = async () => {
+    if (!subCompetencyFormData.code.trim() || !subCompetencyFormData.title.trim()) {
+      Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+
+    try {
+      if (editingSubCompetency) {
+        await apiClient.updateSubCompetency(editingSubCompetency.id, subCompetencyFormData);
+      } else {
+        await apiClient.createSubCompetency(subCompetencyFormData);
+      }
+      
+      setShowSubCompetencyModal(false);
+      loadCompetencies();
+      Alert.alert('Success', `Sub-competency ${editingSubCompetency ? 'updated' : 'created'} successfully`);
+    } catch (error) {
+      console.error('Error saving sub-competency:', error);
+      Alert.alert('Error', 'Failed to save sub-competency');
+    }
+  };
+
+  const handleDeleteSubCompetency = (subCompetency: ApiSubCompetency) => {
+    Alert.alert(
+      'Delete Sub-Competency',
+      `Are you sure you want to delete "${subCompetency.title}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await apiClient.deleteSubCompetency(subCompetency.id);
+              loadCompetencies();
+              Alert.alert('Success', 'Sub-competency deleted successfully');
+            } catch (error) {
+              console.error('Error deleting sub-competency:', error);
+              Alert.alert('Error', 'Failed to delete sub-competency');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const toggleCompetencyExpansion = (competencyId: string) => {
+    const newExpanded = new Set(expandedCompetencies);
+    if (newExpanded.has(competencyId)) {
+      newExpanded.delete(competencyId);
+    } else {
+      newExpanded.add(competencyId);
+    }
+    setExpandedCompetencies(newExpanded);
+  };
+
+  const renderCompetencyCard = (competency: ApiCoreCompetency) => {
+    const isExpanded = expandedCompetencies.has(competency.id);
+    const subComps = groupedSubCompetencies[competency.id]?.subCompetencies || [];
+
+    return (
+      <Card key={competency.id} style={styles.competencyCard}>
+        <CardHeader>
+          <View style={styles.competencyHeader}>
+            <Pressable
+              style={styles.competencyTitleContainer}
+              onPress={() => toggleCompetencyExpansion(competency.id)}
+            >
+              {isExpanded ? (
+                <CaretDown size={16} color="#6b7280" />
+              ) : (
+                <CaretRight size={16} color="#6b7280" />
+              )}
+              <Text style={styles.competencyCode}>{competency.code}</Text>
+              <Text style={styles.competencyTitle}>{competency.title}</Text>
+            </Pressable>
+            <View style={styles.competencyActions}>
+              <Pressable
+                style={styles.actionButton}
+                onPress={() => handleCreateSubCompetency(competency)}
+              >
+                <Plus size={16} color="#3b82f6" />
+              </Pressable>
+              <Pressable
+                style={styles.actionButton}
+                onPress={() => handleEditCompetency(competency)}
+              >
+                <PencilSimple size={16} color="#6b7280" />
+              </Pressable>
+              <Pressable
+                style={styles.actionButton}
+                onPress={() => handleDeleteCompetency(competency)}
+              >
+                <Trash size={16} color="#ef4444" />
+              </Pressable>
+            </View>
+          </View>
+        </CardHeader>
+        
+        {isExpanded && (
+          <CardContent>
+            <Text style={styles.subCompetenciesLabel}>
+              Sub-Competencies ({subComps.length})
+            </Text>
+            {subComps.map((subComp) => (
+              <View key={subComp.id} style={styles.subCompetencyItem}>
+                <View style={styles.subCompetencyInfo}>
+                  <Text style={styles.subCompetencyCode}>{subComp.code}</Text>
+                  <Text style={styles.subCompetencyTitle}>{subComp.title}</Text>
+                </View>
+                <View style={styles.subCompetencyActions}>
+                  <Pressable
+                    style={styles.actionButton}
+                    onPress={() => handleEditSubCompetency(subComp)}
+                  >
+                    <PencilSimple size={14} color="#6b7280" />
+                  </Pressable>
+                  <Pressable
+                    style={styles.actionButton}
+                    onPress={() => handleDeleteSubCompetency(subComp)}
+                  >
+                    <Trash size={14} color="#ef4444" />
+                  </Pressable>
+                </View>
+              </View>
+            ))}
+            {subComps.length === 0 && (
+              <Text style={styles.noSubCompetencies}>
+                No sub-competencies yet. Click the + button to add one.
+              </Text>
+            )}
+          </CardContent>
+        )}
+      </Card>
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.pageTitle}>Competency Management</Text>
+        <Text style={styles.pageSubtitle}>
+          Manage core competencies and sub-competencies for your program
+        </Text>
+        
+        {/* Program Filter */}
+        <View style={styles.programFilterContainer}>
+          <Text style={styles.programFilterLabel}>
+            Select Program {user?.organization_name ? `(${user.organization_name})` : ''}:
+          </Text>
+          <Select
+            value={selectedProgram}
+            onValueChange={(value) => setSelectedProgram(value)}
+            placeholder={programs.length === 0 ? "No programs available for your organization" : "Choose a program to manage competencies"}
+            options={[
+              { value: '', label: 'All Programs' },
+              ...programs.map((program) => ({
+                value: program.id,
+                label: program.name
+              }))
+            ]}
+          />
+        </View>
+      </View>
+
+      <ScrollView style={styles.content}>
+        {!selectedProgram ? (
+          <View style={styles.noProgramSelected}>
+            <Text style={styles.noProgramText}>
+              {programs.length === 0 
+                ? `No programs available for ${user?.organization_name || 'your organization'}. Please contact your administrator.`
+                : 'Please select a program to view and manage competencies'
+              }
+            </Text>
+          </View>
+        ) : (
+          <>
+            {/* Add Competency Button */}
+            <View style={styles.addButtonContainer}>
+              <Button
+                title="Add Core Competency"
+                onPress={handleCreateCompetency}
+                icon="plus"
+                style={styles.addButton}
+              />
+            </View>
+
+            {/* Competencies List */}
+            <View style={styles.competenciesList}>
+              {coreCompetencies.map(renderCompetencyCard)}
+            </View>
+
+            {coreCompetencies.length === 0 && (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>
+                  No competencies found for this program. Create your first competency to get started.
+                </Text>
+              </View>
+            )}
+          </>
+        )}
+      </ScrollView>
+
+      {/* Create/Edit Competency Modal */}
+      <Modal
+        visible={showCreateModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>
+              {editingCompetency ? 'Edit Competency' : 'Add New Competency'}
+            </Text>
+            <Pressable
+              style={styles.closeButton}
+              onPress={() => setShowCreateModal(false)}
+            >
+              <X size={24} color="#6b7280" />
+            </Pressable>
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            <View style={styles.field}>
+              <Text style={styles.label}>Code *</Text>
+              <Input
+                value={formData.code}
+                onChangeText={(text) => setFormData({ ...formData, code: text })}
+                placeholder="e.g., COMP1"
+                style={styles.input}
+              />
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Title *</Text>
+              <Input
+                value={formData.title}
+                onChangeText={(text) => setFormData({ ...formData, title: text })}
+                placeholder="e.g., Patient Care and Procedural Skills"
+                style={styles.input}
+              />
+            </View>
+          </ScrollView>
+
+          <View style={styles.modalFooter}>
+            <Button
+              title="Cancel"
+              onPress={() => setShowCreateModal(false)}
+              style={[styles.button, styles.cancelButton]}
+            />
+            <Button
+              title={editingCompetency ? 'Update' : 'Create'}
+              onPress={handleSaveCompetency}
+              style={[styles.button, styles.saveButton]}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Create/Edit Sub-Competency Modal */}
+      <Modal
+        visible={showSubCompetencyModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>
+              {editingSubCompetency ? 'Edit Sub-Competency' : 'Add New Sub-Competency'}
+            </Text>
+            <Pressable
+              style={styles.closeButton}
+              onPress={() => setShowSubCompetencyModal(false)}
+            >
+              <X size={24} color="#6b7280" />
+            </Pressable>
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            <View style={styles.field}>
+              <Text style={styles.label}>Code *</Text>
+              <Input
+                value={subCompetencyFormData.code}
+                onChangeText={(text) => setSubCompetencyFormData({ ...subCompetencyFormData, code: text })}
+                placeholder="e.g., COMP1.1"
+                style={styles.input}
+              />
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Title *</Text>
+              <Input
+                value={subCompetencyFormData.title}
+                onChangeText={(text) => setSubCompetencyFormData({ ...subCompetencyFormData, title: text })}
+                placeholder="e.g., Clinical Reasoning"
+                style={styles.input}
+              />
+            </View>
+
+            <Text style={styles.milestoneLabel}>Milestone Levels</Text>
+            
+            {[1, 2, 3, 4, 5].map((level) => (
+              <View key={level} style={styles.field}>
+                <Text style={styles.label}>Level {level}</Text>
+                <Input
+                  value={subCompetencyFormData[`milestone_level_${level}` as keyof SubCompetencyFormData] as string}
+                  onChangeText={(text) => setSubCompetencyFormData({ 
+                    ...subCompetencyFormData, 
+                    [`milestone_level_${level}`]: text 
+                  })}
+                  placeholder={`Level ${level} description`}
+                  style={styles.input}
+                />
+              </View>
+            ))}
+          </ScrollView>
+
+          <View style={styles.modalFooter}>
+            <Button
+              title="Cancel"
+              onPress={() => setShowSubCompetencyModal(false)}
+              style={[styles.button, styles.cancelButton]}
+            />
+            <Button
+              title={editingSubCompetency ? 'Update' : 'Create'}
+              onPress={handleSaveSubCompetency}
+              style={[styles.button, styles.saveButton]}
+            />
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f9fafb',
+  },
+  header: {
+    padding: 20,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  pageTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#1f2937',
+    marginBottom: 8,
+  },
+  pageSubtitle: {
+    fontSize: 16,
+    color: '#6b7280',
+    marginBottom: 20,
+  },
+  programFilterContainer: {
+    marginBottom: 10,
+  },
+  programFilterLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  content: {
+    flex: 1,
+    padding: 20,
+  },
+  noProgramSelected: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  noProgramText: {
+    fontSize: 16,
+    color: '#6b7280',
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  addButtonContainer: {
+    marginBottom: 20,
+  },
+  addButton: {
+    alignSelf: 'flex-start',
+  },
+  competenciesList: {
+    gap: 16,
+  },
+  competencyCard: {
+    marginBottom: 16,
+  },
+  competencyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  competencyTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  competencyCode: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#3b82f6',
+    marginLeft: 8,
+    marginRight: 12,
+  },
+  competencyTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#1f2937',
+    flex: 1,
+  },
+  competencyActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionButton: {
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: '#f3f4f6',
+  },
+  subCompetenciesLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 12,
+  },
+  subCompetencyItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#f9fafb',
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  subCompetencyInfo: {
+    flex: 1,
+  },
+  subCompetencyCode: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6b7280',
+    marginBottom: 2,
+  },
+  subCompetencyTitle: {
+    fontSize: 14,
+    color: '#374151',
+  },
+  subCompetencyActions: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  noSubCompetencies: {
+    fontSize: 14,
+    color: '#9ca3af',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 20,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: '#6b7280',
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  closeButton: {
+    padding: 4,
+  },
+  modalContent: {
+    flex: 1,
+    padding: 20,
+  },
+  field: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+  },
+  milestoneLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginTop: 20,
+    marginBottom: 16,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  button: {
+    flex: 1,
+  },
+  cancelButton: {
+    backgroundColor: '#f3f4f6',
+  },
+  saveButton: {
+    backgroundColor: '#3b82f6',
+  },
+});

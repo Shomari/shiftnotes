@@ -1,0 +1,18 @@
+ShiftNotes EC2 Deployment Information
+=====================================
+
+Instance ID: i-0a5346cf67bdb2f1d
+Public IP: 44.197.181.141
+Region: us-east-1
+VPC ID: vpc-04fcdfc6b8d20adf9
+Security Group: sg-00ed2f4bca32e82c6
+Aurora Security Group: sg-053d0ef8faa698fde
+
+SSH Access:
+ssh -i ~/.ssh/shiftnotes-key.pem ec2-user@44.197.181.141
+
+API URLs:
+http://44.197.181.141:8000/api/v1/
+http://44.197.181.141:8000/admin/
+
+Deployment Date: Mon Sep  1 17:20:17 CDT 2025
