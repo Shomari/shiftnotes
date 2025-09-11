@@ -28,11 +28,10 @@ interface DemoAccount {
 }
 
 const demoAccounts: DemoAccount[] = [
-  { role: 'Faculty', name: 'Dr. Sarah Smith', email: 'faculty@johns-hopkins.com' },
-  { role: 'Trainee', name: 'Alex Chen', email: 'trainee@johns-hopkins.com' },
-  { role: 'Leadership', name: 'Dr. Emily Rodriguez', email: 'leadership@johns-hopkins.com' },
-  { role: 'Admin', name: 'Johns Hopkins Admin', email: 'admin@johns-hopkins.com' },
-  { role: 'Superuser', name: 'System Admin', email: 'admin@shiftnotes.com' },
+  { role: 'Admin', name: 'Dr. Sarah Chen', email: 'admin@demo.com' },
+  { role: 'Faculty', name: 'Dr. Michael Rodriguez', email: 'faculty@demo.com' },
+  { role: 'Trainee', name: 'Dr. Alex Martinez', email: 'trainee@demo.com' },
+  { role: 'Leadership', name: 'Dr. Amanda Thompson', email: 'leadership@demo.com' },
 ];
 
 interface LoginScreenProps {
@@ -60,11 +59,11 @@ export function LoginScreen({ onNavigateToForgotPassword }: LoginScreenProps = {
 
   const handleDemoAccountClick = async (account: DemoAccount) => {
     setEmail(account.email);
-    setPassword('demo');
+    setPassword('password123');
     
     // Auto-login for all demo accounts
     try {
-      await login(account.email, 'demo');
+      await login(account.email, 'password123');
     } catch (error) {
       console.error('Demo login error:', error);
       Alert.alert('Login Failed', 'Demo login failed. Please try again.');
@@ -168,7 +167,7 @@ export function LoginScreen({ onNavigateToForgotPassword }: LoginScreenProps = {
               </View>
               
               <Text style={styles.demoPassword}>
-                Password: "demo" for most accounts, "admin123" for superuser
+                Password: "password123" for all demo accounts
               </Text>
             </View>
           </CardContent>
