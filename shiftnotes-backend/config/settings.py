@@ -215,13 +215,9 @@ CORS_ALLOWED_ORIGINS = [
     "https://main.d3c6p9x33k6b3.amplifyapp.com",
 ]
 
-# Production CORS settings
+# Production CORS settings - temporarily allow all origins for mixed content
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
-
-# Security settings for HTTPS
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SECURE_SSL_REDIRECT = False  # Let nginx handle this
-USE_TLS = True
 
 # Additional settings for React Native/Expo
 CORS_ALLOW_PRIVATE_NETWORK = True
