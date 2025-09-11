@@ -10,7 +10,7 @@ const ENV = {
     DEBUG: true,
   },
   production: {
-    API_BASE_URL: 'http://44.197.181.141:8001/api', // Your EC2 RDS instance
+    API_BASE_URL: 'https://44.197.181.141:8443/api', // Your EC2 RDS instance (HTTPS)
     ENV_NAME: 'production',
     DEBUG: false,
   },

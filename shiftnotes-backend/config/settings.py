@@ -18,7 +18,7 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-dev-key-change-in-pro
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = ['44.197.181.141', 'localhost', '127.0.0.1', '192.168.86.20']
+ALLOWED_HOSTS = ['44.197.181.141', 'localhost', '127.0.0.1', '192.168.86.20', 'main.d3c6p9x33k6b3.amplifyapp.com']
 
 # Application definition
 INSTALLED_APPS = [
@@ -210,16 +210,18 @@ CORS_ALLOWED_ORIGINS = [
     "http://192.168.86.20:8001",  # Local IP for physical device testing
     "http://44.197.181.141:8000",
     "http://44.197.181.141:8001",
+    "https://44.197.181.141:8443",  # HTTPS backend
     # AWS Amplify domains
     "https://main.d3c6p9x33k6b3.amplifyapp.com",
 ]
 
-# Temporary debug setting - allows all origins (remove in production)
-CORS_ALLOW_ALL_ORIGINS = True
+# Production CORS settings
 CORS_ALLOW_CREDENTIALS = True
 
-# For development - allow all origins temporarily
-CORS_ALLOW_ALL_ORIGINS = True
+# Security settings for HTTPS
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT = False  # Let nginx handle this
+USE_TLS = True
 
 # Additional settings for React Native/Expo
 CORS_ALLOW_PRIVATE_NETWORK = True
