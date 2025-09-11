@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "shiftnotes-mobile",
-    "slug": "shiftnotes-mobile",
+    "name": "EPAnotes",
+    "slug": "epanotes",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -23,7 +23,17 @@
       "edgeToEdgeEnabled": true
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "EPAnotes",
+      "shortName": "EPAnotes",
+      "lang": "en",
+      "scope": "/",
+      "themeColor": "#3b82f6",
+      "backgroundColor": "#ffffff",
+      "display": "standalone",
+      "orientation": "any",
+      "dir": "auto",
+      "preferRelatedApplications": false
     }
   }
 }
