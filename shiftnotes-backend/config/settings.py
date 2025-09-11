@@ -210,10 +210,12 @@ CORS_ALLOWED_ORIGINS = [
     "http://192.168.86.20:8001",  # Local IP for physical device testing
     "http://44.197.181.141:8000",
     "http://44.197.181.141:8001",
-    # Expo related origins - removed invalid entries
-    # "exp://",                     # Expo development protocol (invalid format)
-    # "exps://",                    # Expo secure protocol (invalid format)
+    # AWS Amplify domains
+    "https://main.d3c6p9x33k6b3.amplifyapp.com",
 ]
+
+# Temporary debug setting - allows all origins (remove in production)
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 # For development - allow all origins temporarily
