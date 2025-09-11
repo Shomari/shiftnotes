@@ -1,0 +1,19 @@
+# Alternative Amplify configuration - use if the main one doesn't work
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - cd shiftnotes-mobile
+        - npm ci
+    build:
+      commands:
+        - cd shiftnotes-mobile
+        - npm run web:build
+  artifacts:
+    baseDirectory: shiftnotes-mobile/dist
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - shiftnotes-mobile/node_modules/**/*
