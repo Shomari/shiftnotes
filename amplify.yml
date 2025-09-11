@@ -4,19 +4,17 @@ applications:
       phases:
         preBuild:
           commands:
-            - cd shiftnotes-mobile
             - npm ci
             - echo "Setting up environment for production..."
         build:
           commands:
-            - cd shiftnotes-mobile
             - echo "Building Expo web app for production..."
             - npm run web:build
       artifacts:
-        baseDirectory: shiftnotes-mobile/dist
+        baseDirectory: dist
         files:
           - '**/*'
       cache:
         paths:
-          - shiftnotes-mobile/node_modules/**/*
-    appRoot: .
+          - node_modules/**/*
+    appRoot: shiftnotes-mobile
