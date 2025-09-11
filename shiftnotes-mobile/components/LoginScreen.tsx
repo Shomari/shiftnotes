@@ -30,11 +30,16 @@ interface DemoAccount {
 const demoAccounts: DemoAccount[] = [
   { role: 'Faculty', name: 'Dr. Sarah Smith', email: 'faculty@johns-hopkins.com' },
   { role: 'Trainee', name: 'Alex Chen', email: 'trainee@johns-hopkins.com' },
+  { role: 'Leadership', name: 'Dr. Emily Rodriguez', email: 'leadership@johns-hopkins.com' },
   { role: 'Admin', name: 'Johns Hopkins Admin', email: 'admin@johns-hopkins.com' },
   { role: 'Superuser', name: 'System Admin', email: 'admin@shiftnotes.com' },
 ];
 
-export function LoginScreen() {
+interface LoginScreenProps {
+  onNavigateToForgotPassword?: () => void;
+}
+
+export function LoginScreen({ onNavigateToForgotPassword }: LoginScreenProps = {}) {
   const { login, isLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -78,7 +83,7 @@ export function LoginScreen() {
           <View style={styles.logo}>
             <Text style={styles.logoIcon}>📋</Text>
           </View>
-          <Text style={styles.appName}>ShiftNotes</Text>
+          <Text style={styles.appName}>AptiTools</Text>
           <Text style={styles.tagline}>Competency tracking made easy.</Text>
         </View>
 
@@ -126,6 +131,21 @@ export function LoginScreen() {
               disabled={!email || !password || isLoading}
               style={styles.signInButton}
             />
+
+            {/* Forgot Password Link */}
+            <Pressable
+              style={styles.forgotPasswordLink}
+              onPress={() => {
+                if (onNavigateToForgotPassword) {
+                  onNavigateToForgotPassword();
+                } else {
+                  Alert.alert('Forgot Password', 'Forgot password feature coming soon!');
+                }
+              }}
+              disabled={isLoading}
+            >
+              <Text style={styles.forgotPasswordText}>Forgot your password?</Text>
+            </Pressable>
 
             {/* Demo Accounts Section */}
             <View style={styles.demoSection}>
@@ -237,7 +257,17 @@ const styles = StyleSheet.create({
   },
   signInButton: {
     marginTop: 8,
+    marginBottom: 16,
+  },
+  forgotPasswordLink: {
+    alignSelf: 'center',
     marginBottom: 24,
+    paddingVertical: 8,
+  },
+  forgotPasswordText: {
+    color: '#3b82f6',
+    fontSize: 14,
+    fontWeight: '500',
   },
 
   // Demo Section

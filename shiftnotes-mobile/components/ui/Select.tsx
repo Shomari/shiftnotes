@@ -1,14 +1,20 @@
 /**
- * Select component using Tamagui's Select
- * Clean, professional dropdown with great UX
+ * Select component using React Native's built-in components
+ * Reliable dropdown with proper state management
  */
 
-import React from 'react';
-import { Select as TamaguiSelect } from '@tamagui/select';
-import { Adapt } from '@tamagui/adapt';
-import { Sheet } from '@tamagui/sheet';
-import { ChevronDown, ChevronUp, Check } from '@tamagui/lucide-icons';
-import { Stack } from '@tamagui/core';
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  View,
+  Text,
+  Pressable,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Dimensions,
+} from 'react-native';
+
+const { width } = Dimensions.get('window');
 
 interface SelectOption {
   label: string;
@@ -31,113 +37,206 @@ export function Select({
   options,
   disabled = false,
 }: SelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const triggerRef = useRef<View>(null);
+  const componentId = useRef(Math.random().toString(36).substr(2, 9)).current;
+
+  // Reset modal state when component unmounts or when critical props change
+  useEffect(() => {
+    return () => {
+      // Cleanup when component unmounts
+      setIsOpen(false);
+    };
+  }, []);
+
+  // Reset modal state when options change (indicates navigation to new screen)
+  useEffect(() => {
+    console.log(`Select ${componentId}: Options changed, resetting state`);
+    setIsOpen(false);
+  }, [options.length, componentId]);
+
   const handleValueChange = (newValue: string) => {
-    console.log('Select value changed:', newValue);
+    console.log(`Select ${componentId}: Value changed to:`, newValue);
     onValueChange(newValue);
+    setIsOpen(false);
   };
 
+  const handleTriggerPress = () => {
+    if (disabled) return;
+    console.log(`Select ${componentId}: Trigger pressed, current isOpen:`, isOpen);
+    setIsOpen(true);
+  };
+
+  const handleModalClose = () => {
+    console.log(`Select ${componentId}: Modal closing`);
+    setIsOpen(false);
+  };
+
+  const selectedOption = options.find(option => option.value === value);
+  const displayText = selectedOption ? selectedOption.label : placeholder;
+
   return (
-    <TamaguiSelect value={value} onValueChange={handleValueChange} disablePreventBodyScroll>
-      <TamaguiSelect.Trigger
-        width="100%"
-        iconAfter={ChevronDown}
-        borderWidth={1}
-        borderColor="$gray7"
-        borderRadius="$2"
-        backgroundColor="$background"
-        paddingHorizontal="$3"
-        paddingVertical="$2.5"
-        height={44}
+    <>
+      <Pressable
+        ref={triggerRef}
+        style={[
+          styles.trigger,
+          disabled && styles.triggerDisabled,
+          isOpen && styles.triggerActive,
+        ]}
+        onPress={handleTriggerPress}
         disabled={disabled}
-        onPress={() => console.log('Select trigger pressed')}
-        pressStyle={{
-          backgroundColor: "$gray2",
-          borderColor: "$gray8",
-        }}
-        focusStyle={{
-          borderColor: "$blue8",
-          backgroundColor: "$background",
-        }}
       >
-        <TamaguiSelect.Value placeholder={placeholder} color={value ? "$color" : "$gray10"} />
-      </TamaguiSelect.Trigger>
-
-      <Adapt when="sm" platform="touch">
-        <Sheet modal dismissOnSnapToBottom snapPoints={[85]}>
-          <Sheet.Frame padding="$4">
-            <Sheet.ScrollView>
-              <Adapt.Contents />
-            </Sheet.ScrollView>
-          </Sheet.Frame>
-          <Sheet.Overlay 
-            animation="lazy" 
-            enterStyle={{ opacity: 0 }} 
-            exitStyle={{ opacity: 0 }}
-            backgroundColor="rgba(0,0,0,0.5)"
-          />
-        </Sheet>
-      </Adapt>
-
-      <TamaguiSelect.Content zIndex={200000}>
-        <TamaguiSelect.ScrollUpButton
-          alignItems="center"
-          justifyContent="center"
-          position="relative"
-          width="100%"
-          height="$3"
+        <Text 
+          style={[
+            styles.triggerText,
+            !selectedOption && styles.placeholderText,
+          ]}
+          numberOfLines={1}
         >
-          <Stack zIndex={10}>
-            <ChevronUp size={20} />
-          </Stack>
-        </TamaguiSelect.ScrollUpButton>
+          {displayText}
+        </Text>
+        <Text style={styles.chevron}>▼</Text>
+      </Pressable>
 
-        <TamaguiSelect.Viewport minHeight={200}>
-          <TamaguiSelect.Group>
-            {placeholder && (
-              <TamaguiSelect.Item index={0} value="">
-                <TamaguiSelect.ItemText color="$gray10">{placeholder}</TamaguiSelect.ItemText>
-                <TamaguiSelect.ItemIndicator marginLeft="auto">
-                  <Check size={16} />
-                </TamaguiSelect.ItemIndicator>
-              </TamaguiSelect.Item>
-            )}
-            
-            {options.map((option, index) => (
-              <TamaguiSelect.Item 
-                key={option.value} 
-                index={index + (placeholder ? 1 : 0)} 
-                value={option.value}
-              >
-                <Stack flex={1}>
-                  <TamaguiSelect.ItemText fontWeight="600" fontSize="$4">
-                    {option.label}
-                  </TamaguiSelect.ItemText>
-                  {option.subtitle && (
-                    <TamaguiSelect.ItemText fontSize="$3" color="$gray10" marginTop="$1">
-                      {option.subtitle}
-                    </TamaguiSelect.ItemText>
+      <Modal
+        visible={isOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={handleModalClose}
+      >
+        <Pressable
+          style={styles.overlay}
+          onPress={handleModalClose}
+        >
+          <View style={styles.dropdown}>
+            <ScrollView style={styles.dropdownScroll} showsVerticalScrollIndicator={false}>
+              {options.map((option) => (
+                <Pressable
+                  key={option.value}
+                  style={[
+                    styles.option,
+                    option.value === value && styles.selectedOption,
+                  ]}
+                  onPress={() => handleValueChange(option.value)}
+                >
+                  <View style={styles.optionContent}>
+                    <Text 
+                      style={[
+                        styles.optionText,
+                        option.value === value && styles.selectedOptionText,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                    {option.subtitle && (
+                      <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
+                    )}
+                  </View>
+                  {option.value === value && (
+                    <Text style={styles.checkmark}>✓</Text>
                   )}
-                </Stack>
-                <TamaguiSelect.ItemIndicator marginLeft="auto">
-                  <Check size={16} />
-                </TamaguiSelect.ItemIndicator>
-              </TamaguiSelect.Item>
-            ))}
-          </TamaguiSelect.Group>
-        </TamaguiSelect.Viewport>
-
-        <TamaguiSelect.ScrollDownButton
-          alignItems="center"
-          justifyContent="center"
-          position="relative"
-          width="100%"
-          height="$3"
-        >
-          <Stack zIndex={10}>
-            <ChevronDown size={20} />
-          </Stack>
-        </TamaguiSelect.ScrollDownButton>
-      </TamaguiSelect.Content>
-    </TamaguiSelect>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </Pressable>
+      </Modal>
+    </>
   );
 }
+
+const styles = StyleSheet.create({
+  trigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    backgroundColor: '#ffffff',
+    minHeight: 44,
+  },
+  triggerDisabled: {
+    backgroundColor: '#f3f4f6',
+    borderColor: '#e5e7eb',
+  },
+  triggerActive: {
+    borderColor: '#3b82f6',
+    shadowColor: '#3b82f6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  triggerText: {
+    fontSize: 16,
+    color: '#374151',
+    flex: 1,
+  },
+  placeholderText: {
+    color: '#9ca3af',
+  },
+  chevron: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginLeft: 8,
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  dropdown: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    maxHeight: 300,
+    width: Math.min(width - 40, 400),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  dropdownScroll: {
+    maxHeight: 300,
+  },
+  option: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  selectedOption: {
+    backgroundColor: '#eff6ff',
+  },
+  optionContent: {
+    flex: 1,
+  },
+  optionText: {
+    fontSize: 16,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  selectedOptionText: {
+    color: '#3b82f6',
+    fontWeight: '600',
+  },
+  optionSubtitle: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  checkmark: {
+    fontSize: 16,
+    color: '#3b82f6',
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+});

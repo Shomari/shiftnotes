@@ -17,8 +17,14 @@ import { AssessmentDetail } from './components/AssessmentDetail';
 import { UserManagement } from './components/admin/UserManagement';
 import { EPAManagement } from './components/admin/EPAManagement';
 import { CompetencyManagement } from './components/admin/CompetencyManagement';
+import { CompetencyGrid } from './components/admin/CompetencyGrid';
+import ProgramPerformanceDashboard from './components/analytics/ProgramPerformanceDashboard';
+import ExecutiveDashboard from './components/analytics/ExecutiveDashboard';
+import AccreditationReadiness from './components/analytics/AccreditationReadiness';
 import { SiteManagement } from './components/admin/SiteManagement';
 import { LoginScreen } from './components/LoginScreen';
+import { ForgotPasswordScreen } from './components/auth/ForgotPasswordScreen';
+import { ResetPasswordScreen } from './components/auth/ResetPasswordScreen';
 import { Header } from './components/ui/Header';
 import { Sidebar } from './components/ui/Sidebar';
 
@@ -26,6 +32,8 @@ function AppContent() {
   const { user, isLoading, isAuthenticated, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentRoute, setCurrentRoute] = useState('overview');
+  const [authScreen, setAuthScreen] = useState<'login' | 'forgot-password' | 'reset-password'>('login');
+  const [resetParams, setResetParams] = useState<{ uidb64: string; token: string } | null>(null);
   const [selectedAssessmentId, setSelectedAssessmentId] = useState<string | null>(null);
   
   const { width } = Dimensions.get('window');
@@ -96,10 +104,20 @@ function AppContent() {
         return 'EPA Management';
       case 'competency-management':
         return 'Competency Management';
+      case 'competency-grid':
+        return 'Competency Grid';
+      case 'program-performance':
+        return 'Program Performance';
+      case 'executive-dashboard':
+        return 'Executive Dashboard';
+      case 'accreditation-readiness':
+        return 'Accreditation Readiness';
+      case 'analytics':
+        return 'Analytics';
       case 'site-management':
         return 'Site Management';
       default:
-        return 'ShiftNotes';
+        return 'AptiTools';
     }
   };
 
@@ -128,6 +146,16 @@ function AppContent() {
         return <EPAManagement />;
       case 'competency-management':
         return <CompetencyManagement />;
+      case 'competency-grid':
+        return <CompetencyGrid user={user} />;
+      case 'program-performance':
+        return <ProgramPerformanceDashboard user={user} />;
+      case 'executive-dashboard':
+        return <ExecutiveDashboard user={user} />;
+      case 'accreditation-readiness':
+        return <AccreditationReadiness user={user} />;
+      case 'analytics':
+        return <ExecutiveDashboard user={user} />;
       case 'site-management':
         return <SiteManagement />;
       default:
@@ -141,7 +169,30 @@ function AppContent() {
         <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
         
         {!isAuthenticated ? (
-          <LoginScreen />
+          authScreen === 'login' ? (
+            <LoginScreen 
+              onNavigateToForgotPassword={() => setAuthScreen('forgot-password')}
+            />
+          ) : authScreen === 'forgot-password' ? (
+            <ForgotPasswordScreen 
+              onBack={() => setAuthScreen('login')}
+            />
+          ) : authScreen === 'reset-password' && resetParams ? (
+            <ResetPasswordScreen 
+              uidb64={resetParams.uidb64}
+              token={resetParams.token}
+              onSuccess={() => {
+                setAuthScreen('login');
+                setResetParams(null);
+              }}
+              onBack={() => {
+                setAuthScreen('login');
+                setResetParams(null);
+              }}
+            />
+          ) : (
+            <LoginScreen />
+          )
         ) : (
           <View style={styles.appLayout}>
             {/* Permanent Sidebar on Desktop */}

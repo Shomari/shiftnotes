@@ -8,6 +8,10 @@ from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
 from .models import User, Cohort
 from .serializers import UserSerializer, UserCreateSerializer, CohortSerializer
+from .email_service import EmailService
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Create your views here.
 
@@ -24,6 +28,23 @@ class UserViewSet(viewsets.ModelViewSet):
         if self.action == 'create':
             return UserCreateSerializer
         return UserSerializer
+    
+    def perform_create(self, serializer):
+        """Override to send welcome email after user creation"""
+        user = serializer.save()
+        
+        # Send welcome email to newly created user
+        try:
+            email_sent = EmailService.send_welcome_email(user, self.request)
+            if email_sent:
+                logger.info(f"Welcome email sent to new user: {user.email}")
+            else:
+                logger.warning(f"Failed to send welcome email to: {user.email}")
+        except Exception as e:
+            logger.error(f"Error sending welcome email to {user.email}: {str(e)}")
+            # Don't fail user creation if email fails
+        
+        return user
     
     @action(detail=False, methods=['post'], permission_classes=[])
     def login(self, request):

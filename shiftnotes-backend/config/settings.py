@@ -47,6 +47,7 @@ AUTH_USER_MODEL = 'users.User'
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -154,6 +155,22 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+# Email Configuration
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # For development - prints to console
+DEFAULT_FROM_EMAIL = 'EPAnotes Team <noreply@aptitools.com>'
+EMAIL_SUBJECT_PREFIX = '[EPAnotes] '
+
+# Frontend domain for password reset links
+FRONTEND_DOMAIN = 'localhost:8081'  # Change to your actual domain in production
+
+# For production, use SMTP configuration like:
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = 'smtp.your-provider.com'
+# EMAIL_PORT = 587
+# EMAIL_USE_TLS = True
+# EMAIL_HOST_USER = 'your-email@aptitools.com'
+# EMAIL_HOST_PASSWORD = 'your-password'
+
 # Media files
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -193,11 +210,17 @@ CORS_ALLOWED_ORIGINS = [
     "http://192.168.86.20:8001",  # Local IP for physical device testing
     "http://44.197.181.141:8000",
     "http://44.197.181.141:8001",
+    # Expo related origins - removed invalid entries
+    # "exp://",                     # Expo development protocol (invalid format)
+    # "exps://",                    # Expo secure protocol (invalid format)
 ]
 CORS_ALLOW_CREDENTIALS = True
 
 # For development - allow all origins temporarily
 CORS_ALLOW_ALL_ORIGINS = True
+
+# Additional settings for React Native/Expo
+CORS_ALLOW_PRIVATE_NETWORK = True
 
 # Additional CORS settings for React Native/Expo
 CORS_ALLOW_HEADERS = [

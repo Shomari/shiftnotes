@@ -216,9 +216,13 @@ export function SiteManagement() {
             Select Program {user?.organization_name ? `(${user.organization_name})` : ''}:
           </Text>
           <Select
+            key={`site-program-select-${user?.organization}-${programs.length}`}
             value={selectedProgram}
-            onValueChange={(value) => setSelectedProgram(value)}
-            placeholder={programs.length === 0 ? "No programs available for your organization" : "Choose a program to manage sites"}
+            onValueChange={(value) => {
+              console.log('Site Management: Program selected:', value);
+              setSelectedProgram(value);
+            }}
+            placeholder={loading ? "Loading programs..." : programs.length === 0 ? "No programs available for your organization" : "Choose a program to manage sites"}
             options={[
               { value: '', label: 'All Programs' },
               ...programs.map((program) => ({
@@ -226,6 +230,7 @@ export function SiteManagement() {
                 label: program.name
               }))
             ]}
+            disabled={loading || programs.length === 0}
           />
         </View>
       </View>

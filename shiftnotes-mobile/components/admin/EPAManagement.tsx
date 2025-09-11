@@ -411,9 +411,13 @@ export function EPAManagement() {
             Select Program {user?.organization_name ? `(${user.organization_name})` : ''}:
           </Text>
           <Select
+            key={`epa-program-select-${user?.organization}-${programs.length}`}
             value={selectedProgram}
-            onValueChange={(value) => setSelectedProgram(value)}
-            placeholder={programs.length === 0 ? "No programs available for your organization" : "Choose a program to manage EPAs"}
+            onValueChange={(value) => {
+              console.log('EPA Management: Program selected:', value);
+              setSelectedProgram(value);
+            }}
+            placeholder={loading ? "Loading programs..." : programs.length === 0 ? "No programs available for your organization" : "Choose a program to manage EPAs"}
             options={[
               { value: '', label: 'All Programs' },
               ...programs.map((program) => ({
@@ -421,6 +425,7 @@ export function EPAManagement() {
                 label: program.name
               }))
             ]}
+            disabled={loading || programs.length === 0}
           />
         </View>
       </View>

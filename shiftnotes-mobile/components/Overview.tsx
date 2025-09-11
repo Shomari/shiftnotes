@@ -50,6 +50,17 @@ export function Overview({ onNewAssessment, userInfo, user: userProp }: Overview
     try {
       setLoading(true);
       
+      // Admin users don't fetch assessment data
+      if (user?.role === 'admin' || user?.role === 'system-admin') {
+        setStats({
+          thisMonth: 0,
+          total: 0,
+          recentActivity: [],
+        });
+        setAssessments([]);
+        return;
+      }
+      
       // Use different API endpoint based on user role
       const response = user?.role === 'trainee' 
         ? await apiClient.getReceivedAssessments()
@@ -96,11 +107,13 @@ export function Overview({ onNewAssessment, userInfo, user: userProp }: Overview
           <Text style={styles.welcomeSubtitle}>
             {user?.role === 'trainee' 
               ? "View your assessment results and progress"
+              : user?.role === 'admin' || user?.role === 'system-admin'
+              ? "Manage system settings and user accounts"
               : "Create and manage trainee assessments"
             }
           </Text>
           
-          {user?.role !== 'trainee' && (
+          {(user?.role === 'faculty' || user?.role === 'leadership') && (
             <Button
               title="New Assessment"
               onPress={onNewAssessment}
@@ -120,7 +133,10 @@ export function Overview({ onNewAssessment, userInfo, user: userProp }: Overview
                 <View style={styles.cardTitleContainer}>
                   <CardTitle>Recent Activity</CardTitle>
                   <Text style={styles.cardSubtitle}>
-                    Your latest assessments and updates
+                    {user?.role === 'admin' || user?.role === 'system-admin'
+                      ? "System activity and updates"
+                      : "Your latest assessments and updates"
+                    }
                   </Text>
                 </View>
               </View>
@@ -151,7 +167,10 @@ export function Overview({ onNewAssessment, userInfo, user: userProp }: Overview
                 </View>
               ) : (
                 <Text style={styles.emptyStateText}>
-                  No recent activity to display
+                  {user?.role === 'admin' || user?.role === 'system-admin'
+                    ? "No system activity to display"
+                    : "No recent activity to display"
+                  }
                 </Text>
               )}
             </CardContent>
@@ -165,7 +184,10 @@ export function Overview({ onNewAssessment, userInfo, user: userProp }: Overview
                 <View style={styles.cardTitleContainer}>
                   <CardTitle>Quick Stats</CardTitle>
                   <Text style={styles.cardSubtitle}>
-                    Key metrics at a glance
+                    {user?.role === 'admin' || user?.role === 'system-admin'
+                      ? "System metrics at a glance"
+                      : "Key metrics at a glance"
+                    }
                   </Text>
                 </View>
               </View>
@@ -186,12 +208,16 @@ export function Overview({ onNewAssessment, userInfo, user: userProp }: Overview
               ) : (
                 <View style={styles.statsContainer}>
                   <View style={styles.statItem}>
-                    <Text style={styles.statLabel}>This Month</Text>
+                    <Text style={styles.statLabel}>
+                      {user?.role === 'admin' || user?.role === 'system-admin' ? 'Active Users' : 'This Month'}
+                    </Text>
                     <Text style={styles.statValue}>{stats.thisMonth}</Text>
                   </View>
                   <View style={styles.statDivider} />
                   <View style={styles.statItem}>
-                    <Text style={styles.statLabel}>Total</Text>
+                    <Text style={styles.statLabel}>
+                      {user?.role === 'admin' || user?.role === 'system-admin' ? 'Total Users' : 'Total'}
+                    </Text>
                     <Text style={styles.statValue}>{stats.total}</Text>
                   </View>
                 </View>

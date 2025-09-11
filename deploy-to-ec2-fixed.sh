@@ -134,17 +134,24 @@ setup_and_run_django() {
         
         echo "=== Setting up Python Environment ==="
         
-        # Create virtual environment if it doesn't exist
-        if [ ! -d "venv" ]; then
-            echo "Creating virtual environment..."
-            python3 -m venv venv
+        # Remove existing virtual environment and create new one with Python 3.11
+        if [ -d "venv" ]; then
+            echo "Removing existing virtual environment..."
+            rm -rf venv
         fi
+        
+        echo "Creating virtual environment with Python 3.7..."
+        /usr/bin/python3 -m venv venv
         
         # Activate virtual environment and run all commands in the same session
         source venv/bin/activate
         
         echo "Virtual environment activated. Python version:"
         python --version
+        
+        echo "Resetting pip configuration to use HTTPS..."
+        pip config unset global.index-url
+        pip config unset global.trusted-host
         
         echo "Upgrading pip..."
         pip install --upgrade pip
@@ -200,7 +207,7 @@ start_django_server() {
         source venv/bin/activate
         
         # Start Django server in the background
-        nohup python manage.py runserver 0.0.0.0:$SERVER_PORT > ~/logs/django.log 2>&1 &
+        nohup /usr/bin/python3 manage.py runserver 0.0.0.0:$SERVER_PORT > ~/logs/django.log 2>&1 &
         
         # Get the process ID
         DJANGO_PID=\$!

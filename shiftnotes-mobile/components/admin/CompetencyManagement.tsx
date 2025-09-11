@@ -415,9 +415,13 @@ export function CompetencyManagement() {
             Select Program {user?.organization_name ? `(${user.organization_name})` : ''}:
           </Text>
           <Select
+            key={`competency-program-select-${user?.organization}-${programs.length}`}
             value={selectedProgram}
-            onValueChange={(value) => setSelectedProgram(value)}
-            placeholder={programs.length === 0 ? "No programs available for your organization" : "Choose a program to manage competencies"}
+            onValueChange={(value) => {
+              console.log('Competency Management: Program selected:', value);
+              setSelectedProgram(value);
+            }}
+            placeholder={loading ? "Loading programs..." : programs.length === 0 ? "No programs available for your organization" : "Choose a program to manage competencies"}
             options={[
               { value: '', label: 'All Programs' },
               ...programs.map((program) => ({
@@ -425,6 +429,7 @@ export function CompetencyManagement() {
                 label: program.name
               }))
             ]}
+            disabled={loading || programs.length === 0}
           />
         </View>
       </View>

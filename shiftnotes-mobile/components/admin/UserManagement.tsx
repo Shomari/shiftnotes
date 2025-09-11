@@ -14,6 +14,9 @@ import {
   Dimensions,
   Platform,
   Alert,
+  Keyboard,
+  TouchableWithoutFeedback,
+  KeyboardAvoidingView,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
@@ -22,6 +25,7 @@ import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
 import { User } from '../../lib/types';
 import { apiClient, ApiUser, ApiCohort } from '../../lib/api';
+import config from '../../env.config';
 import { format } from 'date-fns';
 import { 
   MagnifyingGlass, 
@@ -250,13 +254,49 @@ export function UserManagement() {
         department: '',
       });
       
-      Alert.alert('Success', 'User created successfully! They will receive an invitation email to set their password.');
+      Alert.alert('Success', 'User created successfully! A welcome email has been sent with password setup instructions.');
     } catch (error) {
       console.error('Failed to create user:', error);
       Alert.alert('Error', 'Failed to create user. Please try again.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleResendWelcomeEmail = async (userId: string, userEmail: string) => {
+    Alert.alert(
+      'Resend Welcome Email',
+      `Send a new welcome email to ${userEmail}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Send',
+          onPress: async () => {
+            try {
+              const response = await fetch(`${config.API_BASE_URL}/auth/resend-welcome-email/`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Token ${user?.token}`,
+                },
+                body: JSON.stringify({ user_id: userId }),
+              });
+
+              const data = await response.json();
+
+              if (response.ok) {
+                Alert.alert('Success', 'Welcome email sent successfully!');
+              } else {
+                Alert.alert('Error', data.error || 'Failed to send welcome email');
+              }
+            } catch (error) {
+              console.error('Error sending welcome email:', error);
+              Alert.alert('Error', 'Network error. Please try again.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleCreateCohort = () => {
@@ -359,6 +399,9 @@ export function UserManagement() {
                 </View>
               </View>
               <View style={styles.userActions}>
+                <Pressable style={styles.actionButton} onPress={() => handleResendWelcomeEmail(user.id, user.email)}>
+                  <Text style={styles.actionButtonText}>📧 Welcome Email</Text>
+                </Pressable>
                 <Pressable style={styles.actionButton} onPress={() => handleDeactivateUser(user.id)}>
                   <Eye size={16} color="#64748b" />
                   <Text style={styles.actionButtonText}>Deactivate</Text>
@@ -480,8 +523,15 @@ export function UserManagement() {
         animationType="fade"
         onRequestClose={() => setShowCreateUserModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalOverlay}
+          >
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+              <View style={styles.modalOverlay}>
+                <TouchableWithoutFeedback onPress={() => {}}>
+                  <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
                 {editingUser ? 'Edit User' : 'Create New User'}
@@ -587,8 +637,12 @@ export function UserManagement() {
                 disabled={!userForm.name || !userForm.email || loading}
               />
             </View>
-          </View>
-        </View>
+                  </View>
+                </TouchableWithoutFeedback>
+              </View>
+            </TouchableWithoutFeedback>
+          </KeyboardAvoidingView>
+        </TouchableWithoutFeedback>
       </Modal>
 
       {/* Create Cohort Modal */}
@@ -598,8 +652,15 @@ export function UserManagement() {
         animationType="fade"
         onRequestClose={() => setShowCreateCohortModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalOverlay}
+          >
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+              <View style={styles.modalOverlay}>
+                <TouchableWithoutFeedback onPress={() => {}}>
+                  <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Create New Cohort</Text>
               <Pressable onPress={() => setShowCreateCohortModal(false)}>
@@ -647,8 +708,12 @@ export function UserManagement() {
                 disabled={!cohortForm.name || !cohortForm.year}
               />
             </View>
-          </View>
-        </View>
+                  </View>
+                </TouchableWithoutFeedback>
+              </View>
+            </TouchableWithoutFeedback>
+          </KeyboardAvoidingView>
+        </TouchableWithoutFeedback>
       </Modal>
     </View>
   );

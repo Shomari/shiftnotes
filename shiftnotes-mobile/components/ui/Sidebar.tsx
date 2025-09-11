@@ -27,9 +27,14 @@ interface SidebarProps {
 
 const getNavigationItems = (userRole?: string): NavigationItem[] => {
 
-  // Admin and System Admin - full access
+  // Admin and System Admin - full access including overview
   if (userRole === 'admin' || userRole === 'system-admin') {
     return [
+      {
+        id: 'overview',
+        title: 'Overview',
+        icon: '📊',
+      },
       {
         id: 'user-management',
         title: 'User Management',
@@ -46,9 +51,50 @@ const getNavigationItems = (userRole?: string): NavigationItem[] => {
         icon: '🎯',
       },
       {
+        id: 'competency-grid',
+        title: 'Competency Grid',
+        icon: '📊',
+      },
+      {
         id: 'site-management',
         title: 'Site Management',
         icon: '🏥',
+      },
+    ];
+  }
+
+  // Leadership - analytics and strategic oversight
+  if (userRole === 'leadership') {
+    return [
+      {
+        id: 'overview',
+        title: 'Overview',
+        icon: '📊',
+      },
+      {
+        id: 'program-performance',
+        title: 'Program Performance',
+        icon: '📈',
+      },
+      {
+        id: 'executive-dashboard',
+        title: 'Executive Dashboard',
+        icon: '🎯',
+      },
+      {
+        id: 'competency-grid',
+        title: 'Competency Grid',
+        icon: '📊',
+      },
+      {
+        id: 'accreditation-readiness',
+        title: 'Accreditation Readiness',
+        icon: '🎓',
+      },
+      {
+        id: 'analytics',
+        title: 'Analytics',
+        icon: '📊',
       },
     ];
   }

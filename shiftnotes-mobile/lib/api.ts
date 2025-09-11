@@ -3,22 +3,11 @@
  * Handles all HTTP requests and authentication
  */
 
+import config from '../env.config';
+
 // API Configuration
-// Use local Django server for development, EC2 for production
 const getApiBaseUrl = () => {
-  if (!__DEV__) {
-    return 'http://44.197.181.141:8001/api';  // Production EC2 server
-  }
-  
-  // For development, check if we're running in web or native
-  // @ts-ignore - Platform is available in React Native
-  if (typeof window !== 'undefined' && window.location) {
-    // Web mode - use localhost
-    return 'http://127.0.0.1:8001/api';
-  } else {
-    // Native mode - use local IP for physical device
-    return 'http://192.168.86.20:8001/api';
-  }
+  return config.API_BASE_URL;
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -408,9 +397,10 @@ export class ApiClient {
   async getSubCompetencies(coreCompetencyId?: string, programId?: string): Promise<ApiResponse<ApiSubCompetency>> {
     let url = '/sub-competencies/';
     const params = new URLSearchParams();
+    params.append('limit', '200'); // Increase limit to get all sub-competencies
     if (coreCompetencyId) params.append('core_competency', coreCompetencyId);
     if (programId) params.append('program', programId);
-    if (params.toString()) url += `?${params.toString()}`;
+    url += `?${params.toString()}`;
     return this.request<ApiResponse<ApiSubCompetency>>(url);
   }
 
@@ -441,7 +431,7 @@ export class ApiClient {
 
   // Sub-Competency-EPA relationship endpoints
   async getSubCompetencyEPAs(): Promise<ApiResponse<ApiSubCompetencyEPA>> {
-    return this.request<ApiResponse<ApiSubCompetencyEPA>>('/sub-competency-epas/');
+    return this.request<ApiResponse<ApiSubCompetencyEPA>>('/sub-competency-epas/?limit=500');
   }
 
   async createSubCompetencyEPA(data: Partial<ApiSubCompetencyEPA>): Promise<ApiSubCompetencyEPA> {
@@ -502,6 +492,16 @@ export class ApiClient {
     return this.request(`/assessments/${assessmentId}/acknowledge/`, {
       method: 'POST',
     });
+  }
+
+  // Competency Grid APIs
+  async getAssessmentsForTrainee(traineeId: string): Promise<any[]> {
+    console.log('API: Fetching assessments for trainee:', traineeId);
+    const response = await this.request(`/assessments/?trainee=${traineeId}&limit=100`);
+    console.log('API: Assessments response:', response);
+    const results = (response as any).results || [];
+    console.log('API: Returning', results.length, 'assessments');
+    return results;
   }
 }
 
