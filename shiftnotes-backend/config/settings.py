@@ -18,7 +18,7 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-dev-key-change-in-pro
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = ['44.197.181.141', 'localhost', '127.0.0.1', '192.168.86.20', 'main.d3c6p9x33k6b3.amplifyapp.com']
+ALLOWED_HOSTS = ['44.197.181.141', 'localhost', '127.0.0.1', '192.168.86.20', 'main.d3c6p9x33k6b3.amplifyapp.com', 'app.epanotes.com', 'api.epanotes.com']
 
 # Application definition
 INSTALLED_APPS = [
@@ -156,20 +156,37 @@ STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Email Configuration
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # For development - prints to console
-DEFAULT_FROM_EMAIL = 'EPAnotes Team <noreply@aptitools.com>'
+DEFAULT_FROM_EMAIL = 'EPAnotes Team <support@aptitools.com>'
 EMAIL_SUBJECT_PREFIX = '[EPAnotes] '
 
 # Frontend domain for password reset links
-FRONTEND_DOMAIN = 'localhost:8081'  # Change to your actual domain in production
+FRONTEND_DOMAIN = 'app.epanotes.com'  # Production frontend domain
 
-# For production, use SMTP configuration like:
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_HOST = 'smtp.your-provider.com'
-# EMAIL_PORT = 587
-# EMAIL_USE_TLS = True
-# EMAIL_HOST_USER = 'your-email@aptitools.com'
-# EMAIL_HOST_PASSWORD = 'your-password'
+# SMTP Configuration with Amazon SES
+if DEBUG:
+    # Development - print emails to console
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+else:
+    # Production - use Amazon SES SMTP
+    try:
+        # Get SMTP credentials from Secrets Manager
+        smtp_credentials = get_secret("epanotes/email/smtp")
+        if smtp_credentials:
+            EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+            EMAIL_HOST = 'email-smtp.us-east-1.amazonaws.com'
+            EMAIL_PORT = 587
+            EMAIL_USE_TLS = True
+            EMAIL_HOST_USER = smtp_credentials.get('smtp_username_epanotes')
+            EMAIL_HOST_PASSWORD = smtp_credentials.get('smtp_password_epanotes')
+        else:
+            # Fallback to console if secrets not available
+            EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+            print("Warning: Could not retrieve SMTP credentials, falling back to console backend")
+    except Exception as e:
+        # Fallback to console if there's an error
+        EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+        print(f"Warning: Error retrieving SMTP credentials: {e}")
+        print("Falling back to console email backend")
 
 # Media files
 MEDIA_URL = '/media/'

@@ -10,13 +10,13 @@ const ENV = {
     DEBUG: true,
   },
   production: {
-    API_BASE_URL: 'https://app.epanotes.com/api', // HTTPS with custom domain
+    API_BASE_URL: 'https://api.epanotes.com/api', // HTTPS API subdomain
     ENV_NAME: 'production',
     DEBUG: false,
   },
   // Add staging environment if needed
   staging: {
-    API_BASE_URL: 'https://app.epanotes.com/api', // HTTPS with custom domain
+    API_BASE_URL: 'https://api.epanotes.com/api', // HTTPS API subdomain
     ENV_NAME: 'staging',
     DEBUG: true,
   }
