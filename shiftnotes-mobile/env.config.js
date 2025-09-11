@@ -10,13 +10,13 @@ const ENV = {
     DEBUG: true,
   },
   production: {
-    API_BASE_URL: 'http://44.197.181.141:8001/api', // Your EC2 RDS instance
+    API_BASE_URL: 'https://app.epanotes.com/api', // HTTPS with custom domain
     ENV_NAME: 'production',
     DEBUG: false,
   },
   // Add staging environment if needed
   staging: {
-    API_BASE_URL: 'http://44.197.181.141:8001/api',
+    API_BASE_URL: 'https://app.epanotes.com/api', // HTTPS with custom domain
     ENV_NAME: 'staging',
     DEBUG: true,
   }
