@@ -51,11 +51,15 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
   ];
 
   const milestoneLabels = [
-    'Not Yet Completed Level 1',
+    'Not Yet Completed',
     'Level 1', 
+    'Level 1.5',
     'Level 2',
-    'Level 3', 
+    'Level 2.5',
+    'Level 3',
+    'Level 3.5', 
     'Level 4',
+    'Level 4.5',
     'Level 5',
     'Not Yet Assessable'
   ];
@@ -72,6 +76,11 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
       console.log('No trainee selected yet');
     }
   }, [selectedTrainee]);
+
+  // Function to round up to nearest 0.5
+  const roundUpToNearestHalf = (value: number): number => {
+    return Math.ceil(value * 2) / 2;
+  };
 
   const loadTrainees = async () => {
     try {
@@ -230,9 +239,9 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
       const processedData: CompetencyData[] = [];
       competencyMap.forEach((entry, subCompId) => {
         if (entry.ratings.length > 0) {
-          // Has assessment data - calculate average milestone level
+          // Has assessment data - calculate average milestone level (round up to nearest 0.5)
           const average = entry.ratings.reduce((sum, rating) => sum + rating, 0) / entry.ratings.length;
-          const milestoneLevel = Math.round(average);
+          const milestoneLevel = roundUpToNearestHalf(average);
           
           processedData.push({
             subCompetencyId: subCompId,
@@ -277,12 +286,19 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
 
   const renderMilestoneCell = (level: number, targetLevel: number) => {
     const isActive = level === targetLevel;
+    const isHalfLevel = targetLevel % 1 === 0.5;
+    
     return (
       <View key={targetLevel} style={[
         styles.milestoneCell,
         isActive && styles.activeMilestoneCell
       ]}>
-        {isActive && <View style={styles.milestoneDot} />}
+        {isActive && (
+          <View style={[
+            styles.milestoneDot,
+            isHalfLevel && styles.halfMilestoneDot
+          ]} />
+        )}
       </View>
     );
   };
@@ -300,7 +316,7 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
         </View>
         
         <View style={styles.milestoneGrid}>
-          {[0, 1, 2, 3, 4, 5, 6].map(level => 
+          {[0, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 6].map(level => 
             renderMilestoneCell(item.milestoneLevel, level)
           )}
         </View>
@@ -473,13 +489,14 @@ const styles = StyleSheet.create({
   milestoneHeaderCell: {
     flex: 1,
     alignItems: 'center',
-    paddingHorizontal: 2,
+    paddingHorizontal: 1,
   },
   milestoneHeaderText: {
-    fontSize: 11,
+    fontSize: 9,
     fontWeight: '500',
     color: '#475569',
     textAlign: 'center',
+    lineHeight: 11,
   },
   competencySection: {
     marginBottom: 24,
@@ -522,7 +539,7 @@ const styles = StyleSheet.create({
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 1,
+    marginHorizontal: 0.5,
     backgroundColor: '#f8fafc',
     borderRadius: 4,
   },
@@ -530,10 +547,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#dbeafe',
   },
   milestoneDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
     backgroundColor: '#1d4ed8',
+  },
+  halfMilestoneDot: {
+    width: 14,
+    height: 7,
+    borderRadius: 7,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
   },
   emptyState: {
     padding: 40,
