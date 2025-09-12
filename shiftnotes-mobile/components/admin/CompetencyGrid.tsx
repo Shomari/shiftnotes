@@ -113,26 +113,58 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
         assessments = [];
       }
       
-      // Get all subcompetencies and their EPA relationships
-      const subCompetenciesResponse = await apiClient.getSubCompetencies();
+      // Get the selected trainee and their program
+      const selectedTraineeData = trainees.find(t => t.id === traineeId);
+      if (!selectedTraineeData) {
+        console.error('Selected trainee not found');
+        return;
+      }
+      
+      // Determine trainee's program - each trainee belongs to one program
+      let traineeProgram = null;
+      if (selectedTraineeData.programs && selectedTraineeData.programs.length > 0) {
+        traineeProgram = selectedTraineeData.programs[0];
+      } else {
+        // Fallback: infer program from department/specialty
+        const department = selectedTraineeData.department;
+        console.log('No programs found, inferring from department:', department);
+        
+        // Get all programs to match by specialty
+        const programsResponse = await apiClient.getPrograms(user?.organization || '');
+        const allPrograms = programsResponse.results || [];
+        traineeProgram = allPrograms.find(p => 
+          department && (
+            department.toLowerCase().includes(p.specialty.toLowerCase()) ||
+            p.specialty.toLowerCase().includes(department.toLowerCase())
+          )
+        );
+      }
+      
+      if (!traineeProgram) {
+        Alert.alert('Error', 'Could not determine trainee program');
+        return;
+      }
+      
+      console.log('Trainee program:', traineeProgram.name, traineeProgram.id);
+      
+      // Get ALL sub-competencies for this specific program
+      const subCompetenciesResponse = await apiClient.getSubCompetencies(undefined, traineeProgram.id);
       const subCompetencyEPAsResponse = await apiClient.getSubCompetencyEPAs();
       
       console.log('Sub-competencies response:', subCompetenciesResponse);
-      console.log('Sub-competency EPAs response:', subCompetencyEPAsResponse);
       
       const subCompetencies = subCompetenciesResponse.results || [];
       const subCompetencyEPAs = subCompetencyEPAsResponse.results || [];
       
-      console.log('Processed:', subCompetencies.length, 'sub-competencies,', subCompetencyEPAs.length, 'EPA mappings');
+      console.log(`Found ${subCompetencies.length} sub-competencies for program: ${traineeProgram.name}`);
       
-      // Calculate competency data
+      // STEP 1: Initialize ALL sub-competencies with empty data (shows complete grid)
       const competencyMap = new Map<string, {
         ratings: number[];
         subCompetency: any;
         coreCompetency: string;
       }>();
 
-      // Initialize map with all subcompetencies
       subCompetencies.forEach((subComp: any) => {
         competencyMap.set(subComp.id, {
           ratings: [],
@@ -141,7 +173,7 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
         });
       });
 
-      // Create EPA to SubCompetency mapping
+      // STEP 2: Create EPA to SubCompetency mapping (for filling in assessment data)
       const epaToSubCompetencies = new Map<string, string[]>();
       subCompetencyEPAs.forEach((mapping: any) => {
         if (!epaToSubCompetencies.has(mapping.epa)) {
@@ -153,7 +185,7 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
       console.log('EPA to SubCompetency mappings created:', epaToSubCompetencies.size, 'unique EPAs');
       console.log('Sample mapping EPA IDs:', Array.from(epaToSubCompetencies.keys()).slice(0, 3));
 
-      // Collect all EPA ratings grouped by subcompetency
+      // STEP 3: Fill in assessment data where available
       let totalRatingsCollected = 0;
       let mappingsFound = 0;
       let mappingsNotFound = 0;
@@ -194,11 +226,11 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
       console.log(`EPA Mapping Results: ${mappingsFound} found, ${mappingsNotFound} not found`);
       console.log('Total ratings collected:', totalRatingsCollected);
 
-      // Calculate averages and milestone levels
+      // STEP 4: Generate final data for ALL sub-competencies (complete grid)
       const processedData: CompetencyData[] = [];
       competencyMap.forEach((entry, subCompId) => {
         if (entry.ratings.length > 0) {
-          // Has assessment data - calculate average
+          // Has assessment data - calculate average milestone level
           const average = entry.ratings.reduce((sum, rating) => sum + rating, 0) / entry.ratings.length;
           const milestoneLevel = Math.round(average);
           
@@ -211,19 +243,19 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
             milestoneLevel: milestoneLevel
           });
         } else {
-          // No assessment data - show as "Not Yet Completed"
+          // No assessment data - show as "Not Yet Completed" (level 0)
           processedData.push({
             subCompetencyId: subCompId,
             subCompetencyTitle: entry.subCompetency.title,
             coreCompetencyTitle: entry.coreCompetency,
             averageRating: 0,
             totalAssessments: 0,
-            milestoneLevel: 0 // 0 represents "Not Yet Completed"
+            milestoneLevel: 0 // 0 = "Not Yet Completed"
           });
         }
       });
       
-      console.log('Final processed data:', processedData.length, 'competencies with data');
+      console.log(`Final grid: ${processedData.length} total sub-competencies (showing complete program curriculum)`);
 
       // Group by core competency and sort
       processedData.sort((a, b) => {
