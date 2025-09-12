@@ -205,16 +205,13 @@ const styles = StyleSheet.create({
   logo: {
     width: 80,
     height: 80,
-    borderRadius: 40,
-    backgroundColor: '#3b82f6',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
   logoImage: {
-    width: 48,
-    height: 48,
-    tintColor: '#ffffff',
+    width: 60,
+    height: 60,
   },
   appName: {
     fontSize: 36,
