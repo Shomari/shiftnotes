@@ -23,11 +23,11 @@ class AssessmentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         
-        # Admins can see all assessments in their organization for competency grid
-        if user.role in ['admin', 'system-admin']:
+        # Admins and leadership can see all assessments in their organization for competency grid
+        if user.role in ['admin', 'system-admin', 'leadership']:
             queryset = Assessment.objects.all()
-            if user.role == 'admin' and user.organization:
-                # Regular admins only see assessments in their organization
+            if user.role in ['admin', 'leadership'] and user.organization:
+                # Regular admins and leadership only see assessments in their organization
                 queryset = queryset.filter(
                     Q(trainee__organization=user.organization) | 
                     Q(evaluator__organization=user.organization)

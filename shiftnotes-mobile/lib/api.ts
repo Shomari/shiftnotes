@@ -497,6 +497,8 @@ export class ApiClient {
   // Competency Grid APIs
   async getAssessmentsForTrainee(traineeId: string): Promise<any[]> {
     console.log('API: Fetching assessments for trainee:', traineeId);
+    const token = await TokenStorage.getToken();
+    console.log('API: Using token:', token ? token.substring(0, 10) + '...' : 'NO TOKEN');
     const response = await this.request(`/assessments/?trainee=${traineeId}&limit=100`);
     console.log('API: Assessments response:', response);
     const results = (response as any).results || [];
