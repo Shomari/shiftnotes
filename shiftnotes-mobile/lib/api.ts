@@ -494,6 +494,27 @@ export class ApiClient {
     });
   }
 
+  // Program endpoints
+  async getPrograms(organizationId?: string): Promise<ApiResponse<ApiProgram>> {
+    let url = '/programs/';
+    if (organizationId) {
+      url += `?org=${organizationId}`;
+    }
+    return this.request<ApiResponse<ApiProgram>>(url);
+  }
+
+  // Assessment endpoints (general)
+  async getAssessments(params?: { limit?: number; trainee?: string }): Promise<ApiResponse<ApiAssessment>> {
+    let url = '/assessments/';
+    const searchParams = new URLSearchParams();
+    
+    if (params?.limit) searchParams.append('limit', params.limit.toString());
+    if (params?.trainee) searchParams.append('trainee', params.trainee);
+    
+    if (searchParams.toString()) url += `?${searchParams.toString()}`;
+    return this.request<ApiResponse<ApiAssessment>>(url);
+  }
+
   // Competency Grid APIs
   async getAssessmentsForTrainee(traineeId: string): Promise<any[]> {
     console.log('API: Fetching assessments for trainee:', traineeId);

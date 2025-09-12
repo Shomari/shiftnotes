@@ -48,13 +48,15 @@ const ProgramPerformanceDashboard: React.FC<ProgramPerformanceProps> = ({ user }
       console.log('Loading program performance data...');
       
       // Get all programs for the organization
-      const programsResponse = await apiClient.getPrograms();
+      const programsResponse = await apiClient.getPrograms(user.organization);
       const programs = programsResponse.results || [];
       console.log('Programs:', programs.length);
 
       // Get all trainees for the organization
       const traineesResponse = await apiClient.getUsers();
-      const allTrainees = (traineesResponse.results || []).filter(u => u.role === 'trainee');
+      const allTrainees = (traineesResponse.results || []).filter(
+        u => u.role === 'trainee' && u.organization === user.organization
+      );
       console.log('Total trainees:', allTrainees.length);
 
       // Get all assessments for analysis
