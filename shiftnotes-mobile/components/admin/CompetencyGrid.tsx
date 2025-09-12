@@ -65,8 +65,11 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
   }, [user]);
 
   useEffect(() => {
+    console.log('Selected trainee changed:', selectedTrainee);
     if (selectedTrainee) {
       loadCompetencyData(selectedTrainee);
+    } else {
+      console.log('No trainee selected yet');
     }
   }, [selectedTrainee]);
 
@@ -78,6 +81,7 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
       const traineeUsers = response.results.filter(
         (u: User) => u.role === 'trainee' && u.organization === user?.organization
       );
+      console.log('Found trainees:', traineeUsers.map(t => ({id: t.id, name: t.name})));
       setTrainees(traineeUsers);
     } catch (error) {
       console.error('Error loading trainees:', error);
@@ -194,6 +198,7 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
       const processedData: CompetencyData[] = [];
       competencyMap.forEach((entry, subCompId) => {
         if (entry.ratings.length > 0) {
+          // Has assessment data - calculate average
           const average = entry.ratings.reduce((sum, rating) => sum + rating, 0) / entry.ratings.length;
           const milestoneLevel = Math.round(average);
           
@@ -204,6 +209,16 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
             averageRating: average,
             totalAssessments: entry.ratings.length,
             milestoneLevel: milestoneLevel
+          });
+        } else {
+          // No assessment data - show as "Not Yet Completed"
+          processedData.push({
+            subCompetencyId: subCompId,
+            subCompetencyTitle: entry.subCompetency.title,
+            coreCompetencyTitle: entry.coreCompetency,
+            averageRating: 0,
+            totalAssessments: 0,
+            milestoneLevel: 0 // 0 represents "Not Yet Completed"
           });
         }
       });
