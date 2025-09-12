@@ -134,11 +134,17 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
       });
       
       console.log('EPA to SubCompetency mappings created:', epaToSubCompetencies.size, 'unique EPAs');
+      console.log('Sample mapping EPA IDs:', Array.from(epaToSubCompetencies.keys()).slice(0, 3));
 
       // Collect all EPA ratings grouped by subcompetency
       let totalRatingsCollected = 0;
       let mappingsFound = 0;
       let mappingsNotFound = 0;
+      
+      // Log sample assessment EPA IDs for debugging
+      if (assessments.length > 0 && assessments[0].assessment_epas?.length > 0) {
+        console.log('Sample assessment EPA IDs:', assessments[0].assessment_epas.map((ae: any) => ae.epa).slice(0, 3));
+      }
       
       assessments.forEach((assessment: any) => {
         assessment.assessment_epas?.forEach((assessmentEpa: any) => {
@@ -154,6 +160,10 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
             });
           } else {
             mappingsNotFound++;
+            // Debug: log the EPA ID that wasn't found
+            if (mappingsNotFound <= 3) {
+              console.log(`Missing mapping for EPA: ${assessmentEpa.epa} (${assessmentEpa.epa_code})`);
+            }
           }
         });
       });
