@@ -1,5 +1,5 @@
 /**
- * Login Screen component for ShiftNotes Mobile
+ * Login Screen component for EPAnotes Mobile
  * Integrates with Django API authentication
  */
 
@@ -12,6 +12,7 @@ import {
   Pressable,
   Dimensions,
   Alert,
+  Image,
 } from 'react-native';
 import { Card, CardContent } from './ui/Card';
 import { Input } from './ui/Input';
@@ -80,9 +81,13 @@ export function LoginScreen({ onNavigateToForgotPassword }: LoginScreenProps = {
         {/* Logo and Header */}
         <View style={styles.header}>
           <View style={styles.logo}>
-            <Text style={styles.logoIcon}>📋</Text>
+            <Image 
+              source={require('../assets/favicon.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
-          <Text style={styles.appName}>AptiTools</Text>
+          <Text style={styles.appName}>EPAnotes</Text>
           <Text style={styles.tagline}>Competency tracking made easy.</Text>
         </View>
 
@@ -206,9 +211,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 16,
   },
-  logoIcon: {
-    fontSize: 36,
-    color: '#ffffff',
+  logoImage: {
+    width: 48,
+    height: 48,
+    tintColor: '#ffffff',
   },
   appName: {
     fontSize: 36,
