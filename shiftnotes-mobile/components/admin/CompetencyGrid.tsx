@@ -90,12 +90,24 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
   const loadCompetencyData = async (traineeId: string) => {
     try {
       setLoading(true);
-      console.log('Loading competency data for trainee:', traineeId);
+      console.log('Loading competency data for trainee ID:', traineeId);
+      console.log('Expected trainee ID from database: 12b32cad-94e8-4996-a123-0945629e1b58');
       
       // Get all assessments for this trainee
-      const assessments = await apiClient.getAssessmentsForTrainee(traineeId);
-      console.log('Fetched assessments:', assessments.length);
-      console.log('First assessment structure:', assessments[0]);
+      console.log('About to fetch assessments...');
+      let assessments = [];
+      try {
+        assessments = await apiClient.getAssessmentsForTrainee(traineeId);
+        console.log('Fetched assessments:', assessments.length);
+        if (assessments.length > 0) {
+          console.log('First assessment structure:', assessments[0]);
+        } else {
+          console.log('No assessments returned from API');
+        }
+      } catch (assessmentError) {
+        console.error('Error fetching assessments:', assessmentError);
+        assessments = [];
+      }
       
       // Get all subcompetencies and their EPA relationships
       const subCompetenciesResponse = await apiClient.getSubCompetencies();
