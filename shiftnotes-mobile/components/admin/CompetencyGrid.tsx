@@ -304,9 +304,23 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
   };
 
   const renderCompetencyRow = (item: CompetencyData, index: number) => {
+    const getLevelText = (level: number) => {
+      if (level === 0) return 'Not Yet Complete';
+      if (level === 6) return 'Not Yet Assessable';
+      return `Level ${level}`;
+    };
+
+    const getLevelColor = (level: number) => {
+      if (level === 0) return '#94a3b8'; // Gray for not complete
+      if (level >= 4.5) return '#059669'; // Green for high levels
+      if (level >= 3) return '#0d9488'; // Teal for good levels
+      if (level >= 2) return '#0891b2'; // Blue for developing
+      return '#7c3aed'; // Purple for beginning
+    };
+
     return (
       <View key={item.subCompetencyId} style={styles.competencyRow}>
-        <View style={styles.competencyLabel}>
+        <View style={styles.competencyInfo}>
           <Text style={styles.competencyText} numberOfLines={2}>
             {item.subCompetencyTitle}
           </Text>
@@ -315,9 +329,14 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
           </Text>
         </View>
         
-        <View style={styles.milestoneGrid}>
-          {[0, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 6].map(level => 
-            renderMilestoneCell(item.milestoneLevel, level)
+        <View style={styles.levelContainer}>
+          <Text style={[styles.levelText, { color: getLevelColor(item.milestoneLevel) }]}>
+            {getLevelText(item.milestoneLevel)}
+          </Text>
+          {item.milestoneLevel > 0 && item.milestoneLevel < 6 && (
+            <View style={[styles.levelBadge, { backgroundColor: getLevelColor(item.milestoneLevel) }]}>
+              <Text style={styles.levelBadgeText}>{item.milestoneLevel}</Text>
+            </View>
           )}
         </View>
       </View>
@@ -387,23 +406,7 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
               </View>
             ) : competencyData.length > 0 ? (
               <View>
-                {/* Grid Header */}
-                <View style={styles.gridHeader}>
-                  <View style={styles.headerLabel}>
-                    <Text style={styles.headerText}>Competency</Text>
-                  </View>
-                  <View style={styles.milestoneHeader}>
-                    {milestoneLabels.map((label, index) => (
-                      <View key={index} style={styles.milestoneHeaderCell}>
-                        <Text style={styles.milestoneHeaderText} numberOfLines={2}>
-                          {label}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-
-                {/* Competency Grid */}
+                {/* Competency List */}
                 {competencyCategories.map(category => {
                   const categoryItems = competencyData.filter(
                     item => item.coreCompetencyTitle === category
@@ -512,12 +515,14 @@ const styles = StyleSheet.create({
   },
   competencyRow: {
     flexDirection: 'row',
-    paddingVertical: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 4,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
+    alignItems: 'center',
   },
-  competencyLabel: {
-    flex: 2,
+  competencyInfo: {
+    flex: 1,
     paddingRight: 16,
   },
   competencyText: {
@@ -530,34 +535,26 @@ const styles = StyleSheet.create({
     color: '#64748b',
     marginTop: 2,
   },
-  milestoneGrid: {
-    flex: 3,
-    flexDirection: 'row',
+  levelContainer: {
+    alignItems: 'flex-end',
+    minWidth: 120,
   },
-  milestoneCell: {
-    flex: 1,
-    height: 40,
+  levelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  levelBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    minWidth: 32,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 0.5,
-    backgroundColor: '#f8fafc',
-    borderRadius: 4,
   },
-  activeMilestoneCell: {
-    backgroundColor: '#dbeafe',
-  },
-  milestoneDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#1d4ed8',
-  },
-  halfMilestoneDot: {
-    width: 14,
-    height: 7,
-    borderRadius: 7,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
+  levelBadgeText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
   },
   emptyState: {
     padding: 40,
