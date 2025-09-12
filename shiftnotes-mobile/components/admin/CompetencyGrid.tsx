@@ -95,6 +95,7 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
       // Get all assessments for this trainee
       const assessments = await apiClient.getAssessmentsForTrainee(traineeId);
       console.log('Fetched assessments:', assessments.length);
+      console.log('First assessment structure:', assessments[0]);
       
       // Get all subcompetencies and their EPA relationships
       const subCompetenciesResponse = await apiClient.getSubCompetencies();
@@ -142,11 +143,17 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
       let mappingsNotFound = 0;
       
       // Log sample assessment EPA IDs for debugging
+      console.log('About to process', assessments.length, 'assessments');
       if (assessments.length > 0 && assessments[0].assessment_epas?.length > 0) {
         console.log('Sample assessment EPA IDs:', assessments[0].assessment_epas.map((ae: any) => ae.epa).slice(0, 3));
+      } else {
+        console.log('No assessment EPAs found in first assessment');
       }
       
-      assessments.forEach((assessment: any) => {
+      assessments.forEach((assessment: any, index: number) => {
+        if (index === 0) {
+          console.log('Processing first assessment:', assessment.id, 'EPAs:', assessment.assessment_epas?.length || 0);
+        }
         assessment.assessment_epas?.forEach((assessmentEpa: any) => {
           const subCompIds = epaToSubCompetencies.get(assessmentEpa.epa);
           if (subCompIds) {
