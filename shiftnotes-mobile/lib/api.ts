@@ -515,6 +515,12 @@ export class ApiClient {
     return this.request<ApiResponse<ApiAssessment>>(url);
   }
 
+  // Analytics endpoints
+  async getProgramPerformanceData(programId: string, months: number = 6): Promise<any> {
+    const url = `/analytics/program-performance/?program_id=${programId}&months=${months}`;
+    return this.request(url);
+  }
+
   // Competency Grid APIs
   async getAssessmentsForTrainee(traineeId: string): Promise<any[]> {
     console.log('API: Fetching assessments for trainee:', traineeId);

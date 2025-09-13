@@ -5,6 +5,7 @@ from users.password_reset_views import request_password_reset, verify_reset_toke
 from organizations.views import OrganizationViewSet, ProgramViewSet, SiteViewSet
 from curriculum.views import EPACategoryViewSet, EPAViewSet, CoreCompetencyViewSet, SubCompetencyViewSet, SubCompetencyEPAViewSet
 from assessments.views import AssessmentViewSet
+from analytics.views import program_performance_data
 
 router = DefaultRouter()
 
@@ -34,4 +35,6 @@ urlpatterns = [
     path('auth/verify-reset-token/<str:uidb64>/<str:token>/', verify_reset_token, name='verify_reset_token'),
     path('auth/reset-password/<str:uidb64>/<str:token>/', reset_password, name='reset_password'),
     path('auth/resend-welcome-email/', resend_welcome_email, name='resend_welcome_email'),
+    # Analytics endpoints
+    path('analytics/program-performance/', program_performance_data, name='program_performance_data'),
 ]
