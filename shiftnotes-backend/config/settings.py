@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'organizations', 
     'curriculum',
     'assessments',
+    'analytics',
 ]
 
 AUTH_USER_MODEL = 'users.User'
@@ -230,6 +231,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://44.197.181.141:8443",  # HTTPS backend
     # AWS Amplify domains
     "https://main.d3c6p9x33k6b3.amplifyapp.com",
+    "https://app.epanotes.com",  # Production frontend domain
 ]
 
 # Production CORS settings - temporarily allow all origins for mixed content
