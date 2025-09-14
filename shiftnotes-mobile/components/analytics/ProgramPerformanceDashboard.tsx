@@ -38,10 +38,11 @@ interface ProgramPerformanceData {
     is_active: boolean;
     last_assessment_date: string | null;
   }>;
-  competency_distribution: Array<{
-    level: number;
-    count: number;
-    percentage: number;
+  competency_breakdown: Array<{
+    id: string;
+    name: string;
+    total_assessments: number;
+    average_competency_level: number;
   }>;
   recent_trends: Array<{
     month: string;
@@ -229,27 +230,30 @@ const ProgramPerformanceDashboard: React.FC<ProgramPerformanceProps> = ({ user }
             </CardContent>
           </Card>
 
-          {/* Competency Distribution */}
-          {dashboardData.competency_distribution.length > 0 && (
+          {/* Competency Breakdown */}
+          {dashboardData.competency_breakdown.length > 0 && (
             <Card style={styles.distributionCard}>
               <CardHeader>
-                <CardTitle>Competency Level Distribution</CardTitle>
+                <CardTitle>Performance by Competency</CardTitle>
               </CardHeader>
               
               <CardContent>
-                {dashboardData.competency_distribution.map((item) => (
-                  <View key={item.level} style={styles.distributionItem}>
-                    <Text style={styles.distributionLabel}>Level {item.level}</Text>
-                    <View style={styles.distributionBar}>
-                      <View style={[
-                        styles.distributionFill,
-                        { 
-                          width: `${item.percentage}%`,
-                          backgroundColor: getMetricColor(item.level, 'level')
-                        }
-                      ]} />
+                {dashboardData.competency_breakdown.map((competency) => (
+                  <View key={competency.id} style={styles.competencyItem}>
+                    <View style={styles.competencyHeader}>
+                      <Text style={styles.competencyName}>{competency.name}</Text>
+                      <View style={styles.competencyMetrics}>
+                        <Text style={styles.competencyAssessments}>
+                          {competency.total_assessments} assessments
+                        </Text>
+                        <Text style={[
+                          styles.competencyLevel,
+                          { color: getMetricColor(competency.average_competency_level, 'level') }
+                        ]}>
+                          Avg: {competency.average_competency_level}
+                        </Text>
+                      </View>
                     </View>
-                    <Text style={styles.distributionPercent}>{item.percentage}%</Text>
                   </View>
                 ))}
               </CardContent>
@@ -416,6 +420,36 @@ const styles = StyleSheet.create({
     color: '#64748b',
     width: 40,
     textAlign: 'right',
+  },
+  competencyItem: {
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  competencyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  competencyName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1f2937',
+    flex: 1,
+    marginRight: 12,
+  },
+  competencyMetrics: {
+    alignItems: 'flex-end',
+  },
+  competencyAssessments: {
+    fontSize: 12,
+    color: '#64748b',
+    marginBottom: 2,
+  },
+  competencyLevel: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   emptyCard: {
     margin: 16,

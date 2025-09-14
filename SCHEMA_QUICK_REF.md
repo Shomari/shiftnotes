@@ -25,7 +25,7 @@
 - `email` (EmailField, unique)
 - `role` (CharField: 'trainee', 'faculty', 'admin', 'leadership', 'system-admin')
 - `organization` (ForeignKey → Organization)
-- `programs` (ManyToManyField → Program)
+- `program` (ForeignKey → Program, NOT ManyToManyField anymore)
 
 ### Program Model (`programs` table)
 - `id` (UUIDField, primary key)
@@ -33,12 +33,25 @@
 - `abbreviation` (CharField)
 - `org` (ForeignKey → Organization)
 
+### CoreCompetency Model (`core_competencies` table)
+- `id` (UUIDField, primary key)
+- `program` (ForeignKey → Program)
+- `code` (CharField) ← e.g., "PC"
+- `title` (CharField) ← e.g., "Patient Care" (NOT `name`!)
+
+### SubCompetency Model (`sub_competencies` table)  
+- `id` (UUIDField, primary key)
+- `program` (ForeignKey → Program)
+- `core_competency` (ForeignKey → CoreCompetency, related_name='sub_competencies')
+- `code` (CharField) ← e.g., "PC1"
+- `title` (CharField) ← e.g., "History Taking & Physical Examination"
+
 ## Analytics Query Patterns
 
 ```python
-# Get assessments with ratings for a program
+# Get assessments with ratings for a program (UPDATED for single program)
 assessments = Assessment.objects.filter(
-    trainee__programs=program,
+    trainee__program=program,  # Changed from trainee__programs
     created_at__gte=start_date
 )
 
@@ -53,12 +66,20 @@ for level in range(1, 6):  # 1-5 only
         assessment_epas__entrustment_level=level
     ).count()
 
-# Get active trainees with assessments in timeframe
+# Get active trainees with assessments in timeframe (UPDATED for single program)
 active_trainees = User.objects.filter(
     role='trainee',
-    programs=program,
+    program=program,  # Changed from programs=program
     assessments_received__created_at__gte=start_date
 ).distinct()
+
+# Get competency breakdown (using correct field names)
+from curriculum.models import CoreCompetency
+for competency in CoreCompetency.objects.filter(program=program):
+    competency_assessments = assessments.filter(
+        assessment_epas__epa__sub_competencies__core_competency=competency
+    ).distinct()
+    # Use competency.title (NOT competency.name)
 ```
 
 ## Common Mistakes to Avoid
@@ -66,4 +87,7 @@ active_trainees = User.objects.filter(
 ❌ `milestone_level` → ✅ `assessment_epas__entrustment_level`
 ❌ `range(1, 7)` → ✅ `range(1, 6)` (entrustment levels are 1-5)
 ❌ `trainee_assessments` → ✅ `assessments_received`
+❌ `competency.name` → ✅ `competency.title`
+❌ `trainee__programs=program` → ✅ `trainee__program=program` (single program now)
+❌ `assessment_epas__epa__subcompetencies__competency` → ✅ `assessment_epas__epa__sub_competencies__core_competency`
 ❌ Direct Assessment.milestone_level → ✅ Assessment.assessment_epas.entrustment_level

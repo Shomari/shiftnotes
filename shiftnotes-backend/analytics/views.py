@@ -46,18 +46,31 @@ def program_performance_data(request):
     
     # Assessment distribution by entrustment level
     milestone_distribution = {}
-    competency_distribution = []
-    total_epa_assessments = assessments.aggregate(
-        total_epas=Count('assessment_epas')
-    )['total_epas'] or 0
-    
     for level in range(1, 6):  # Entrustment levels are 1-5, not 1-6
         count = assessments.filter(assessment_epas__entrustment_level=level).count()
         milestone_distribution[f'level_{level}'] = count
-        competency_distribution.append({
-            'level': level,
-            'count': count,
-            'percentage': round((count / total_epa_assessments * 100) if total_epa_assessments > 0 else 0, 1)
+    
+    # Competency breakdown by core competencies
+    from curriculum.models import CoreCompetency
+    competency_breakdown = []
+    core_competencies = CoreCompetency.objects.filter(program=program)
+    
+    for competency in core_competencies:
+        # Get assessments for EPAs that belong to this competency's sub-competencies  
+        competency_assessments = assessments.filter(
+            assessment_epas__epa__sub_competencies__core_competency=competency
+        ).distinct()
+        
+        total_assessments = competency_assessments.count()
+        avg_level = competency_assessments.aggregate(
+            avg_score=Avg('assessment_epas__entrustment_level')
+        )['avg_score'] or 0
+        
+        competency_breakdown.append({
+            'id': str(competency.id),
+            'name': competency.title,  # Changed from .name to .title
+            'total_assessments': total_assessments,
+            'average_competency_level': round(avg_level, 2)
         })
     
     # Trainee breakdown
@@ -118,7 +131,7 @@ def program_performance_data(request):
             'milestone_distribution': milestone_distribution
         },
         'trainee_breakdown': trainee_breakdown,
-        'competency_distribution': competency_distribution,
+        'competency_breakdown': competency_breakdown,
         'trends': {
             'monthly_assessments': monthly_data
         }

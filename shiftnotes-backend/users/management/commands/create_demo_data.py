@@ -77,8 +77,6 @@ class Command(BaseCommand):
         """Create 3 medical training programs"""
         programs_data = [
             {"name": "Emergency Medicine Residency", "abbreviation": "EM", "specialty": "Emergency Medicine", "acgme_id": "EM-001"},
-            {"name": "Family Medicine Residency", "abbreviation": "FM", "specialty": "Family Medicine", "acgme_id": "FM-001"},
-            {"name": "Internal Medicine Residency", "abbreviation": "IM", "specialty": "Internal Medicine", "acgme_id": "IM-001"},
         ]
         
         programs = []
@@ -288,8 +286,8 @@ class Command(BaseCommand):
         """Create 4 doctor users"""
         doctors_data = [
             {"name": "Dr. Michael Rodriguez", "email": "faculty@demo.com", "department": "Emergency Medicine", "program": 0},
-            {"name": "Dr. Jennifer Kim", "email": "doctor2@demo.com", "department": "Family Medicine", "program": 1},
-            {"name": "Dr. Robert Johnson", "email": "doctor3@demo.com", "department": "Internal Medicine", "program": 2},
+            {"name": "Dr. Jennifer Kim", "email": "doctor2@demo.com", "department": "Family Medicine", "program": 0},
+            {"name": "Dr. Robert Johnson", "email": "doctor3@demo.com", "department": "Internal Medicine", "program": 0},
             {"name": "Dr. Emily Zhang", "email": "doctor4@demo.com", "department": "Emergency Medicine", "program": 0},
         ]
         
@@ -328,8 +326,8 @@ class Command(BaseCommand):
         """Create 3 trainee users with different skill levels"""
         trainees_data = [
             {"name": "Dr. Alex Martinez", "email": "trainee@demo.com", "level": "strong", "department": "Emergency Medicine", "program": 0},
-            {"name": "Dr. Sam Patel", "email": "trainee2@demo.com", "level": "average", "department": "Family Medicine", "program": 1},
-            {"name": "Dr. Jordan Lee", "email": "trainee3@demo.com", "level": "developing", "department": "Internal Medicine", "program": 2},
+            {"name": "Dr. Sam Patel", "email": "trainee2@demo.com", "level": "average", "department": "Family Medicine", "program": 0},
+            {"name": "Dr. Jordan Lee", "email": "trainee3@demo.com", "level": "developing", "department": "Internal Medicine", "program": 0},
         ]
         
         trainees = []
