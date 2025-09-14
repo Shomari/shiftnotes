@@ -27,7 +27,6 @@ interface ProgramPerformanceData {
     assessments_in_period: number;
     total_lifetime_assessments: number;
     average_competency_level: number;
-    completion_rate: number;
   };
   trainee_breakdown: Array<{
     id: string;
@@ -182,15 +181,6 @@ const ProgramPerformanceDashboard: React.FC<ProgramPerformanceProps> = ({ user }
                   <Text style={styles.metricLabel}>Avg Level</Text>
                 </View>
                 
-                <View style={styles.metricItem}>
-                  <Text style={[
-                    styles.metricValue,
-                    { color: getMetricColor(dashboardData.metrics.completion_rate, 'percentage') }
-                  ]}>
-                    {dashboardData.metrics.completion_rate}%
-                  </Text>
-                  <Text style={styles.metricLabel}>Active Rate</Text>
-                </View>
               </View>
             </CardContent>
           </Card>
@@ -270,7 +260,7 @@ const ProgramPerformanceDashboard: React.FC<ProgramPerformanceProps> = ({ user }
         <Card style={styles.emptyCard}>
           <CardContent>
             <Text style={styles.emptyText}>
-              {selectedProgram ? 'Loading program data...' : 'Please select a program to view performance data'}
+              Loading program data...
             </Text>
           </CardContent>
         </Card>

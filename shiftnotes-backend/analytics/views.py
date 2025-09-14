@@ -25,7 +25,7 @@ def program_performance_data(request):
     start_date = end_date - timedelta(days=months * 30)
     
     # Get assessments for this program in the timeframe
-    assessments = Assessment.objects.filter(
+    \assessments = Assessment.objects.filter(
         trainee__program=program,
         created_at__gte=start_date,
         created_at__lte=end_date
@@ -41,18 +41,23 @@ def program_performance_data(request):
     # Calculate metrics
     total_assessments = assessments.count()
     active_trainee_count = active_trainees.count()
+    total_trainees = User.objects.filter(role='trainee', program=program).count()
     avg_competency_level = assessments.aggregate(avg_score=Avg('assessment_epas__entrustment_level'))['avg_score'] or 0
     
     # Assessment distribution by entrustment level
     milestone_distribution = {}
     competency_distribution = []
+    total_epa_assessments = assessments.aggregate(
+        total_epas=Count('assessment_epas')
+    )['total_epas'] or 0
+    
     for level in range(1, 6):  # Entrustment levels are 1-5, not 1-6
         count = assessments.filter(assessment_epas__entrustment_level=level).count()
         milestone_distribution[f'level_{level}'] = count
         competency_distribution.append({
             'level': level,
             'count': count,
-            'completion_rate': round((count / total_assessments * 100) if total_assessments > 0 else 0, 1)
+            'percentage': round((count / total_epa_assessments * 100) if total_epa_assessments > 0 else 0, 1)
         })
     
     # Trainee breakdown
@@ -105,8 +110,10 @@ def program_performance_data(request):
             'end_date': end_date.isoformat()
         },
         'metrics': {
-            'total_assessments': total_assessments,
+            'total_trainees': total_trainees,
             'active_trainees': active_trainee_count,
+            'assessments_in_period': total_assessments,
+            'total_lifetime_assessments': total_assessments,  # Same as assessments_in_period for now
             'average_competency_level': round(avg_competency_level, 2),
             'milestone_distribution': milestone_distribution
         },
