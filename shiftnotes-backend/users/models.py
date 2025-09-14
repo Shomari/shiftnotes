@@ -60,6 +60,11 @@ class User(AbstractUser):
     )
     department = models.CharField(max_length=100, blank=True)
     start_date = models.DateField(null=True, blank=True)
+    deactivated_at = models.DateTimeField(
+        null=True, 
+        blank=True,
+        help_text='When this user was deactivated. If null, user is active.'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -71,6 +76,22 @@ class User(AbstractUser):
     class Meta:
         db_table = 'users'
         ordering = ['name']
+    
+    @property
+    def is_active_user(self):
+        """Check if user is active (not deactivated)"""
+        return self.deactivated_at is None
+    
+    def deactivate(self):
+        """Deactivate this user"""
+        from django.utils import timezone
+        self.deactivated_at = timezone.now()
+        self.save()
+    
+    def reactivate(self):
+        """Reactivate this user"""
+        self.deactivated_at = None
+        self.save()
     
     def __str__(self):
         return f"{self.name} ({self.get_role_display()})"

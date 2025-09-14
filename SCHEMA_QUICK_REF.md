@@ -23,9 +23,15 @@
 ### User Model (`users` table)
 - `id` (UUIDField, primary key)
 - `email` (EmailField, unique)
+- `name` (CharField)
 - `role` (CharField: 'trainee', 'faculty', 'admin', 'leadership', 'system-admin')
 - `organization` (ForeignKey → Organization)
 - `program` (ForeignKey → Program, NOT ManyToManyField anymore)
+- `department` (CharField, optional)
+- `start_date` (DateField, optional)
+- `deactivated_at` (DateTimeField, optional) ← **NEW: If not null, user is deactivated**
+- `created_at` (DateTimeField)
+- `updated_at` (DateTimeField)
 
 ### Program Model (`programs` table)
 - `id` (UUIDField, primary key)

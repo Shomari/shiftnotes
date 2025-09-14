@@ -263,41 +263,6 @@ export function UserManagement() {
     }
   };
 
-  const handleResendWelcomeEmail = async (userId: string, userEmail: string) => {
-    Alert.alert(
-      'Resend Welcome Email',
-      `Send a new welcome email to ${userEmail}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Send',
-          onPress: async () => {
-            try {
-              const response = await fetch(`${config.API_BASE_URL}/auth/resend-welcome-email/`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Token ${user?.token}`,
-                },
-                body: JSON.stringify({ user_id: userId }),
-              });
-
-              const data = await response.json();
-
-              if (response.ok) {
-                Alert.alert('Success', 'Welcome email sent successfully!');
-              } else {
-                Alert.alert('Error', data.error || 'Failed to send welcome email');
-              }
-            } catch (error) {
-              console.error('Error sending welcome email:', error);
-              Alert.alert('Error', 'Network error. Please try again.');
-            }
-          },
-        },
-      ]
-    );
-  };
 
   const handleCreateCohort = () => {
     console.log('Creating cohort:', cohortForm);
@@ -317,13 +282,6 @@ export function UserManagement() {
     setShowCreateUserModal(true);
   };
 
-  const handleDeleteUser = (userId: string) => {
-    console.log('Deleting user:', userId);
-  };
-
-  const handleDeactivateUser = (userId: string) => {
-    console.log('Deactivating user:', userId);
-  };
 
   const renderUsersTab = () => (
     <View style={styles.tabContent}>
@@ -399,20 +357,9 @@ export function UserManagement() {
                 </View>
               </View>
               <View style={styles.userActions}>
-                <Pressable style={styles.actionButton} onPress={() => handleResendWelcomeEmail(user.id, user.email)}>
-                  <Text style={styles.actionButtonText}>📧 Welcome Email</Text>
-                </Pressable>
-                <Pressable style={styles.actionButton} onPress={() => handleDeactivateUser(user.id)}>
-                  <Eye size={16} color="#64748b" />
-                  <Text style={styles.actionButtonText}>Deactivate</Text>
-                </Pressable>
                 <Pressable style={styles.actionButton} onPress={() => handleEditUser(user)}>
                   <PencilSimple size={16} color="#64748b" />
                   <Text style={styles.actionButtonText}>Edit</Text>
-                </Pressable>
-                <Pressable style={styles.actionButton} onPress={() => handleDeleteUser(user.id)}>
-                  <Trash size={16} color="#dc2626" />
-                  <Text style={[styles.actionButtonText, { color: '#dc2626' }]}>Delete</Text>
                 </Pressable>
               </View>
             </CardHeader>
