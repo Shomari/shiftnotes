@@ -15,6 +15,8 @@ import { Overview } from './components/Overview';
 import { MyAssessments } from './components/MyAssessments';
 import { AssessmentDetail } from './components/AssessmentDetail';
 import { UserManagement } from './components/admin/UserManagement';
+import AddUser from './components/admin/AddUser';
+import EditUser from './components/admin/EditUser';
 import { EPAManagement } from './components/admin/EPAManagement';
 import { CompetencyManagement } from './components/admin/CompetencyManagement';
 import { CompetencyGrid } from './components/admin/CompetencyGrid';
@@ -33,6 +35,7 @@ function AppContent() {
   const [authScreen, setAuthScreen] = useState<'login' | 'forgot-password' | 'reset-password'>('login');
   const [resetParams, setResetParams] = useState<{ uidb64: string; token: string } | null>(null);
   const [selectedAssessmentId, setSelectedAssessmentId] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   
   const { width } = Dimensions.get('window');
   const MOBILE_BREAKPOINT = 768;
@@ -62,6 +65,15 @@ function AppContent() {
   const handleViewAssessment = (assessmentId: string) => {
     setSelectedAssessmentId(assessmentId);
     setCurrentRoute('assessment-detail');
+  };
+
+  const handleAddUser = () => {
+    setCurrentRoute('add-user');
+  };
+
+  const handleEditUser = (userId: string) => {
+    setSelectedUserId(userId);
+    setCurrentRoute('edit-user');
   };
 
   const handleBackFromAssessment = () => {
@@ -98,6 +110,10 @@ function AppContent() {
         return 'My Assessments';
       case 'user-management':
         return 'User Management';
+      case 'add-user':
+        return 'Add New User';
+      case 'edit-user':
+        return 'Edit User';
       case 'epa-management':
         return 'EPA Management';
       case 'competency-management':
@@ -133,7 +149,11 @@ function AppContent() {
           <MyAssessments onViewAssessment={handleViewAssessment} />
         );
       case 'user-management':
-        return <UserManagement />;
+        return <UserManagement onAddUser={handleAddUser} onEditUser={handleEditUser} />;
+      case 'add-user':
+        return <AddUser />;
+      case 'edit-user':
+        return selectedUserId ? <EditUser userId={selectedUserId} /> : <UserManagement onAddUser={handleAddUser} onEditUser={handleEditUser} />;
       case 'epa-management':
         return <EPAManagement />;
       case 'competency-management':

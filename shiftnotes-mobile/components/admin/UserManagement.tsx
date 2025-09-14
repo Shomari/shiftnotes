@@ -43,6 +43,11 @@ import {
 const { width } = Dimensions.get('window');
 const isTablet = width >= 768;
 
+interface UserManagementProps {
+  onAddUser: () => void;
+  onEditUser: (userId: string) => void;
+}
+
 // Sample data matching the web screenshots
 const sampleCohorts = [
   { id: '1', name: 'PGY-1 2024', year: 2024, startDate: '2024-06-30', trainees: 2 },
@@ -104,14 +109,12 @@ interface CohortFormData {
   startDate: string;
 }
 
-export function UserManagement() {
+export function UserManagement({ onAddUser, onEditUser }: UserManagementProps) {
   const [activeTab, setActiveTab] = useState<'users' | 'cohorts'>('users');
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [cohortFilter, setCohortFilter] = useState('');
-  const [showCreateUserModal, setShowCreateUserModal] = useState(false);
   const [showCreateCohortModal, setShowCreateCohortModal] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editingCohort, setEditingCohort] = useState<any>(null);
   
   // API data state
@@ -120,16 +123,6 @@ export function UserManagement() {
   const [loading, setLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // User form state
-  const [userForm, setUserForm] = useState<UserFormData>({
-    name: '',
-    email: '',
-    role: 'trainee',
-    cohortId: '',
-    startDate: new Date(),
-    password: '', // Will be removed from form but kept for API compatibility
-    department: '',
-  });
 
   // Cohort form state
   const [cohortForm, setCohortForm] = useState<CohortFormData>({
@@ -271,15 +264,7 @@ export function UserManagement() {
   };
 
   const handleEditUser = (user: User) => {
-    setEditingUser(user);
-    setUserForm({
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      cohortId: user.cohortId || '',
-      startDate: '',
-    });
-    setShowCreateUserModal(true);
+    onEditUser(user.id);
   };
 
 
@@ -334,7 +319,7 @@ export function UserManagement() {
         </View>
         <Button
           title="Add User"
-          onPress={() => setShowCreateUserModal(true)}
+          onPress={onAddUser}
           icon={<Plus size={16} color="#ffffff" />}
           size="sm"
         />
