@@ -65,8 +65,7 @@ export function CompetencyManagement() {
   const { user } = useAuth();
   const [coreCompetencies, setCoreCompetencies] = useState<ApiCoreCompetency[]>([]);
   const [subCompetencies, setSubCompetencies] = useState<ApiSubCompetency[]>([]);
-  const [programs, setPrograms] = useState<ApiProgram[]>([]);
-  const [selectedProgram, setSelectedProgram] = useState<string>('');
+  const [program, setProgram] = useState<ApiProgram | null>(null);
   const [loading, setLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showSubCompetencyModal, setShowSubCompetencyModal] = useState(false);
@@ -93,49 +92,30 @@ export function CompetencyManagement() {
     milestone_level_5: '',
   });
 
-  // Load data on component mount and when user changes
+  // Initialize when user is available and auto-load their program data
   useEffect(() => {
-    if (user?.organization) {
+    if (user?.program) {
+      setProgram({
+        id: user.program,
+        name: user.program_name || '',
+        abbreviation: user.program_abbreviation || '',
+        org: user.organization
+      });
       loadData();
     }
   }, [user]);
 
-  // Reload competencies when program changes
-  useEffect(() => {
-    if (selectedProgram && user?.organization) {
-      loadCompetencies();
-    }
-  }, [selectedProgram]);
-
   const loadData = async () => {
-    if (!user?.organization) {
-      console.error('No user organization found');
+    if (!user?.program) {
+      console.error('No user program found');
       return;
     }
 
     setLoading(true);
     try {
-      const [programsResponse] = await Promise.all([
-        apiClient.getPrograms(user.organization),
-      ]);
-
-      setPrograms(programsResponse.results || []);
-    } catch (error) {
-      console.error('Error loading data:', error);
-      Alert.alert('Error', 'Failed to load data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadCompetencies = async () => {
-    if (!selectedProgram) return;
-
-    setLoading(true);
-    try {
       const [coreCompetenciesResponse, subCompetenciesResponse] = await Promise.all([
-        apiClient.getCoreCompetencies(selectedProgram),
-        apiClient.getSubCompetencies(undefined, selectedProgram),
+        apiClient.getCoreCompetencies(user.program),
+        apiClient.getSubCompetencies(undefined, user.program),
       ]);
 
       setCoreCompetencies(coreCompetenciesResponse.results || []);
