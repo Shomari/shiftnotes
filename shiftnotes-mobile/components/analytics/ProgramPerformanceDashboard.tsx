@@ -44,11 +44,12 @@ interface ProgramPerformanceData {
     total_assessments: number;
     average_competency_level: number;
   }>;
-  recent_trends: Array<{
-    month: string;
-    assessments: number;
-    average_level: number;
-  }>;
+  trends: {
+    monthly_assessments: Array<{
+      month: string;
+      assessments: number;
+    }>;
+  };
 }
 
 const ProgramPerformanceDashboard: React.FC<ProgramPerformanceProps> = ({ user }) => {
@@ -259,6 +260,38 @@ const ProgramPerformanceDashboard: React.FC<ProgramPerformanceProps> = ({ user }
               </CardContent>
             </Card>
           )}
+
+          {/* Six-Month Trends */}
+          {dashboardData.trends?.monthly_assessments && dashboardData.trends.monthly_assessments.length > 0 && (
+            <Card style={styles.trendsCard}>
+              <CardHeader>
+                <CardTitle>📊 Six-Month Trends</CardTitle>
+              </CardHeader>
+              
+              <CardContent>
+                <View style={styles.trendsChart}>
+                  <Text style={styles.trendsLabel}>Assessment Volume</Text>
+                  <View style={styles.trendsBars}>
+                    {dashboardData.trends.monthly_assessments.map((trend, index) => (
+                      <View key={index} style={styles.trendsBar}>
+                        <View 
+                          style={[
+                            styles.trendsBarFill, 
+                            { 
+                              height: `${Math.min(Math.max((trend.assessments / Math.max(...dashboardData.trends.monthly_assessments.map(t => t.assessments))) * 85, 8), 85)}%`,
+                              backgroundColor: '#3B82F6'
+                            }
+                          ]} 
+                        />
+                        <Text style={styles.trendsBarLabel}>{trend.month}</Text>
+                        <Text style={styles.trendsBarValue}>{trend.assessments}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              </CardContent>
+            </Card>
+          )}
         </>
       ) : (
         <Card style={styles.emptyCard}>
@@ -450,6 +483,52 @@ const styles = StyleSheet.create({
   competencyLevel: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  trendsCard: {
+    margin: 16,
+    marginVertical: 8,
+  },
+  trendsChart: {
+    marginTop: 8,
+  },
+  trendsLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  trendsBars: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    height: 120,
+    marginHorizontal: 8,
+  },
+  trendsBar: {
+    alignItems: 'center',
+    flex: 1,
+    height: '100%',
+    justifyContent: 'flex-end',
+    marginHorizontal: 2,
+  },
+  trendsBarFill: {
+    width: 28,
+    borderRadius: 4,
+    marginBottom: 8,
+    minHeight: 6,
+  },
+  trendsBarLabel: {
+    fontSize: 10,
+    color: '#64748B',
+    marginBottom: 2,
+    textAlign: 'center',
+  },
+  trendsBarValue: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#1E293B',
+    textAlign: 'center',
   },
   emptyCard: {
     margin: 16,

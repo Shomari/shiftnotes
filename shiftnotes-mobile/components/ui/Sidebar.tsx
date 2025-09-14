@@ -77,11 +77,6 @@ const getNavigationItems = (userRole?: string): NavigationItem[] => {
         icon: '📈',
       },
       {
-        id: 'executive-dashboard',
-        title: 'Executive Dashboard',
-        icon: '🎯',
-      },
-      {
         id: 'competency-grid',
         title: 'Competency Grid',
         icon: '📊',

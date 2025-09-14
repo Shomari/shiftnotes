@@ -19,7 +19,6 @@ import { EPAManagement } from './components/admin/EPAManagement';
 import { CompetencyManagement } from './components/admin/CompetencyManagement';
 import { CompetencyGrid } from './components/admin/CompetencyGrid';
 import ProgramPerformanceDashboard from './components/analytics/ProgramPerformanceDashboard';
-import ExecutiveDashboard from './components/analytics/ExecutiveDashboard';
 import AccreditationReadiness from './components/analytics/AccreditationReadiness';
 import { SiteManagement } from './components/admin/SiteManagement';
 import { LoginScreen } from './components/LoginScreen';
@@ -108,8 +107,6 @@ function AppContent() {
         return 'Competency Grid';
       case 'program-performance':
         return 'Program Performance';
-      case 'executive-dashboard':
-        return 'Executive Dashboard';
       case 'accreditation-readiness':
         return 'Accreditation Readiness';
       case 'analytics':
@@ -150,12 +147,10 @@ function AppContent() {
         return <CompetencyGrid user={user} />;
       case 'program-performance':
         return <ProgramPerformanceDashboard user={user} />;
-      case 'executive-dashboard':
-        return <ExecutiveDashboard user={user} />;
       case 'accreditation-readiness':
         return <AccreditationReadiness user={user} />;
       case 'analytics':
-        return <ExecutiveDashboard user={user} />;
+        return <ProgramPerformanceDashboard user={user} />;
       case 'site-management':
         return <SiteManagement />;
       default:
