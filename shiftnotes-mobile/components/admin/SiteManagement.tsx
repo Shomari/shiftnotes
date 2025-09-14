@@ -42,8 +42,7 @@ interface SiteFormData {
 export function SiteManagement() {
   const { user } = useAuth();
   const [sites, setSites] = useState<ApiSite[]>([]);
-  const [programs, setPrograms] = useState<ApiProgram[]>([]);
-  const [selectedProgram, setSelectedProgram] = useState<string>('');
+  const [program, setProgram] = useState<ApiProgram | null>(null);
   const [loading, setLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingSite, setEditingSite] = useState<ApiSite | null>(null);
@@ -54,47 +53,28 @@ export function SiteManagement() {
     program: '',
   });
 
-  // Load data on component mount and when user changes
+  // Initialize when user is available and auto-load their program data
   useEffect(() => {
-    if (user?.organization) {
+    if (user?.program) {
+      setProgram({
+        id: user.program,
+        name: user.program_name || '',
+        abbreviation: user.program_abbreviation || '',
+        org: user.organization
+      });
       loadData();
     }
   }, [user]);
 
-  // Reload sites when program changes
-  useEffect(() => {
-    if (selectedProgram && user?.organization) {
-      loadSites();
-    }
-  }, [selectedProgram]);
-
   const loadData = async () => {
-    if (!user?.organization) {
-      console.error('No user organization found');
+    if (!user?.program) {
+      console.error('No user program found');
       return;
     }
 
     setLoading(true);
     try {
-      const [programsResponse] = await Promise.all([
-        apiClient.getPrograms(user.organization),
-      ]);
-
-      setPrograms(programsResponse.results || []);
-    } catch (error) {
-      console.error('Error loading data:', error);
-      Alert.alert('Error', 'Failed to load data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadSites = async () => {
-    if (!selectedProgram || !user?.organization) return;
-
-    setLoading(true);
-    try {
-      const sitesResponse = await apiClient.getSites(user.organization, selectedProgram);
+      const sitesResponse = await apiClient.getSites(user.organization, user.program);
       setSites(sitesResponse.results || []);
     } catch (error) {
       console.error('Error loading sites:', error);
@@ -107,7 +87,7 @@ export function SiteManagement() {
   const handleCreateSite = () => {
     setFormData({
       name: '',
-      program: selectedProgram,
+      program: user?.program || '',
     });
     setEditingSite(null);
     setShowCreateModal(true);
@@ -210,42 +190,18 @@ export function SiteManagement() {
           Manage clinical sites for your programs
         </Text>
         
-        {/* Program Filter */}
-        <View style={styles.programFilterContainer}>
-          <Text style={styles.programFilterLabel}>
-            Select Program {user?.organization_name ? `(${user.organization_name})` : ''}:
-          </Text>
-          <Select
-            key={`site-program-select-${user?.organization}-${programs.length}`}
-            value={selectedProgram}
-            onValueChange={(value) => {
-              console.log('Site Management: Program selected:', value);
-              setSelectedProgram(value);
-            }}
-            placeholder={loading ? "Loading programs..." : programs.length === 0 ? "No programs available for your organization" : "Choose a program to manage sites"}
-            options={[
-              { value: '', label: 'All Programs' },
-              ...programs.map((program) => ({
-                value: program.id,
-                label: program.name
-              }))
-            ]}
-            disabled={loading || programs.length === 0}
-          />
-        </View>
+        {/* Program Info */}
+        {program && (
+          <View style={styles.programInfoContainer}>
+            <Text style={styles.programInfoLabel}>
+              Managing Sites for: <Text style={styles.programInfoName}>{program.name} ({program.abbreviation})</Text>
+            </Text>
+          </View>
+        )}
       </View>
 
       <ScrollView style={styles.content}>
-        {!selectedProgram ? (
-          <View style={styles.noProgramSelected}>
-            <Text style={styles.noProgramText}>
-              {programs.length === 0 
-                ? `No programs available for ${user?.organization_name || 'your organization'}. Please contact your administrator.`
-                : 'Please select a program to view and manage sites'
-              }
-            </Text>
-          </View>
-        ) : (
+        {program ? (
           <>
             {/* Add Site Button */}
             <View style={styles.addButtonContainer}>
@@ -357,14 +313,20 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     marginBottom: 20,
   },
-  programFilterContainer: {
-    marginBottom: 10,
-  },
-  programFilterLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
+  programInfoContainer: {
+    marginTop: 16,
     marginBottom: 8,
+    padding: 12,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+  },
+  programInfoLabel: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  programInfoName: {
+    fontWeight: '600',
+    color: '#1F2937',
   },
   content: {
     flex: 1,
