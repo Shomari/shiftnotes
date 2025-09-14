@@ -150,7 +150,7 @@ export function CompetencyManagement() {
     setFormData({
       code: '',
       title: '',
-      program: selectedProgram,
+      program: user?.program || '',
     });
     setEditingCompetency(null);
     setShowCreateModal(true);
@@ -217,7 +217,7 @@ export function CompetencyManagement() {
       code: '',
       title: '',
       core_competency: coreCompetency.id,
-      program: selectedProgram,
+      program: user?.program || '',
       milestone_level_1: '',
       milestone_level_2: '',
       milestone_level_3: '',
@@ -389,42 +389,18 @@ export function CompetencyManagement() {
           Manage core competencies and sub-competencies for your program
         </Text>
         
-        {/* Program Filter */}
-        <View style={styles.programFilterContainer}>
-          <Text style={styles.programFilterLabel}>
-            Select Program {user?.organization_name ? `(${user.organization_name})` : ''}:
-          </Text>
-          <Select
-            key={`competency-program-select-${user?.organization}-${programs.length}`}
-            value={selectedProgram}
-            onValueChange={(value) => {
-              console.log('Competency Management: Program selected:', value);
-              setSelectedProgram(value);
-            }}
-            placeholder={loading ? "Loading programs..." : programs.length === 0 ? "No programs available for your organization" : "Choose a program to manage competencies"}
-            options={[
-              { value: '', label: 'All Programs' },
-              ...programs.map((program) => ({
-                value: program.id,
-                label: program.name
-              }))
-            ]}
-            disabled={loading || programs.length === 0}
-          />
-        </View>
+        {/* Program Info */}
+        {program && (
+          <View style={styles.programInfoContainer}>
+            <Text style={styles.programInfoLabel}>
+              Managing Competencies for: <Text style={styles.programInfoName}>{program.name} ({program.abbreviation})</Text>
+            </Text>
+          </View>
+        )}
       </View>
 
       <ScrollView style={styles.content}>
-        {!selectedProgram ? (
-          <View style={styles.noProgramSelected}>
-            <Text style={styles.noProgramText}>
-              {programs.length === 0 
-                ? `No programs available for ${user?.organization_name || 'your organization'}. Please contact your administrator.`
-                : 'Please select a program to view and manage competencies'
-              }
-            </Text>
-          </View>
-        ) : (
+        {program ? (
           <>
             {/* Add Competency Button */}
             <View style={styles.addButtonContainer}>
@@ -606,14 +582,20 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     marginBottom: 20,
   },
-  programFilterContainer: {
-    marginBottom: 10,
-  },
-  programFilterLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
+  programInfoContainer: {
+    marginTop: 16,
     marginBottom: 8,
+    padding: 12,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+  },
+  programInfoLabel: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  programInfoName: {
+    fontWeight: '600',
+    color: '#1F2937',
   },
   content: {
     flex: 1,
