@@ -25,7 +25,7 @@ def program_performance_data(request):
     start_date = end_date - timedelta(days=months * 30)
     
     # Get assessments for this program in the timeframe
-    \assessments = Assessment.objects.filter(
+    assessments = Assessment.objects.filter(
         trainee__program=program,
         created_at__gte=start_date,
         created_at__lte=end_date
