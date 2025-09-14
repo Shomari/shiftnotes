@@ -66,8 +66,7 @@ export function EPAManagement() {
   const [coreCompetencies, setCoreCompetencies] = useState<ApiCoreCompetency[]>([]);
   const [subCompetencies, setSubCompetencies] = useState<ApiSubCompetency[]>([]);
   const [subCompetencyEPAs, setSubCompetencyEPAs] = useState<ApiSubCompetencyEPA[]>([]);
-  const [programs, setPrograms] = useState<ApiProgram[]>([]);
-  const [selectedProgram, setSelectedProgram] = useState<string>('');
+  const [program, setProgram] = useState<ApiProgram | null>(null);
   const [loading, setLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingEPA, setEditingEPA] = useState<ApiEPA | null>(null);
@@ -83,38 +82,35 @@ export function EPAManagement() {
     sub_competencies: [],
   });
 
-  // Load data on component mount and when user changes
+  // Initialize when user is available and auto-load their program data
   useEffect(() => {
-    if (user?.organization) {
+    if (user?.program) {
+      setProgram({
+        id: user.program,
+        name: user.program_name || '',
+        abbreviation: user.program_abbreviation || '',
+        org: user.organization
+      });
       loadData();
     }
   }, [user]);
 
-  // Reload EPAs and categories when program changes
-  useEffect(() => {
-    if (selectedProgram && user?.organization) {
-      loadData();
-    }
-  }, [selectedProgram]);
-
   const loadData = async () => {
-    if (!user?.organization) {
-      console.error('No user organization found');
+    if (!user?.program) {
+      console.error('No user program found');
       return;
     }
 
     setLoading(true);
     try {
-      const [programsResponse, epasResponse, epaCategoriesResponse, coreCompetenciesResponse, subCompetenciesResponse, subCompetencyEPAsResponse] = await Promise.all([
-        apiClient.getPrograms(user.organization),
-        apiClient.getEPAs(selectedProgram || undefined),
-        apiClient.getEPACategories(selectedProgram || undefined),
+      const [epasResponse, epaCategoriesResponse, coreCompetenciesResponse, subCompetenciesResponse, subCompetencyEPAsResponse] = await Promise.all([
+        apiClient.getEPAs(user.program),
+        apiClient.getEPACategories(user.program),
         apiClient.getCoreCompetencies(),
         apiClient.getSubCompetencies(),
         apiClient.getSubCompetencyEPAs(),
       ]);
 
-      setPrograms(programsResponse.results || []);
       setEPAs(epasResponse.results || []);
       setEpaCategories(epaCategoriesResponse.results || []);
       setCoreCompetencies(coreCompetenciesResponse.results || []);
@@ -199,6 +195,7 @@ export function EPAManagement() {
         description: formData.description,
         category: formData.category,
         is_active: formData.is_active,
+        program: user?.program || '',
       };
 
       let savedEPA: ApiEPA;
@@ -405,42 +402,18 @@ export function EPAManagement() {
           Manage the library of Entrustable Professional Activities (EPAs) used in assessments
         </Text>
         
-        {/* Program Filter */}
-        <View style={styles.programFilterContainer}>
-          <Text style={styles.programFilterLabel}>
-            Select Program {user?.organization_name ? `(${user.organization_name})` : ''}:
-          </Text>
-          <Select
-            key={`epa-program-select-${user?.organization}-${programs.length}`}
-            value={selectedProgram}
-            onValueChange={(value) => {
-              console.log('EPA Management: Program selected:', value);
-              setSelectedProgram(value);
-            }}
-            placeholder={loading ? "Loading programs..." : programs.length === 0 ? "No programs available for your organization" : "Choose a program to manage EPAs"}
-            options={[
-              { value: '', label: 'All Programs' },
-              ...programs.map((program) => ({
-                value: program.id,
-                label: program.name
-              }))
-            ]}
-            disabled={loading || programs.length === 0}
-          />
-        </View>
+        {/* Program Info */}
+        {program && (
+          <View style={styles.programInfoContainer}>
+            <Text style={styles.programInfoLabel}>
+              Managing EPAs for: <Text style={styles.programInfoName}>{program.name} ({program.abbreviation})</Text>
+            </Text>
+          </View>
+        )}
       </View>
 
       <ScrollView style={styles.content}>
-        {!selectedProgram ? (
-          <View style={styles.noProgramSelected}>
-            <Text style={styles.noProgramText}>
-              {programs.length === 0 
-                ? `No programs available for ${user?.organization_name || 'your organization'}. Please contact your administrator.`
-                : 'Please select a program to view and manage EPAs'
-              }
-            </Text>
-          </View>
-        ) : (
+        {program ? (
           <>
             {/* Add EPA Button */}
             <View style={styles.addButtonContainer}>
@@ -590,20 +563,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
   },
-  programFilterContainer: {
+  programInfoContainer: {
     marginTop: 16,
-    gap: 8,
-  },
-  programFilterLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  programSelect: {
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
+    marginBottom: 8,
+    padding: 12,
+    backgroundColor: '#F3F4F6',
     borderRadius: 8,
+  },
+  programInfoLabel: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  programInfoName: {
+    fontWeight: '600',
+    color: '#1F2937',
   },
   noProgramSelected: {
     flex: 1,
