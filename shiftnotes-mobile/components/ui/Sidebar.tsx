@@ -81,16 +81,6 @@ const getNavigationItems = (userRole?: string): NavigationItem[] => {
         title: 'Competency Grid',
         icon: '📊',
       },
-      {
-        id: 'accreditation-readiness',
-        title: 'Accreditation Readiness',
-        icon: '🎓',
-      },
-      {
-        id: 'analytics',
-        title: 'Analytics',
-        icon: '📊',
-      },
     ];
   }
 

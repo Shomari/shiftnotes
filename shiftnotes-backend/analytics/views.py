@@ -105,7 +105,7 @@ def program_performance_data(request):
             created_at__lt=month_end
         ).count()
         monthly_data.append({
-            'month': month_start.strftime('%Y-%m'),
+            'month': month_start.strftime('%b %Y'),
             'assessments': month_assessments
         })
     
