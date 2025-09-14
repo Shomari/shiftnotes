@@ -38,9 +38,9 @@ class Command(BaseCommand):
             self.map_epas_to_subcompetencies(epas, subcompetencies)
             
             # Create users
-            admin_user = self.create_admin_user(organization)
+            admin_user = self.create_admin_user(organization, programs)
             doctors = self.create_doctor_users(organization, programs)
-            leadership = self.create_leadership_user(organization)
+            leadership = self.create_leadership_user(organization, programs)
             trainees = self.create_trainee_users(organization, programs)
             
             # Create assessments
@@ -269,7 +269,7 @@ class Command(BaseCommand):
                 
                 self.stdout.write(f'  ↳ {epa.code}: {len(selected_subcomps)} mappings')
 
-    def create_admin_user(self, organization):
+    def create_admin_user(self, organization, programs):
         """Create admin user for demo"""
         admin = User.objects.create_user(
             email='admin@demo.com',
@@ -278,6 +278,7 @@ class Command(BaseCommand):
             role='admin',
             department='Administration',
             organization=organization,
+            program=programs[0],  # Assign to first program
             is_staff=True
         )
         self.stdout.write(f'👤 Created admin: {admin.name}')
@@ -286,10 +287,10 @@ class Command(BaseCommand):
     def create_doctor_users(self, organization, programs):
         """Create 4 doctor users"""
         doctors_data = [
-            {"name": "Dr. Michael Rodriguez", "email": "faculty@demo.com", "department": "Emergency Medicine", "programs": [0]},
-            {"name": "Dr. Jennifer Kim", "email": "doctor2@demo.com", "department": "Family Medicine", "programs": [1]},
-            {"name": "Dr. Robert Johnson", "email": "doctor3@demo.com", "department": "Internal Medicine", "programs": [2]},
-            {"name": "Dr. Emily Zhang", "email": "doctor4@demo.com", "department": "Emergency Medicine", "programs": [0, 2]},
+            {"name": "Dr. Michael Rodriguez", "email": "faculty@demo.com", "department": "Emergency Medicine", "program": 0},
+            {"name": "Dr. Jennifer Kim", "email": "doctor2@demo.com", "department": "Family Medicine", "program": 1},
+            {"name": "Dr. Robert Johnson", "email": "doctor3@demo.com", "department": "Internal Medicine", "program": 2},
+            {"name": "Dr. Emily Zhang", "email": "doctor4@demo.com", "department": "Emergency Medicine", "program": 0},
         ]
         
         doctors = []
@@ -300,19 +301,16 @@ class Command(BaseCommand):
                 name=doc_data["name"],
                 role='faculty',
                 department=doc_data["department"],
-                organization=organization
+                organization=organization,
+                program=programs[doc_data["program"]] if doc_data["program"] < len(programs) else programs[0]
             )
-            # Add to programs
-            for prog_index in doc_data["programs"]:
-                if prog_index < len(programs):
-                    doctor.programs.add(programs[prog_index])
             
             doctors.append(doctor)
             self.stdout.write(f'👨‍⚕️ Created doctor: {doctor.name}')
         
         return doctors
 
-    def create_leadership_user(self, organization):
+    def create_leadership_user(self, organization, programs):
         """Create leadership user for demo"""
         leadership = User.objects.create_user(
             email='leadership@demo.com',
@@ -320,7 +318,8 @@ class Command(BaseCommand):
             name='Dr. Amanda Thompson',
             role='leadership',
             department='Administration',
-            organization=organization
+            organization=organization,
+            program=programs[0]  # Assign to first program
         )
         self.stdout.write(f'👔 Created leadership: {leadership.name}')
         return leadership
@@ -341,10 +340,9 @@ class Command(BaseCommand):
                 name=trainee_data["name"],
                 role='trainee',
                 department=trainee_data["department"],
-                organization=organization
+                organization=organization,
+                program=programs[trainee_data["program"]] if trainee_data["program"] < len(programs) else programs[0]
             )
-            if trainee_data["program"] < len(programs):
-                trainee.programs.add(programs[trainee_data["program"]])
             trainee.skill_level = trainee_data["level"]  # Store for assessment creation
             
             trainees.append(trainee)
@@ -369,9 +367,10 @@ class Command(BaseCommand):
             skill_level = getattr(trainee, 'skill_level', 'average')
             pattern = rating_patterns[skill_level]
             
-            # Get EPAs from trainee's programs
-            trainee_programs = trainee.programs.all()
-            available_epas = EPA.objects.filter(program__in=trainee_programs)
+            # Get EPAs from trainee's program
+            if not trainee.program:
+                continue
+            available_epas = EPA.objects.filter(program=trainee.program)
             
             if not available_epas:
                 continue
@@ -384,8 +383,8 @@ class Command(BaseCommand):
                 days_ago = random.randint(1, 180)
                 assessment_date = datetime.now().date() - timedelta(days=days_ago)
                 
-                # Random doctor from same programs
-                program_doctors = [d for d in doctors if any(prog in trainee_programs for prog in d.programs.all())]
+                # Random doctor from same program
+                program_doctors = [d for d in doctors if d.program == trainee.program]
                 if not program_doctors:
                     program_doctors = doctors
                 

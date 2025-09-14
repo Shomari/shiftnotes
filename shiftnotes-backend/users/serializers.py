@@ -3,28 +3,17 @@ from .models import User, Cohort
 
 class UserSerializer(serializers.ModelSerializer):
     organization_name = serializers.CharField(source='organization.name', read_only=True)
-    programs = serializers.SerializerMethodField()
+    program_name = serializers.CharField(source='program.name', read_only=True)
+    program_abbreviation = serializers.CharField(source='program.abbreviation', read_only=True)
     
     class Meta:
         model = User
         fields = [
             'id', 'email', 'name', 'role', 'organization', 'organization_name',
-            'programs', 'department', 'start_date', 'created_at', 'updated_at'
+            'program', 'program_name', 'program_abbreviation', 'department', 
+            'start_date', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
-    
-    def get_programs(self, obj):
-        if obj.role in ['faculty', 'leadership']:
-            return [
-                {
-                    'id': program.id,
-                    'name': program.name,
-                    'abbreviation': program.abbreviation,
-                    'specialty': program.specialty
-                }
-                for program in obj.programs.all()
-            ]
-        return []
 
 class UserCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)

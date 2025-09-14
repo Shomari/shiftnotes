@@ -1,192 +1,103 @@
-"""
-Analytics views for EPAnotes dashboards
-Provides aggregated data for leadership and admin dashboards
-"""
-
+from django.http import JsonResponse
+from django.db.models import Count, Avg, Q
+from django.utils import timezone
+from django.core.exceptions import ValidationError
+from datetime import timedelta
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework import status
-from django.db.models import Q, Avg, Count
-from datetime import datetime, timedelta
-from collections import defaultdict
-
+from assessments.models import Assessment
 from users.models import User
 from organizations.models import Program
-from assessments.models import Assessment, AssessmentEPA
-
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def program_performance_data(request):
-    """
-    Get comprehensive program performance data
+    months = int(request.GET.get('months', 6))
     
-    Query Parameters:
-    - program_id: Required - UUID of the program
-    - months: Optional - Number of months to look back (default: 6)
+    # Get the user's program
+    if not request.user.program:
+        return JsonResponse({'error': 'User is not assigned to a program'}, status=400)
     
-    Returns:
-    {
-        "program": {...},
-        "timeframe": {...},
-        "metrics": {...},
-        "trainee_breakdown": [...],
-        "competency_distribution": [...],
-        "recent_trends": {...}
-    }
-    """
-    user = request.user
-    
-    # Check permissions
-    if user.role not in ['admin', 'system-admin', 'leadership']:
-        return Response(
-            {'error': 'Insufficient permissions'}, 
-            status=status.HTTP_403_FORBIDDEN
-        )
-    
-    # Get parameters
-    program_id = request.GET.get('program_id')
-    if not program_id:
-        return Response(
-            {'error': 'program_id parameter is required'}, 
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
-    try:
-        months = int(request.GET.get('months', 6))
-    except (ValueError, TypeError):
-        months = 6
-    
-    # Get the program
-    try:
-        program = Program.objects.get(id=program_id)
-        
-        # Check if user has access to this program's organization
-        if user.role in ['admin', 'leadership'] and user.organization != program.org:
-            return Response(
-                {'error': 'Access denied to this program'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
-            
-    except Program.DoesNotExist:
-        return Response(
-            {'error': 'Program not found'}, 
-            status=status.HTTP_404_NOT_FOUND
-        )
+    program = request.user.program
     
     # Calculate date range
-    end_date = datetime.now().date()
-    start_date = end_date - timedelta(days=months * 30)  # Approximate months
+    end_date = timezone.now()
+    start_date = end_date - timedelta(days=months * 30)
     
-    # Get all trainees in this program
-    trainees = User.objects.filter(
-        role='trainee',
-        organization=program.org,
-        programs=program
+    # Get assessments for this program in the timeframe
+    assessments = Assessment.objects.filter(
+        trainee__program=program,
+        created_at__gte=start_date,
+        created_at__lte=end_date
     )
     
-    # Get all assessments for these trainees in the timeframe
-    assessments = Assessment.objects.filter(
-        trainee__in=trainees,
-        shift_date__gte=start_date,
-        shift_date__lte=end_date
-    ).select_related('trainee', 'evaluator').prefetch_related('assessment_epas')
-    
-    # Get all assessments for these trainees (for lifetime stats)
-    all_assessments = Assessment.objects.filter(
-        trainee__in=trainees
-    ).select_related('trainee', 'evaluator').prefetch_related('assessment_epas')
+    # Get active trainees (those with assessments in timeframe)
+    active_trainees = User.objects.filter(
+        role='trainee',
+        program=program,
+        assessments_received__created_at__gte=start_date
+    ).distinct()
     
     # Calculate metrics
-    total_trainees = trainees.count()
     total_assessments = assessments.count()
-    total_lifetime_assessments = all_assessments.count()
+    active_trainee_count = active_trainees.count()
+    avg_competency_level = assessments.aggregate(avg_score=Avg('assessment_epas__entrustment_level'))['avg_score'] or 0
     
-    # Calculate competency levels
-    competency_levels = []
-    competency_sum = 0
-    competency_count = 0
-    level_distribution = defaultdict(int)
-    
-    for assessment in assessments:
-        for epa_assessment in assessment.assessment_epas.all():
-            level = epa_assessment.entrustment_level
-            competency_levels.append(level)
-            competency_sum += level
-            competency_count += 1
-            level_distribution[level] += 1
-    
-    avg_competency_level = competency_sum / competency_count if competency_count > 0 else 0
-    
-    # Calculate active trainees (those with assessments in timeframe)
-    active_trainee_ids = set(assessments.values_list('trainee_id', flat=True))
-    active_trainees_count = len(active_trainee_ids)
+    # Assessment distribution by entrustment level
+    milestone_distribution = {}
+    competency_distribution = []
+    for level in range(1, 6):  # Entrustment levels are 1-5, not 1-6
+        count = assessments.filter(assessment_epas__entrustment_level=level).count()
+        milestone_distribution[f'level_{level}'] = count
+        competency_distribution.append({
+            'level': level,
+            'count': count,
+            'completion_rate': round((count / total_assessments * 100) if total_assessments > 0 else 0, 1)
+        })
     
     # Trainee breakdown
     trainee_breakdown = []
-    for trainee in trainees:
+    for trainee in active_trainees:
         trainee_assessments = assessments.filter(trainee=trainee)
-        trainee_all_assessments = all_assessments.filter(trainee=trainee)
+        trainee_count = trainee_assessments.count()
+        trainee_avg = trainee_assessments.aggregate(
+            avg_score=Avg('assessment_epas__entrustment_level')
+        )['avg_score'] or 0
         
-        # Calculate trainee's average competency
-        trainee_levels = []
-        for assessment in trainee_all_assessments:
-            for epa_assessment in assessment.assessment_epas.all():
-                trainee_levels.append(epa_assessment.entrustment_level)
-        
-        trainee_avg = sum(trainee_levels) / len(trainee_levels) if trainee_levels else 0
+        last_assessment = trainee_assessments.order_by('-created_at').first()
         
         trainee_breakdown.append({
             'id': str(trainee.id),
             'name': trainee.name,
-            'department': trainee.department,
-            'assessments_in_period': trainee_assessments.count(),
-            'total_assessments': trainee_all_assessments.count(),
+            'department': trainee.department or 'Not specified',
+            'assessments_in_period': trainee_count,
+            'total_assessments': trainee.assessments_received.count(),
             'average_competency_level': round(trainee_avg, 2),
-            'is_active': trainee.id in active_trainee_ids,
-            'last_assessment_date': trainee_assessments.order_by('-shift_date').first().shift_date.isoformat() if trainee_assessments.exists() else None
+            'is_active': trainee_count > 0,
+            'last_assessment_date': last_assessment.created_at.isoformat() if last_assessment else None
         })
     
-    # Competency distribution
-    total_ratings = sum(level_distribution.values())
-    competency_distribution = []
-    for level in sorted(level_distribution.keys()):
-        count = level_distribution[level]
-        percentage = (count / total_ratings * 100) if total_ratings > 0 else 0
-        competency_distribution.append({
-            'level': level,
-            'count': count,
-            'percentage': round(percentage, 1)
+    # Monthly assessment trends
+    monthly_data = []
+    for i in range(months):
+        month_start = end_date - timedelta(days=(i+1) * 30)
+        month_end = end_date - timedelta(days=i * 30)
+        month_assessments = assessments.filter(
+            created_at__gte=month_start,
+            created_at__lt=month_end
+        ).count()
+        monthly_data.append({
+            'month': month_start.strftime('%Y-%m'),
+            'assessments': month_assessments
         })
     
-    # Recent trends (monthly breakdown)
-    monthly_data = defaultdict(lambda: {'assessments': 0, 'avg_level': 0, 'levels': []})
-    for assessment in assessments:
-        month_key = assessment.shift_date.strftime('%Y-%m')
-        monthly_data[month_key]['assessments'] += 1
-        
-        for epa_assessment in assessment.assessment_epas.all():
-            monthly_data[month_key]['levels'].append(epa_assessment.entrustment_level)
+    monthly_data.reverse()  # Show oldest to newest
     
-    # Calculate monthly averages
-    recent_trends = []
-    for month_key in sorted(monthly_data.keys()):
-        data = monthly_data[month_key]
-        avg_level = sum(data['levels']) / len(data['levels']) if data['levels'] else 0
-        recent_trends.append({
-            'month': month_key,
-            'assessments': data['assessments'],
-            'average_level': round(avg_level, 2)
-        })
-    
-    # Prepare response
-    response_data = {
+    return JsonResponse({
         'program': {
-            'id': str(program.id),
+            'id': program.id,
             'name': program.name,
-            'abbreviation': program.abbreviation,
-            'specialty': program.specialty
+            'abbreviation': program.abbreviation
         },
         'timeframe': {
             'months': months,
@@ -194,16 +105,14 @@ def program_performance_data(request):
             'end_date': end_date.isoformat()
         },
         'metrics': {
-            'total_trainees': total_trainees,
-            'active_trainees': active_trainees_count,
-            'assessments_in_period': total_assessments,
-            'total_lifetime_assessments': total_lifetime_assessments,
+            'total_assessments': total_assessments,
+            'active_trainees': active_trainee_count,
             'average_competency_level': round(avg_competency_level, 2),
-            'completion_rate': round((active_trainees_count / total_trainees * 100) if total_trainees > 0 else 0, 1)
+            'milestone_distribution': milestone_distribution
         },
         'trainee_breakdown': trainee_breakdown,
         'competency_distribution': competency_distribution,
-        'recent_trends': recent_trends
-    }
-    
-    return Response(response_data)
+        'trends': {
+            'monthly_assessments': monthly_data
+        }
+    })

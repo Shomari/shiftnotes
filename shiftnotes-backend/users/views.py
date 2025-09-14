@@ -79,22 +79,20 @@ class UserViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def trainees(self, request):
-        """Get trainee users from programs the requesting user is associated with"""
-        # Get all programs the requesting user is associated with
-        user_programs = request.user.programs.all()
-        
-        if not user_programs.exists():
-            # If user has no programs, return empty result
+        """Get trainee users from the requesting user's program"""
+        # Get the requesting user's program
+        if not request.user.program:
+            # If user has no program, return empty result
             return Response({
                 'results': [],
                 'count': 0
             })
         
-        # Get trainees from those specific programs
+        # Get trainees from the same program
         trainees = User.objects.filter(
             role='trainee',
-            programs__in=user_programs
-        ).distinct()
+            program=request.user.program
+        )
         
         serializer = UserSerializer(trainees, many=True)
         return Response({

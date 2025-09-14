@@ -31,7 +31,7 @@ class EmailService:
         else:
             # Fallback for when no request context (e.g., management commands)
             domain = getattr(settings, 'FRONTEND_DOMAIN', 'localhost:8081')
-            protocol = 'http'  # Change to https in production
+            protocol = 'https' if domain != 'localhost:8081' else 'http'  # Use HTTPS for production domains
         
         reset_url = f"{protocol}://{domain}/reset-password/{uid}/{token}/"
         return reset_url

@@ -53,8 +53,6 @@ interface ProgramPerformanceData {
 
 const ProgramPerformanceDashboard: React.FC<ProgramPerformanceProps> = ({ user }) => {
   const [loading, setLoading] = useState(true);
-  const [programs, setPrograms] = useState<any[]>([]);
-  const [selectedProgram, setSelectedProgram] = useState<string>('');
   const [selectedTimeframe, setSelectedTimeframe] = useState<number>(6);
   const [dashboardData, setDashboardData] = useState<ProgramPerformanceData | null>(null);
 
@@ -65,49 +63,18 @@ const ProgramPerformanceDashboard: React.FC<ProgramPerformanceProps> = ({ user }
     { value: '12', label: '12 Months' },
   ];
 
-  // Load programs on component mount
+  // Load dashboard data when timeframe changes
   useEffect(() => {
-    loadPrograms();
-  }, [user]);
+    loadDashboardData();
+  }, [selectedTimeframe]);
 
-  // Load dashboard data when program or timeframe changes
-  useEffect(() => {
-    if (selectedProgram) {
-      loadDashboardData();
-    }
-  }, [selectedProgram, selectedTimeframe]);
-
-  const loadPrograms = async () => {
-    try {
-      setLoading(true);
-      console.log('Loading programs for organization:', user.organization);
-      
-      const response = await apiClient.getPrograms(user.organization);
-      const programList = response.results || [];
-      
-      console.log('Loaded programs:', programList.length);
-      setPrograms(programList);
-      
-      // Auto-select first program if available
-      if (programList.length > 0 && !selectedProgram) {
-        setSelectedProgram(programList[0].id);
-      }
-    } catch (error) {
-      console.error('Error loading programs:', error);
-      Alert.alert('Error', 'Failed to load programs');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const loadDashboardData = async () => {
-    if (!selectedProgram) return;
-    
     try {
       setLoading(true);
-      console.log('Loading dashboard data for program:', selectedProgram, 'timeframe:', selectedTimeframe);
+      console.log('Loading dashboard data for user program, timeframe:', selectedTimeframe);
       
-      const data = await apiClient.getProgramPerformanceData(selectedProgram, selectedTimeframe);
+      const data = await apiClient.getProgramPerformanceData(selectedTimeframe);
       console.log('Dashboard data loaded:', data);
       
       setDashboardData(data);
@@ -168,30 +135,13 @@ const ProgramPerformanceDashboard: React.FC<ProgramPerformanceProps> = ({ user }
         <CardContent>
           <View style={styles.controlsRow}>
             <View style={styles.controlGroup}>
-              <Text style={styles.controlLabel}>Program:</Text>
-              <Select
-                value={selectedProgram}
-                onValueChange={setSelectedProgram}
-                placeholder="Select a program"
-                options={[
-                  { value: '', label: 'Select a program' },
-                  ...programs.map(program => ({
-                    value: program.id,
-                    label: `${program.name} (${program.abbreviation})`
-                  }))
-                ]}
-                disabled={loading}
-              />
-            </View>
-            
-            <View style={styles.controlGroup}>
               <Text style={styles.controlLabel}>Time Period:</Text>
               <Select
                 value={selectedTimeframe.toString()}
                 onValueChange={(value) => setSelectedTimeframe(parseInt(value))}
                 placeholder="Select timeframe"
                 options={timeframeOptions}
-                disabled={loading || !selectedProgram}
+                disabled={loading}
               />
             </View>
           </View>

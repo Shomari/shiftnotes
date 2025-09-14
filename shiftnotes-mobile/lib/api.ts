@@ -516,8 +516,8 @@ export class ApiClient {
   }
 
   // Analytics endpoints
-  async getProgramPerformanceData(programId: string, months: number = 6): Promise<any> {
-    const url = `/analytics/program-performance/?program_id=${programId}&months=${months}`;
+  async getProgramPerformanceData(months: number = 6): Promise<any> {
+    const url = `/analytics/program-performance/?months=${months}`;
     return this.request(url);
   }
 

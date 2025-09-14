@@ -50,11 +50,13 @@ class User(AbstractUser):
         null=True,  # Allow null for superusers
         blank=True  # Allow blank in forms for superusers
     )
-    programs = models.ManyToManyField(
+    program = models.ForeignKey(
         'organizations.Program',
-        related_name='faculty',
+        on_delete=models.CASCADE,
+        related_name='users',
+        null=True,
         blank=True,
-        help_text='Programs this faculty member is associated with'
+        help_text='Program this user belongs to'
     )
     department = models.CharField(max_length=100, blank=True)
     start_date = models.DateField(null=True, blank=True)
