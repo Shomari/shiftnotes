@@ -116,7 +116,7 @@ export function SiteManagement() {
       }
       
       setShowCreateModal(false);
-      loadSites();
+      loadData();
       Alert.alert('Success', `Site ${editingSite ? 'updated' : 'created'} successfully`);
     } catch (error) {
       console.error('Error saving site:', error);
@@ -136,7 +136,7 @@ export function SiteManagement() {
           onPress: async () => {
             try {
               await apiClient.deleteSite(site.id);
-              loadSites();
+              loadData();
               Alert.alert('Success', 'Site deleted successfully');
             } catch (error) {
               console.error('Error deleting site:', error);
@@ -265,18 +265,7 @@ export function SiteManagement() {
               />
             </View>
 
-            <View style={styles.field}>
-              <Text style={styles.label}>Program</Text>
-              <Select
-                value={formData.program}
-                onValueChange={(value) => setFormData({ ...formData, program: value })}
-                placeholder="Select a program"
-                options={programs.map((program) => ({
-                  value: program.id,
-                  label: program.name
-                }))}
-              />
-            </View>
+            {/* Program is automatically set to user's program */}
           </ScrollView>
 
           <View style={styles.modalFooter}>

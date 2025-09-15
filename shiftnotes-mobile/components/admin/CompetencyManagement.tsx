@@ -180,7 +180,7 @@ export function CompetencyManagement() {
       }
       
       setShowCreateModal(false);
-      loadCompetencies();
+      loadData();
       Alert.alert('Success', `Competency ${editingCompetency ? 'updated' : 'created'} successfully`);
     } catch (error) {
       console.error('Error saving competency:', error);
@@ -200,7 +200,7 @@ export function CompetencyManagement() {
           onPress: async () => {
             try {
               await apiClient.deleteCoreCompetency(competency.id);
-              loadCompetencies();
+              loadData();
               Alert.alert('Success', 'Competency deleted successfully');
             } catch (error) {
               console.error('Error deleting competency:', error);
@@ -258,7 +258,7 @@ export function CompetencyManagement() {
       }
       
       setShowSubCompetencyModal(false);
-      loadCompetencies();
+      loadData();
       Alert.alert('Success', `Sub-competency ${editingSubCompetency ? 'updated' : 'created'} successfully`);
     } catch (error) {
       console.error('Error saving sub-competency:', error);
@@ -278,7 +278,7 @@ export function CompetencyManagement() {
           onPress: async () => {
             try {
               await apiClient.deleteSubCompetency(subCompetency.id);
-              loadCompetencies();
+              loadData();
               Alert.alert('Success', 'Sub-competency deleted successfully');
             } catch (error) {
               console.error('Error deleting sub-competency:', error);

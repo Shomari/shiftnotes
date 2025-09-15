@@ -131,12 +131,12 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
       
       // Determine trainee's program - each trainee belongs to one program
       let traineeProgram = null;
-      if (selectedTraineeData.programs && selectedTraineeData.programs.length > 0) {
-        traineeProgram = selectedTraineeData.programs[0];
+      if (selectedTraineeData.program) {
+        traineeProgram = selectedTraineeData.program;
       } else {
         // Fallback: infer program from department/specialty
         const department = selectedTraineeData.department;
-        console.log('No programs found, inferring from department:', department);
+        console.log('No program found, inferring from department:', department);
         
         // Get all programs to match by specialty
         const programsResponse = await apiClient.getPrograms(user?.organization || '');
