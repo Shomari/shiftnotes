@@ -10,6 +10,7 @@ interface InputProps extends TextInputProps {
   label?: string;
   error?: string;
   containerStyle?: ViewStyle;
+  icon?: React.ReactElement;
 }
 
 export function Input({ 
@@ -17,20 +18,25 @@ export function Input({
   error, 
   containerStyle, 
   style, 
+  icon,
   ...props 
 }: InputProps) {
   return (
     <View style={[styles.container, containerStyle]}>
       {label && <Text style={styles.label}>{label}</Text>}
-      <TextInput
-        style={[
-          styles.input,
-          error && styles.inputError,
-          style,
-        ]}
-        placeholderTextColor="#999"
-        {...props}
-      />
+      <View style={styles.inputContainer}>
+        {icon && <View style={styles.iconContainer}>{icon}</View>}
+        <TextInput
+          style={[
+            styles.input,
+            error && styles.inputError,
+            icon && styles.inputWithIcon,
+            style,
+          ]}
+          placeholderTextColor="#999"
+          {...props}
+        />
+      </View>
       {error && <Text style={styles.errorText}>{error}</Text>}
     </View>
   );
@@ -64,5 +70,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#ef4444',
     marginTop: 4,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  iconContainer: {
+    position: 'absolute',
+    left: 12,
+    zIndex: 1,
+  },
+  inputWithIcon: {
+    paddingLeft: 40,
   },
 });

@@ -338,11 +338,6 @@ export class ApiClient {
     return this.request(`/epas/${epaId}/`, { method: 'DELETE' });
   }
 
-  // Program endpoints
-  async getPrograms(organizationId?: string): Promise<ApiResponse<ApiProgram>> {
-    const url = organizationId ? `/programs/?org=${organizationId}` : '/programs/';
-    return this.request<ApiResponse<ApiProgram>>(url);
-  }
 
   // Site endpoints
   async getSites(organizationId?: string, programId?: string): Promise<ApiResponse<ApiSite>> {
@@ -460,10 +455,6 @@ export class ApiClient {
     });
   }
 
-  // Assessment endpoints
-  async getAssessments(): Promise<ApiResponse<ApiAssessment>> {
-    return this.request<ApiResponse<ApiAssessment>>('/assessments/');
-  }
 
   async getMyAssessments(): Promise<ApiResponse<ApiAssessment>> {
     return this.request<ApiResponse<ApiAssessment>>('/assessments/my_assessments/');

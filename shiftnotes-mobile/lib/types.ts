@@ -10,21 +10,26 @@ export interface User {
   email: string
   name: string
   role: UserRole
-  isActive: boolean
-  createdAt: string
-  updatedAt?: string
-  // Optional properties for different user types
+  organization: string
+  organization_name?: string
+  program: string
+  program_name?: string
+  program_abbreviation?: string
   cohort?: string
-  cohortId?: string
-  startDate?: string
-  department?: string
-  specialties?: string[]
+  cohort_name?: string
+  start_date?: string
+  department: string
+  specialties: string[]
+  deactivated_at?: string
+  created_at: string
+  assessment_count?: number
+  evaluation_count?: number
 }
 
 export interface Trainee extends User {
   role: 'trainee'
   cohort?: string
-  startDate: string
+  start_date?: string
 }
 
 export interface Faculty extends User {

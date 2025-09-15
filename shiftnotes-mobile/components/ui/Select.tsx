@@ -28,6 +28,7 @@ interface SelectProps {
   placeholder: string;
   options: SelectOption[];
   disabled?: boolean;
+  style?: any;
 }
 
 export function Select({
@@ -36,6 +37,7 @@ export function Select({
   placeholder,
   options,
   disabled = false,
+  style,
 }: SelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const triggerRef = useRef<View>(null);
@@ -83,6 +85,7 @@ export function Select({
           styles.trigger,
           disabled && styles.triggerDisabled,
           isOpen && styles.triggerActive,
+          style,
         ]}
         onPress={handleTriggerPress}
         disabled={disabled}

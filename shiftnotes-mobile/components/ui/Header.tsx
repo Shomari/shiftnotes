@@ -8,20 +8,28 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 
 interface HeaderProps {
   title: string;
-  onMenuPress: () => void;
+  onMenuPress?: () => void;
   onLogout?: () => void;
   userInfo?: {
     name: string;
     role: string;
   };
   showMenuButton?: boolean;
+  leftAction?: {
+    icon: React.ComponentType<any>;
+    onPress: () => void;
+  };
 }
 
-export function Header({ title, onMenuPress, onLogout, userInfo, showMenuButton = true }: HeaderProps) {
+export function Header({ title, onMenuPress, onLogout, userInfo, showMenuButton = true, leftAction }: HeaderProps) {
   return (
     <View style={styles.header}>
       <View style={styles.leftSection}>
-        {showMenuButton && (
+        {leftAction ? (
+          <Pressable onPress={leftAction.onPress} style={styles.menuButton}>
+            <leftAction.icon size={24} color="#374151" />
+          </Pressable>
+        ) : showMenuButton && onMenuPress && (
           <Pressable onPress={onMenuPress} style={styles.menuButton}>
             <View style={styles.hamburger}>
               <View style={styles.line} />

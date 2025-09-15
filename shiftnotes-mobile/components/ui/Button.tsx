@@ -16,7 +16,7 @@ interface ButtonProps {
   loading?: boolean;
   style?: ViewStyle;
   textStyle?: TextStyle;
-  icon?: string;
+  icon?: string | React.ComponentType<any> | React.ReactElement;
 }
 
 export function Button({
@@ -59,7 +59,18 @@ export function Button({
         <ActivityIndicator color={variant === 'default' ? '#ffffff' : '#007AFF'} />
       ) : (
         <View style={styles.buttonContent}>
-          {icon === 'plus' && <Plus size={16} color={variant === 'default' ? '#ffffff' : '#007AFF'} />}
+          {icon && (
+            typeof icon === 'string' ? (
+              icon === 'plus' && <Plus size={16} color={variant === 'default' ? '#ffffff' : '#007AFF'} />
+            ) : React.isValidElement(icon) ? (
+              icon
+            ) : (
+              React.createElement(icon as React.ComponentType<any>, {
+                size: 16,
+                color: variant === 'default' ? '#ffffff' : '#007AFF'
+              })
+            )
+          )}
           <Text style={textStyles}>{title}</Text>
         </View>
       )}
