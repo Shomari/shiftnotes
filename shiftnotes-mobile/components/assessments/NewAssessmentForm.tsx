@@ -42,11 +42,9 @@ interface NewAssessmentFormProps {
 export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
   const { user } = useAuth();
   
-  // State management (similar to web version)
+  // State management (updated for single-program architecture)
   const [epas, setEPAs] = useState<EPA[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [programs, setPrograms] = useState<ApiProgram[]>([]);
-  const [selectedProgram, setSelectedProgram] = useState<string>('');
   const [selectedEPAs, setSelectedEPAs] = useState<string[]>([]);
   const [epaAssessments, setEpaAssessments] = useState<Record<string, Partial<AssessmentEPA>>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -71,29 +69,12 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
 
   // Load data on component mount and when user changes
   useEffect(() => {
-    if (user) {
-      loadInitialData();
+    if (user?.program) {
+      console.log('Loading data for user program:', user.program);
+      loadEPAsForProgram(user.program);
+      loadTraineesForProgram(user.program);
     }
   }, [user]);
-
-  // Load EPAs and trainees when program is selected
-  useEffect(() => {
-    if (selectedProgram) {
-      loadEPAsForProgram(selectedProgram);
-      loadTraineesForProgram(selectedProgram);
-      // Clear any previously selected trainees and EPAs when switching programs
-      setSelectedEPAs([]);
-      setEpaAssessments({});
-      // Reset form fields that depend on program
-      setValue('traineeId', '');
-    } else {
-      setEPAs([]);
-      setUsers([]);
-      setSelectedEPAs([]);
-      setEpaAssessments({});
-      setValue('traineeId', '');
-    }
-  }, [selectedProgram]);
 
   const loadEPAsForProgram = async (programId: string) => {
     try {
@@ -141,37 +122,6 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
     }
   };
 
-  const loadInitialData = async () => {
-    console.log('Loading initial data...');
-    console.log('User from context:', user);
-    console.log('User programs from context:', user?.programs);
-    
-    // Load programs first (from user context)
-    if (user?.programs && user.programs.length > 0) {
-      console.log('Using user programs from context:', user.programs.length);
-      setPrograms(user.programs);
-      
-      // Auto-select if only one program
-      if (user.programs.length === 1) {
-        console.log('Auto-selecting single program:', user.programs[0].name);
-        setSelectedProgram(user.programs[0].id);
-      }
-    } else {
-      console.log('No user programs in context, falling back to organization programs');
-      try {
-        // Fallback to organization programs for other roles
-        const programsResponse = user?.organization 
-          ? await apiClient.getPrograms(user.organization) 
-          : await apiClient.getPrograms();
-        setPrograms(programsResponse.results || []);
-      } catch (error) {
-        console.error('Error loading programs:', error);
-        setPrograms([]);
-      }
-    }
-    
-    // Trainees will be loaded when a program is selected
-  };
 
   // EPA selection handling
   const handleEPAToggle = (epaId: string) => {
@@ -202,7 +152,7 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
   const onSubmit = async (data: AssessmentFormData, isDraft: boolean = false) => {
     console.log('Form submission started:', { data, isDraft, selectedEPAs: selectedEPAs.length });
     console.log('Current user:', user);
-    console.log('Selected program:', selectedProgram);
+    console.log('User program:', user?.program);
     
     // Validate required fields
     if (!data.traineeId) {
@@ -210,8 +160,8 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
       return;
     }
     
-    if (!selectedProgram) {
-      Alert.alert('Validation Error', 'Please select a program.');
+    if (!user?.program) {
+      Alert.alert('Validation Error', 'User program not found.');
       return;
     }
     
@@ -263,7 +213,6 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
           reset();
           setSelectedEPAs([]);
           setEpaAssessments({});
-          setSelectedProgram('');
           
           console.log('About to navigate to overview...');
           console.log('onNavigate function:', onNavigate);
@@ -293,7 +242,6 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
                 reset();
                 setSelectedEPAs([]);
                 setEpaAssessments({});
-                setSelectedProgram('');
                 
                 console.log('About to navigate to overview...');
                 console.log('onNavigate function:', onNavigate);
@@ -347,44 +295,7 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.scrollContent}
         >
-          {/* Program Selection Card */}
-          <Card style={styles.programCard}>
-            <CardHeader>
-              <CardTitle>Program Selection</CardTitle>
-              <Text style={styles.cardSubtitle}>Select the program you're assessing for</Text>
-            </CardHeader>
-            <CardContent>
-              <View style={styles.field}>
-                <Text style={styles.label}>Program *</Text>
-                <Select
-                  value={selectedProgram}
-                  onValueChange={setSelectedProgram}
-                  placeholder="Select a program"
-                  options={programs.map(program => ({
-                    label: program.name,
-                    value: program.id,
-                    subtitle: program.specialty,
-                  }))}
-                />
-              </View>
-            </CardContent>
-          </Card>
-
-          {/* No Program Selected Message */}
-          {!selectedProgram && (
-            <Card style={styles.noProgramCard}>
-              <CardContent>
-                <View style={styles.noProgramSelected}>
-                  <Text style={styles.noProgramText}>
-                    Please select a program above to begin creating an assessment
-                  </Text>
-                </View>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Assessment Details Card - Only show when program is selected */}
-          {selectedProgram && (
+          {/* Assessment Details Card */}
             <Card style={styles.detailsCard}>
               <CardHeader>
                 <CardTitle>Assessment Details</CardTitle>
@@ -457,10 +368,8 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
               </View>
             </CardContent>
           </Card>
-          )}
 
-          {/* EPA Selection - Only show when program is selected */}
-          {selectedProgram && (
+          {/* EPA Selection */}
             <Card style={styles.epaCard}>
             <CardHeader>
               <CardTitle>EPA Selection</CardTitle>
@@ -553,10 +462,8 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
               })}
             </CardContent>
           </Card>
-          )}
 
-          {/* Private Comments - Only show when program is selected */}
-          {selectedProgram && (
+          {/* Private Comments */}
             <Card style={styles.commentsCard}>
             <CardHeader>
               <CardTitle>Private Comments for Leadership</CardTitle>
@@ -580,11 +487,10 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
               />
             </CardContent>
           </Card>
-          )}
         </ScrollView>
 
-        {/* Assessment Summary Sidebar - Only show when program is selected */}
-        {isTablet && selectedProgram && (
+        {/* Assessment Summary Sidebar */}
+        {isTablet && (
           <View style={styles.sidebar}>
             <Card style={styles.summaryCard}>
               <CardHeader>
@@ -638,8 +544,8 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
         )}
       </View>
 
-      {/* Mobile Action Buttons - Only show when program is selected */}
-      {!isTablet && selectedProgram && (
+      {/* Mobile Action Buttons */}
+      {!isTablet && (
         <View style={styles.mobileActions}>
           <Button
             title="Save as Draft"
