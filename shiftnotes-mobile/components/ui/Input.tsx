@@ -31,6 +31,7 @@ export function Input({
             styles.input,
             error && styles.inputError,
             icon && styles.inputWithIcon,
+            !icon && styles.inputWithoutIcon,
             style,
           ]}
           placeholderTextColor="#999"
@@ -83,5 +84,8 @@ const styles = StyleSheet.create({
   },
   inputWithIcon: {
     paddingLeft: 40,
+  },
+  inputWithoutIcon: {
+    flex: 1,
   },
 });
