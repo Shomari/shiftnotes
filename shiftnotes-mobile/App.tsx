@@ -151,9 +151,9 @@ function AppContent() {
       case 'user-management':
         return <UserManagement onAddUser={handleAddUser} onEditUser={handleEditUser} />;
       case 'add-user':
-        return <AddUser />;
+        return <AddUser onBack={() => setCurrentRoute('user-management')} />;
       case 'edit-user':
-        return selectedUserId ? <EditUser userId={selectedUserId} /> : <UserManagement onAddUser={handleAddUser} onEditUser={handleEditUser} />;
+        return selectedUserId ? <EditUser userId={selectedUserId} onBack={() => setCurrentRoute('user-management')} /> : <UserManagement onAddUser={handleAddUser} onEditUser={handleEditUser} />;
       case 'epa-management':
         return <EPAManagement />;
       case 'competency-management':

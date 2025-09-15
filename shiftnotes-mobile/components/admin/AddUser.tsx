@@ -14,7 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+// Navigation handled by parent component
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
@@ -32,8 +32,11 @@ interface UserFormData {
   password: string;
 }
 
-export default function AddUser() {
-  const router = useRouter();
+interface AddUserProps {
+  onBack?: () => void;
+}
+
+export default function AddUser({ onBack }: AddUserProps) {
   const { user } = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<UserFormData>({
@@ -73,7 +76,7 @@ export default function AddUser() {
 
       await apiClient.createUser(userData);
       Alert.alert('Success', 'User created successfully', [
-        { text: 'OK', onPress: () => router.back() }
+        { text: 'OK', onPress: onBack }
       ]);
     } catch (error) {
       console.error('Error creating user:', error);
@@ -84,7 +87,7 @@ export default function AddUser() {
   };
 
   const handleCancel = () => {
-    router.back();
+    if (onBack) onBack();
   };
 
   return (

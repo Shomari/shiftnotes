@@ -14,7 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+// Navigation handled by parent component
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
@@ -31,9 +31,12 @@ interface UserFormData {
   department: string;
 }
 
-export default function EditUser() {
-  const router = useRouter();
-  const { userId } = useLocalSearchParams();
+interface EditUserProps {
+  userId: string;
+  onBack?: () => void;
+}
+
+export default function EditUser({ userId, onBack }: EditUserProps) {
   const { user } = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
   const [loadingUser, setLoadingUser] = useState(true);
@@ -74,12 +77,12 @@ export default function EditUser() {
         });
       } else {
         Alert.alert('Error', 'User not found');
-        router.back();
+        if (onBack) onBack();
       }
     } catch (error) {
       console.error('Error loading user:', error);
       Alert.alert('Error', 'Failed to load user data');
-      router.back();
+      if (onBack) onBack();
     } finally {
       setLoadingUser(false);
     }
@@ -99,9 +102,9 @@ export default function EditUser() {
 
     setLoading(true);
     try {
-      await apiClient.updateUser(userId as string, formData);
+      await apiClient.updateUser(userId, formData);
       Alert.alert('Success', 'User updated successfully', [
-        { text: 'OK', onPress: () => router.back() }
+        { text: 'OK', onPress: onBack }
       ]);
     } catch (error) {
       console.error('Error updating user:', error);
@@ -135,9 +138,9 @@ export default function EditUser() {
                 deactivated_at: isActive ? new Date().toISOString() : null,
               };
               
-              await apiClient.updateUser(userId as string, updateData);
+              await apiClient.updateUser(userId, updateData);
               Alert.alert('Success', `User ${action}d successfully`, [
-                { text: 'OK', onPress: () => router.back() }
+                { text: 'OK', onPress: onBack }
               ]);
             } catch (error) {
               console.error(`Error ${action}ing user:`, error);
@@ -152,7 +155,7 @@ export default function EditUser() {
   };
 
   const handleCancel = () => {
-    router.back();
+    if (onBack) onBack();
   };
 
   if (loadingUser) {
