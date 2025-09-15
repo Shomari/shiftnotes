@@ -20,12 +20,15 @@ export interface ApiUser {
   role: 'trainee' | 'faculty' | 'admin' | 'leadership' | 'system-admin';
   organization: string;
   organization_name?: string;
-  programs?: ApiProgram[];
+  program: string;
+  program_name?: string;
+  program_abbreviation?: string;
   cohort?: string;
   cohort_name?: string;
   start_date?: string;
   department: string;
   specialties: string[];
+  deactivated_at?: string;
   created_at: string;
   assessment_count?: number;
   evaluation_count?: number;

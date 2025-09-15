@@ -425,6 +425,12 @@ export function CompetencyManagement() {
               </View>
             )}
           </>
+        ) : (
+          <View style={styles.noProgramSelected}>
+            <Text style={styles.noProgramText}>
+              Loading program data...
+            </Text>
+          </View>
         )}
       </ScrollView>
 
