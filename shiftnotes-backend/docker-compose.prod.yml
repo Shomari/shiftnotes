@@ -6,9 +6,7 @@ services:
       - "8001:8000"  # HTTP - system nginx will proxy to this
     environment:
       - DEBUG=0
-      - DATABASE_URL=sqlite:///db.sqlite3
     volumes:
-      - ./db.sqlite3:/app/db.sqlite3
       - ./logs:/app/logs
       - ./static:/app/staticfiles
     restart: unless-stopped

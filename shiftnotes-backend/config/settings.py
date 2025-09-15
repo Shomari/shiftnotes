@@ -78,7 +78,8 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database Configuration
-# Use SQLite for development, PostgreSQL Aurora for production
+# Local Development: SQLite (DEBUG=True)
+# Production EC2: PostgreSQL RDS (DEBUG=False)
 
 if DEBUG:
     # Development - SQLite
@@ -89,7 +90,7 @@ if DEBUG:
         }
     }
 else:
-    # Production - Aurora PostgreSQL
+    # Production EC2 - PostgreSQL RDS
     def get_secret(secret_name):
         """Get secret from AWS Secrets Manager."""
         try:
@@ -102,11 +103,11 @@ else:
             return None
 
     # Try to get database credentials from Secrets Manager
-    db_credentials = get_secret("shiftnotes/database/credentials")
+    db_credentials = get_secret("epanotes/rds/postgres")
     if db_credentials:
-        DB_HOST = 'shiftnotes-aurora-public.cluster-czz7iet4urq4.us-east-1.rds.amazonaws.com'
-        DB_NAME = 'shiftnotes'
-        DB_USER = db_credentials.get('username', 'shiftnotes_admin')
+        DB_HOST = db_credentials.get('host')
+        DB_NAME = db_credentials.get('dbname', 'epanotes')
+        DB_USER = db_credentials.get('username', 'postgres')
         DB_PASSWORD = db_credentials.get('password', '')
     else:
         # Fallback to environment variables
