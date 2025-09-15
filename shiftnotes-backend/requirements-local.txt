@@ -1,6 +1,0 @@
-# Local development requirements (compatible with older Python versions)
-Django>=3.2,<4.0
-djangorestframework>=3.12.0
-django-cors-headers>=3.10.0
-django-filter>=21.1
-whitenoise>=6.0.0

@@ -182,7 +182,12 @@ export function UserManagement({ onAddUser, onEditUser }: UserManagementProps) {
     }
   };
 
-  const filteredUsers = users.filter(user => {
+  const filteredUsers = (users || []).filter(user => {
+    if (!user) {
+      console.warn('Found null/undefined user in users array');
+      return false;
+    }
+    
     const matchesSearch = searchTerm === '' ||
       (user.name && user.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -224,7 +229,13 @@ export function UserManagement({ onAddUser, onEditUser }: UserManagementProps) {
     setCohortForm({ name: '', year: '', startDate: '' });
   };
 
-  const handleEditUser = (user: User) => {
+  const handleEditUser = (user: ApiUser) => {
+    console.log('handleEditUser called with user:', user);
+    console.log('user.id:', user?.id);
+    if (!user?.id) {
+      console.error('User object is missing id:', user);
+      return;
+    }
     onEditUser(user.id);
   };
 
@@ -286,8 +297,8 @@ export function UserManagement({ onAddUser, onEditUser }: UserManagementProps) {
         />
       </View>
 
-      {filteredUsers.filter(user => user.role === 'trainee').map(user => {
-        const cohort = sampleCohorts.find(c => c.id === user.cohort);
+      {filteredUsers?.filter(user => user?.role === 'trainee')?.map(user => {
+        const cohort = sampleCohorts?.find(c => c.id === user?.cohort);
         return (
           <Card key={user.id} style={styles.userCard}>
             <CardHeader style={styles.userCardHeader}>

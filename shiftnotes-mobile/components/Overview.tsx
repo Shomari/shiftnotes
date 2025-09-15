@@ -50,8 +50,15 @@ export function Overview({ onNewAssessment, userInfo, user: userProp }: Overview
     try {
       setLoading(true);
       
-      // Admin users don't fetch assessment data
-      if (user?.role === 'admin' || user?.role === 'system-admin') {
+      let allAssessments: ApiAssessment[] = [];
+      
+      if (user?.role === 'admin' || user?.role === 'leadership') {
+        // For admin/leadership: get all assessments from their program
+        console.log('Loading program-wide assessments for admin/leadership user');
+        const response = await apiClient.getAssessments({ limit: 100 });
+        allAssessments = response.results || [];
+      } else if (user?.role === 'system-admin') {
+        // System admin gets no assessment data
         setStats({
           thisMonth: 0,
           total: 0,
@@ -59,16 +66,16 @@ export function Overview({ onNewAssessment, userInfo, user: userProp }: Overview
         });
         setAssessments([]);
         return;
+      } else {
+        // Faculty and Trainee: use existing logic
+        const response = user?.role === 'trainee' 
+          ? await apiClient.getReceivedAssessments()
+          : await apiClient.getMyAssessments();
+        
+        console.log('Fetched personal assessments:', response);
+        allAssessments = response.results || [];
       }
       
-      // Use different API endpoint based on user role
-      const response = user?.role === 'trainee' 
-        ? await apiClient.getReceivedAssessments()
-        : await apiClient.getMyAssessments();
-      
-      console.log('Fetched overview assessments:', response);
-      
-      const allAssessments = response.results || [];
       setAssessments(allAssessments);
       
       // Calculate stats
@@ -79,9 +86,11 @@ export function Overview({ onNewAssessment, userInfo, user: userProp }: Overview
                assessmentDate.getFullYear() === now.getFullYear();
       }).length;
       
+      // For admin/leadership: show last 5 assessments, for others: show last 3
+      const activityLimit = (user?.role === 'admin' || user?.role === 'leadership') ? 5 : 3;
       const recentActivity = allAssessments
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 3);
+        .slice(0, activityLimit);
       
       setStats({
         thisMonth,
@@ -133,8 +142,10 @@ export function Overview({ onNewAssessment, userInfo, user: userProp }: Overview
                 <View style={styles.cardTitleContainer}>
                   <CardTitle>Recent Activity</CardTitle>
                   <Text style={styles.cardSubtitle}>
-                    {user?.role === 'admin' || user?.role === 'system-admin'
+                    {user?.role === 'system-admin'
                       ? "System activity and updates"
+                      : user?.role === 'admin' || user?.role === 'leadership'
+                      ? "Recent program assessments"
                       : "Your latest assessments and updates"
                     }
                   </Text>
@@ -155,6 +166,8 @@ export function Overview({ onNewAssessment, userInfo, user: userProp }: Overview
                         <Text style={styles.activityTitle}>
                           {user?.role === 'trainee' 
                             ? `Assessment by ${assessment.evaluator_name || 'Unknown Evaluator'}`
+                            : user?.role === 'admin' || user?.role === 'leadership'
+                            ? `${assessment.evaluator_name || 'Unknown Evaluator'} → ${assessment.trainee_name || 'Unknown Trainee'}`
                             : `Assessment for ${assessment.trainee_name || 'Unknown Trainee'}`
                           }
                         </Text>
@@ -167,8 +180,10 @@ export function Overview({ onNewAssessment, userInfo, user: userProp }: Overview
                 </View>
               ) : (
                 <Text style={styles.emptyStateText}>
-                  {user?.role === 'admin' || user?.role === 'system-admin'
+                  {user?.role === 'system-admin'
                     ? "No system activity to display"
+                    : user?.role === 'admin' || user?.role === 'leadership'
+                    ? "No recent program assessments to display"
                     : "No recent activity to display"
                   }
                 </Text>
@@ -184,8 +199,10 @@ export function Overview({ onNewAssessment, userInfo, user: userProp }: Overview
                 <View style={styles.cardTitleContainer}>
                   <CardTitle>Quick Stats</CardTitle>
                   <Text style={styles.cardSubtitle}>
-                    {user?.role === 'admin' || user?.role === 'system-admin'
+                    {user?.role === 'system-admin'
                       ? "System metrics at a glance"
+                      : user?.role === 'admin' || user?.role === 'leadership'
+                      ? "Program metrics at a glance"
                       : "Key metrics at a glance"
                     }
                   </Text>
@@ -209,14 +226,24 @@ export function Overview({ onNewAssessment, userInfo, user: userProp }: Overview
                 <View style={styles.statsContainer}>
                   <View style={styles.statItem}>
                     <Text style={styles.statLabel}>
-                      {user?.role === 'admin' || user?.role === 'system-admin' ? 'Active Users' : 'This Month'}
+                      {user?.role === 'system-admin' 
+                        ? 'Active Users' 
+                        : user?.role === 'admin' || user?.role === 'leadership'
+                        ? 'This Month'
+                        : 'This Month'
+                      }
                     </Text>
                     <Text style={styles.statValue}>{stats.thisMonth}</Text>
                   </View>
                   <View style={styles.statDivider} />
                   <View style={styles.statItem}>
                     <Text style={styles.statLabel}>
-                      {user?.role === 'admin' || user?.role === 'system-admin' ? 'Total Users' : 'Total'}
+                      {user?.role === 'system-admin' 
+                        ? 'Total Users' 
+                        : user?.role === 'admin' || user?.role === 'leadership'
+                        ? 'Total'
+                        : 'Total'
+                      }
                     </Text>
                     <Text style={styles.statValue}>{stats.total}</Text>
                   </View>
@@ -225,25 +252,6 @@ export function Overview({ onNewAssessment, userInfo, user: userProp }: Overview
             </CardContent>
           </Card>
 
-          {/* Notifications Card */}
-          <Card style={[styles.card, isTablet && styles.cardTablet]}>
-            <CardHeader>
-              <View style={styles.cardHeaderWithIcon}>
-                <Text style={styles.cardIcon}>🔔</Text>
-                <View style={styles.cardTitleContainer}>
-                  <CardTitle>Notifications</CardTitle>
-                  <Text style={styles.cardSubtitle}>
-                    Important updates and reminders
-                  </Text>
-                </View>
-              </View>
-            </CardHeader>
-            <CardContent>
-              <Text style={styles.emptyStateText}>
-                All caught up! No notifications.
-              </Text>
-            </CardContent>
-          </Card>
         </View>
       </ScrollView>
     </View>
@@ -289,6 +297,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
     padding: 24,
   },
   card: {

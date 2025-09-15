@@ -64,8 +64,8 @@ export default function EditUser({ userId, onBack }: EditUserProps) {
     
     setLoadingUser(true);
     try {
-      const users = await apiClient.getUsers();
-      const foundUser = users.find(u => u.id === userId);
+      const usersResponse = await apiClient.getUsers();
+      const foundUser = usersResponse.results?.find(u => u.id === userId);
       
       if (foundUser) {
         setUserData(foundUser);
@@ -102,10 +102,11 @@ export default function EditUser({ userId, onBack }: EditUserProps) {
 
     setLoading(true);
     try {
+      console.log('Updating user with data:', formData);
       await apiClient.updateUser(userId, formData);
-      Alert.alert('Success', 'User updated successfully', [
-        { text: 'OK', onPress: onBack }
-      ]);
+      console.log('User updated successfully, redirecting back');
+      // Directly call onBack instead of relying on Alert which doesn't work well in web
+      onBack?.();
     } catch (error) {
       console.error('Error updating user:', error);
       Alert.alert('Error', 'Failed to update user. Please try again.');
@@ -139,9 +140,9 @@ export default function EditUser({ userId, onBack }: EditUserProps) {
               };
               
               await apiClient.updateUser(userId, updateData);
-              Alert.alert('Success', `User ${action}d successfully`, [
-                { text: 'OK', onPress: onBack }
-              ]);
+              console.log(`User ${action}d successfully, redirecting back`);
+              // Directly call onBack instead of relying on Alert which doesn't work well in web
+              onBack?.();
             } catch (error) {
               console.error(`Error ${action}ing user:`, error);
               Alert.alert('Error', `Failed to ${action} user. Please try again.`);

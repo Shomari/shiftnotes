@@ -2,21 +2,21 @@
 
 ## Key Field Names for Analytics
 
-⚠️ **IMPORTANT**: Assessment ratings are stored in `AssessmentEPA.entrustment_level` (NOT `milestone_level`)
+⚠️ **IMPORTANT**: Assessment ratings are stored in `AssessmentEPA.entrustment_level` (NOT `milestone_level`)               
 
 ### Assessment Model (`assessments` table)
 - `id` (UUIDField, primary key)
-- `trainee` (ForeignKey → User, related_name='assessments_received')
-- `evaluator` (ForeignKey → User, related_name='assessments_given') 
+- `trainee` (ForeignKey → User, related_name='assessments_received')                                                      
+- `evaluator` (ForeignKey → User, related_name='assessments_given')                                                       
 - `shift_date` (DateField)
 - `status` (CharField: 'draft', 'submitted', 'locked')
 - `created_at` (DateTimeField)
 - `updated_at` (DateTimeField)
 
 ### AssessmentEPA Model (`assessment_epas` table)
-- `assessment` (ForeignKey → Assessment, related_name='assessment_epas')
+- `assessment` (ForeignKey → Assessment, related_name='assessment_epas')                                                  
 - `epa` (ForeignKey → EPA)
-- `entrustment_level` (IntegerField, choices 1-5) ← **THIS IS THE RATING FIELD**
+- `entrustment_level` (IntegerField, choices 1-5) ← **THIS IS THE RATING FIELD**                                          
 - `what_went_well` (TextField)
 - `what_could_improve` (TextField)
 
@@ -24,12 +24,12 @@
 - `id` (UUIDField, primary key)
 - `email` (EmailField, unique)
 - `name` (CharField)
-- `role` (CharField: 'trainee', 'faculty', 'admin', 'leadership', 'system-admin')
+- `role` (CharField: 'trainee', 'faculty', 'admin', 'leadership', 'system-admin')                                         
 - `organization` (ForeignKey → Organization)
-- `program` (ForeignKey → Program, NOT ManyToManyField anymore)
+- `program` (ForeignKey → Program, NOT ManyToManyField anymore)                                                           
 - `department` (CharField, optional)
 - `start_date` (DateField, optional)
-- `deactivated_at` (DateTimeField, optional) ← **NEW: If not null, user is deactivated**
+- `deactivated_at` (DateTimeField, optional) ← **NEW: If not null, user is deactivated**                                  
 - `created_at` (DateTimeField)
 - `updated_at` (DateTimeField)
 
@@ -48,16 +48,16 @@
 ### SubCompetency Model (`sub_competencies` table)  
 - `id` (UUIDField, primary key)
 - `program` (ForeignKey → Program)
-- `core_competency` (ForeignKey → CoreCompetency, related_name='sub_competencies')
+- `core_competency` (ForeignKey → CoreCompetency, related_name='sub_competencies')                                        
 - `code` (CharField) ← e.g., "PC1"
-- `title` (CharField) ← e.g., "History Taking & Physical Examination"
+- `title` (CharField) ← e.g., "History Taking & Physical Examination"                                                     
 
 ## Analytics Query Patterns
 
 ```python
-# Get assessments with ratings for a program (UPDATED for single program)
+# Get assessments with ratings for a program (UPDATED for single program)                                                 
 assessments = Assessment.objects.filter(
-    trainee__program=program,  # Changed from trainee__programs
+    trainee__program=program,  # Changed from trainee__programs                                                           
     created_at__gte=start_date
 )
 
@@ -72,7 +72,7 @@ for level in range(1, 6):  # 1-5 only
         assessment_epas__entrustment_level=level
     ).count()
 
-# Get active trainees with assessments in timeframe (UPDATED for single program)
+# Get active trainees with assessments in timeframe (UPDATED for single program)                                          
 active_trainees = User.objects.filter(
     role='trainee',
     program=program,  # Changed from programs=program
@@ -81,19 +81,19 @@ active_trainees = User.objects.filter(
 
 # Get competency breakdown (using correct field names)
 from curriculum.models import CoreCompetency
-for competency in CoreCompetency.objects.filter(program=program):
+for competency in CoreCompetency.objects.filter(program=program):                                                         
     competency_assessments = assessments.filter(
-        assessment_epas__epa__sub_competencies__core_competency=competency
+        assessment_epas__epa__sub_competencies__core_competency=competency                                                
     ).distinct()
     # Use competency.title (NOT competency.name)
 ```
 
 ## Common Mistakes to Avoid
 
-❌ `milestone_level` → ✅ `assessment_epas__entrustment_level`
-❌ `range(1, 7)` → ✅ `range(1, 6)` (entrustment levels are 1-5)
+❌ `milestone_level` → ✅ `assessment_epas__entrustment_level`                                                            
+❌ `range(1, 7)` → ✅ `range(1, 6)` (entrustment levels are 1-5)                                                          
 ❌ `trainee_assessments` → ✅ `assessments_received`
 ❌ `competency.name` → ✅ `competency.title`
-❌ `trainee__programs=program` → ✅ `trainee__program=program` (single program now)
-❌ `assessment_epas__epa__subcompetencies__competency` → ✅ `assessment_epas__epa__sub_competencies__core_competency`
-❌ Direct Assessment.milestone_level → ✅ Assessment.assessment_epas.entrustment_level
+❌ `trainee__programs=program` → ✅ `trainee__program=program` (single program now)                                       
+❌ `assessment_epas__epa__subcompetencies__competency` → ✅ `assessment_epas__epa__sub_competencies__core_competency`     
+❌ Direct Assessment.milestone_level → ✅ Assessment.assessment_epas.entrustment_level                                    
