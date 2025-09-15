@@ -55,41 +55,53 @@ const sampleCohorts = [
   { id: '3', name: 'PGY-3 2022', year: 2022, startDate: '2022-06-30', trainees: 0 },
 ];
 
-const sampleUsers: User[] = [
+const sampleUsers: ApiUser[] = [
   {
     id: '1',
     name: 'Jane Doe',
     email: 'jane.resident@hospital.edu',
     role: 'trainee',
-    cohortId: '1',
-    createdAt: '2025-08-29',
-    isActive: true,
+    organization: 'org-1',
+    program: 'prog-1',
+    department: 'Emergency Medicine',
+    specialties: [],
+    cohort: '1',
+    created_at: '2025-08-29',
   },
   {
     id: '2',
     name: 'Michael Johnson',
     email: 'mike.resident@hospital.edu',
     role: 'trainee',
-    cohortId: '1',
-    createdAt: '2025-08-29',
-    isActive: true,
+    organization: 'org-1',
+    program: 'prog-1',
+    department: 'Emergency Medicine',
+    specialties: [],
+    cohort: '1',
+    created_at: '2025-08-29',
   },
   {
     id: '3',
     name: 'Sarah Wilson',
     email: 'sarah.resident@hospital.edu',
     role: 'trainee',
-    cohortId: '2',
-    createdAt: '2025-08-29',
-    isActive: true,
+    organization: 'org-1',
+    program: 'prog-1',
+    department: 'Emergency Medicine',
+    specialties: [],
+    cohort: '2',
+    created_at: '2025-08-29',
   },
   {
     id: '4',
     name: 'Dr. Sarah Chen',
     email: 'faculty@shiftnotes.com',
     role: 'faculty',
-    createdAt: '2025-08-29',
-    isActive: true,
+    organization: 'org-1',
+    program: 'prog-1',
+    department: 'Emergency Medicine',
+    specialties: ['Emergency Medicine'],
+    created_at: '2025-08-29',
   },
 ];
 
@@ -146,13 +158,8 @@ export function UserManagement({ onAddUser, onEditUser }: UserManagementProps) {
       ]);
       
       if (usersResponse.results) {
-        // Map API users to ensure proper date handling
-        const mappedUsers = usersResponse.results.map(user => ({
-          ...user,
-          createdAt: user.created_at || user.createdAt,
-          cohortId: user.cohort || user.cohortId,
-        }));
-        setUsers(mappedUsers);
+        // Use API users directly (no mapping needed with unified types)
+        setUsers(usersResponse.results);
       }
       
       if (cohortsResponse.results) {
@@ -181,7 +188,7 @@ export function UserManagement({ onAddUser, onEditUser }: UserManagementProps) {
       (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const matchesRole = roleFilter === '' || user.role === roleFilter;
-    const matchesCohort = cohortFilter === '' || user.cohortId === cohortFilter;
+    const matchesCohort = cohortFilter === '' || user.cohort === cohortFilter;
 
     return matchesSearch && matchesRole && matchesCohort;
   });
@@ -280,7 +287,7 @@ export function UserManagement({ onAddUser, onEditUser }: UserManagementProps) {
       </View>
 
       {filteredUsers.filter(user => user.role === 'trainee').map(user => {
-        const cohort = sampleCohorts.find(c => c.id === user.cohortId);
+        const cohort = sampleCohorts.find(c => c.id === user.cohort);
         return (
           <Card key={user.id} style={styles.userCard}>
             <CardHeader style={styles.userCardHeader}>
@@ -305,7 +312,7 @@ export function UserManagement({ onAddUser, onEditUser }: UserManagementProps) {
             <CardContent>
               <Text style={styles.userEmail}>{user.email}</Text>
               {cohort && <Text style={styles.userCohort}>Cohort: {cohort.name}</Text>}
-              <Text style={styles.userCreated}>Created: {user.createdAt ? format(new Date(user.createdAt), 'M/d/yyyy') : 'N/A'}</Text>
+              <Text style={styles.userCreated}>Created: {user.created_at ? format(new Date(user.created_at), 'M/d/yyyy') : 'N/A'}</Text>
             </CardContent>
           </Card>
         );
