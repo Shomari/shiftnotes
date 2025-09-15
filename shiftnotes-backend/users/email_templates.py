@@ -102,6 +102,11 @@ def get_welcome_email_template(user_name, organization_name, reset_link):
             </div>
             
             <div class="info-box">
+                <strong>Alternative Setup Method:</strong><br>
+                You can also visit the login page at <a href="https://app.epanotes.com">app.epanotes.com</a> and click "Forgot your password?" to set up your account.
+            </div>
+            
+            <div class="info-box">
                 <strong>What you can do with EPAnotes:</strong>
                 <ul>
                     <li>Complete and review EPA assessments</li>
@@ -136,6 +141,9 @@ def get_welcome_email_template(user_name, organization_name, reset_link):
     
     To get started, please set up your password by visiting:
     {reset_link}
+    
+    Alternative Setup Method:
+    You can also visit the login page at app.epanotes.com and click "Forgot your password?" to set up your account.
     
     What you can do with EPAnotes:
     - Complete and review EPA assessments

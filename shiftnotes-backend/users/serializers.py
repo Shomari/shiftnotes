@@ -16,17 +16,19 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 class UserCreateSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
-    
     class Meta:
         model = User
-        fields = ['email', 'name', 'role', 'organization', 'department', 'password']
+        fields = ['email', 'name', 'role', 'organization', 'program', 'department']
     
     def create(self, validated_data):
-        password = validated_data.pop('password')
+        import secrets
+        import string
+        
+        # Create user with an unusable password (they must reset via email)
         user = User(**validated_data)
-        user.set_password(password)
+        user.set_unusable_password()  # Django method for accounts that can't login until password is set
         user.save()
+        
         return user
 
 class CohortSerializer(serializers.ModelSerializer):

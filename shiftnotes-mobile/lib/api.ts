@@ -292,7 +292,7 @@ export class ApiClient {
     return this.request<ApiResponse<ApiUser>>('/users/faculty/');
   }
 
-  async createUser(userData: Partial<ApiUser> & { password: string }): Promise<ApiUser> {
+  async createUser(userData: Partial<ApiUser>): Promise<ApiUser> {
     return this.request<ApiUser>('/users/', {
       method: 'POST',
       body: JSON.stringify(userData),

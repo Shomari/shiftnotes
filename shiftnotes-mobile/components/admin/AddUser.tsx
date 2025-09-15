@@ -29,7 +29,6 @@ interface UserFormData {
   name: string;
   role: string;
   department: string;
-  password: string;
 }
 
 interface AddUserProps {
@@ -44,7 +43,6 @@ export default function AddUser({ onBack }: AddUserProps) {
     name: '',
     role: 'trainee',
     department: '',
-    password: 'password123', // Default password
   });
 
   const roleOptions = [
@@ -154,19 +152,6 @@ export default function AddUser({ onBack }: AddUserProps) {
               />
             </View>
 
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Initial Password *</Text>
-              <Input
-                value={formData.password}
-                onChangeText={(text) => setFormData({ ...formData, password: text })}
-                placeholder="password123"
-                secureTextEntry
-                style={styles.input}
-              />
-              <Text style={styles.helpText}>
-                User will be prompted to change password on first login
-              </Text>
-            </View>
           </CardContent>
         </Card>
 

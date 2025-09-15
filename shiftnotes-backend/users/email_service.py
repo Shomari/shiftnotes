@@ -43,10 +43,14 @@ class EmailService:
             reset_link = EmailService.get_password_reset_link(user, request)
             organization_name = user.organization.name if user.organization else "Your Organization"
             
+            # Get temporary password if it was set during user creation
+            temp_password = getattr(user, '_temp_password', None)
+            
             subject, html_content, text_content = get_welcome_email_template(
                 user_name=user.name,
                 organization_name=organization_name,
-                reset_link=reset_link
+                reset_link=reset_link,
+                temp_password=temp_password
             )
             
             # Create email with both HTML and text versions
