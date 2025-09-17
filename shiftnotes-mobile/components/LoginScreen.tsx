@@ -87,7 +87,6 @@ export function LoginScreen({ onNavigateToForgotPassword }: LoginScreenProps = {
               resizeMode="contain"
             />
           </View>
-          <Text style={styles.appName}>EPAnotes</Text>
           <Text style={styles.tagline}>Competency tracking made easy.</Text>
         </View>
 
@@ -203,21 +202,15 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   logo: {
-    width: 80,
-    height: 80,
+    width: 160,
+    height: 160,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
   logoImage: {
-    width: 60,
-    height: 60,
-  },
-  appName: {
-    fontSize: 36,
-    fontWeight: '700',
-    color: '#1f2937',
-    marginBottom: 8,
+    width: 120,
+    height: 120,
   },
   tagline: {
     fontSize: 18,
