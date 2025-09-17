@@ -1,5 +1,5 @@
 /**
- * Main App component for ShiftNotes Mobile
+ * Main App component for EPAnotes Mobile
  * Includes sidebar navigation and header with Django API integration
  */
 

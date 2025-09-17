@@ -48,7 +48,7 @@ export default function AddUser({ onBack }: AddUserProps) {
   const roleOptions = [
     { label: 'Trainee', value: 'trainee' },
     { label: 'Faculty', value: 'faculty' },
-    { label: 'Admin', value: 'admin' },
+    { label: 'Coordinator', value: 'admin' },
     { label: 'Leadership', value: 'leadership' },
   ];
 

@@ -1,5 +1,5 @@
 /**
- * User Management component for Admin users
+ * User Management component for Coordinator users
  * Provides CRUD operations for users and cohorts
  */
 
@@ -39,6 +39,46 @@ import {
   Calendar,
   Export
 } from 'phosphor-react-native';
+
+// Web-only imports for react-datepicker
+let DatePicker: any = null;
+if (Platform.OS === 'web') {
+  try {
+    DatePicker = require('react-datepicker').default;
+    require('react-datepicker/dist/react-datepicker.css');
+    
+    // Add custom styles for z-index fix
+    const style = document.createElement('style');
+    style.textContent = `
+      .react-datepicker-popper {
+        z-index: 99999 !important;
+      }
+      .react-datepicker {
+        z-index: 99999 !important;
+      }
+      .react-datepicker__portal {
+        z-index: 99999 !important;
+      }
+      .date-picker-popper {
+        z-index: 99999 !important;
+      }
+      .react-datepicker-wrapper {
+        width: 100%;
+        z-index: 10 !important;
+        position: relative !important;
+      }
+      .react-datepicker__input-container {
+        width: 100%;
+      }
+      .react-datepicker__input-container input {
+        width: 100% !important;
+      }
+    `;
+    document.head.appendChild(style);
+  } catch (e) {
+    console.warn('Failed to load react-datepicker:', e);
+  }
+}
 
 const { width } = Dimensions.get('window');
 const isTablet = width >= 768;
@@ -202,7 +242,7 @@ export function UserManagement({ onAddUser, onEditUser }: UserManagementProps) {
     { label: 'All Roles', value: '' },
     { label: 'Trainee', value: 'trainee' },
     { label: 'Faculty', value: 'faculty' },
-    { label: 'Admin', value: 'admin' },
+    { label: 'Coordinator', value: 'admin' },
     { label: 'Leadership', value: 'leadership' },
   ];
 
@@ -217,7 +257,7 @@ export function UserManagement({ onAddUser, onEditUser }: UserManagementProps) {
   const userRoleOptions = [
     { label: 'Trainee', value: 'trainee' },
     { label: 'Faculty', value: 'faculty' },
-    { label: 'Admin', value: 'admin' },
+    { label: 'Coordinator', value: 'admin' },
     { label: 'Leadership', value: 'leadership' },
   ];
 
@@ -283,18 +323,136 @@ export function UserManagement({ onAddUser, onEditUser }: UserManagementProps) {
         </CardContent>
       </Card>
 
-      {/* Users List */}
-      <View style={styles.sectionHeader}>
-        <View style={styles.sectionTitleContainer}>
-          <Users size={20} color="#374151" />
-          <Text style={styles.sectionTitle}>Trainees ({filteredUsers.filter(u => u.role === 'trainee').length})</Text>
-        </View>
+      {/* Add User Button */}
+      <View style={styles.addUserHeader}>
         <Button
           title="Add User"
           onPress={onAddUser}
           icon={<Plus size={16} color="#ffffff" />}
           size="sm"
         />
+      </View>
+
+      {/* Coordinators Section */}
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionTitleContainer}>
+          <Users size={20} color="#374151" />
+          <Text style={styles.sectionTitle}>Coordinators ({filteredUsers.filter(u => u.role === 'admin').length})</Text>
+        </View>
+      </View>
+
+      {filteredUsers?.filter(user => user?.role === 'admin')?.map(user => {
+        return (
+          <Card key={user.id} style={styles.userCard}>
+            <CardHeader style={styles.userCardHeader}>
+              <View style={styles.userInfo}>
+                <Text style={styles.userName}>{user.name}</Text>
+                <View style={styles.userBadges}>
+                  <View style={[styles.badge, styles.roleAdmin]}>
+                    <Text style={styles.badgeText}>coordinator</Text>
+                  </View>
+                  <View style={[styles.badge, styles.statusActive]}>
+                    <Text style={styles.badgeText}>Active</Text>
+                  </View>
+                </View>
+              </View>
+              <View style={styles.userActions}>
+                <Pressable style={styles.actionButton} onPress={() => handleEditUser(user)}>
+                  <PencilSimple size={16} color="#64748b" />
+                  <Text style={styles.actionButtonText}>Edit</Text>
+                </Pressable>
+              </View>
+            </CardHeader>
+            <CardContent>
+              <Text style={styles.userEmail}>{user.email}</Text>
+              <Text style={styles.userCreated}>Created: {user.created_at ? format(new Date(user.created_at), 'M/d/yyyy') : 'N/A'}</Text>
+            </CardContent>
+          </Card>
+        );
+      })}
+
+      {/* Leadership Section */}
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionTitleContainer}>
+          <Users size={20} color="#374151" />
+          <Text style={styles.sectionTitle}>Leadership ({filteredUsers.filter(u => u.role === 'leadership').length})</Text>
+        </View>
+      </View>
+
+      {filteredUsers?.filter(user => user?.role === 'leadership')?.map(user => {
+        return (
+          <Card key={user.id} style={styles.userCard}>
+            <CardHeader style={styles.userCardHeader}>
+              <View style={styles.userInfo}>
+                <Text style={styles.userName}>{user.name}</Text>
+                <View style={styles.userBadges}>
+                  <View style={[styles.badge, styles.roleLeadership]}>
+                    <Text style={styles.badgeText}>leadership</Text>
+                  </View>
+                  <View style={[styles.badge, styles.statusActive]}>
+                    <Text style={styles.badgeText}>Active</Text>
+                  </View>
+                </View>
+              </View>
+              <View style={styles.userActions}>
+                <Pressable style={styles.actionButton} onPress={() => handleEditUser(user)}>
+                  <PencilSimple size={16} color="#64748b" />
+                  <Text style={styles.actionButtonText}>Edit</Text>
+                </Pressable>
+              </View>
+            </CardHeader>
+            <CardContent>
+              <Text style={styles.userEmail}>{user.email}</Text>
+              <Text style={styles.userCreated}>Created: {user.created_at ? format(new Date(user.created_at), 'M/d/yyyy') : 'N/A'}</Text>
+            </CardContent>
+          </Card>
+        );
+      })}
+
+      {/* Faculty Section */}
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionTitleContainer}>
+          <Users size={20} color="#374151" />
+          <Text style={styles.sectionTitle}>Faculty ({filteredUsers.filter(u => u.role === 'faculty').length})</Text>
+        </View>
+      </View>
+
+      {filteredUsers?.filter(user => user?.role === 'faculty')?.map(user => {
+        return (
+          <Card key={user.id} style={styles.userCard}>
+            <CardHeader style={styles.userCardHeader}>
+              <View style={styles.userInfo}>
+                <Text style={styles.userName}>{user.name}</Text>
+                <View style={styles.userBadges}>
+                  <View style={[styles.badge, styles.roleFaculty]}>
+                    <Text style={styles.badgeText}>faculty</Text>
+                  </View>
+                  <View style={[styles.badge, styles.statusActive]}>
+                    <Text style={styles.badgeText}>Active</Text>
+                  </View>
+                </View>
+              </View>
+              <View style={styles.userActions}>
+                <Pressable style={styles.actionButton} onPress={() => handleEditUser(user)}>
+                  <PencilSimple size={16} color="#64748b" />
+                  <Text style={styles.actionButtonText}>Edit</Text>
+                </Pressable>
+              </View>
+            </CardHeader>
+            <CardContent>
+              <Text style={styles.userEmail}>{user.email}</Text>
+              <Text style={styles.userCreated}>Created: {user.created_at ? format(new Date(user.created_at), 'M/d/yyyy') : 'N/A'}</Text>
+            </CardContent>
+          </Card>
+        );
+      })}
+
+      {/* Trainees Section */}
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionTitleContainer}>
+          <Users size={20} color="#374151" />
+          <Text style={styles.sectionTitle}>Trainees ({filteredUsers.filter(u => u.role === 'trainee').length})</Text>
+        </View>
       </View>
 
       {filteredUsers?.filter(user => user?.role === 'trainee')?.map(user => {
@@ -468,12 +626,62 @@ export function UserManagement({ onAddUser, onEditUser }: UserManagementProps) {
 
               <View style={styles.formField}>
                 <Text style={styles.label}>Start Date</Text>
-                <Input
-                  value={cohortForm.startDate}
-                  onChangeText={(text) => setCohortForm({ ...cohortForm, startDate: text })}
-                  placeholder="mm/dd/yyyy"
-                  icon={<Calendar size={16} color="#64748b" />}
-                />
+                {Platform.OS === 'web' ? (
+                  // Web: Use react-datepicker
+                  DatePicker ? (
+                    <View style={styles.datePickerContainer}>
+                      <DatePicker
+                        selected={cohortForm.startDate ? new Date(cohortForm.startDate) : null}
+                        onChange={(date: Date | null) => {
+                          if (date) {
+                            setCohortForm({ ...cohortForm, startDate: date.toISOString().split('T')[0] });
+                          } else {
+                            setCohortForm({ ...cohortForm, startDate: '' });
+                          }
+                        }}
+                        dateFormat="MM/dd/yyyy"
+                        placeholderText="Select start date"
+                        popperClassName="date-picker-popper"
+                        wrapperClassName="date-picker-wrapper"
+                        withPortal={true}
+                        portalId="react-datepicker-portal"
+                        isClearable
+                        customInput={
+                          <input
+                            style={{
+                              width: '100%',
+                              padding: '12px 16px',
+                              border: '1px solid #d1d5db',
+                              borderRadius: '8px',
+                              fontSize: '16px',
+                              backgroundColor: '#ffffff',
+                              color: '#374151',
+                              height: '48px',
+                              cursor: 'pointer',
+                              boxSizing: 'border-box',
+                            }}
+                          />
+                        }
+                      />
+                    </View>
+                  ) : (
+                    // Fallback to Input if DatePicker fails to load
+                    <Input
+                      value={cohortForm.startDate}
+                      onChangeText={(text) => setCohortForm({ ...cohortForm, startDate: text })}
+                      placeholder="mm/dd/yyyy"
+                      icon={<Calendar size={16} color="#64748b" />}
+                    />
+                  )
+                ) : (
+                  // Mobile: Use regular Input
+                  <Input
+                    value={cohortForm.startDate}
+                    onChangeText={(text) => setCohortForm({ ...cohortForm, startDate: text })}
+                    placeholder="mm/dd/yyyy"
+                    icon={<Calendar size={16} color="#64748b" />}
+                  />
+                )}
               </View>
             </View>
 
@@ -585,6 +793,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 
+  // Add User Header
+  addUserHeader: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginBottom: 16,
+    marginTop: 16,
+  },
   // Section Header
   sectionHeader: {
     flexDirection: 'row',
@@ -698,6 +914,15 @@ const styles = StyleSheet.create({
   roleTrainee: {
     backgroundColor: '#dbeafe',
   },
+  roleFaculty: {
+    backgroundColor: '#fef3c7',
+  },
+  roleAdmin: {
+    backgroundColor: '#f3e8ff',
+  },
+  roleLeadership: {
+    backgroundColor: '#fce7f3',
+  },
   statusActive: {
     backgroundColor: '#dcfce7',
   },
@@ -752,6 +977,11 @@ const styles = StyleSheet.create({
   },
   formField: {
     marginBottom: 16,
+  },
+  datePickerContainer: {
+    position: 'relative',
+    zIndex: 1000,
+    isolation: 'isolate',
   },
   datePickerButton: {
     flexDirection: 'row',

@@ -1,5 +1,5 @@
 /**
- * My Assessments component for ShiftNotes Mobile
+ * My Assessments component for EPAnotes Mobile
  * Shows list of assessments with filters and detailed cards
  */
 
@@ -13,12 +13,53 @@ import {
   Dimensions,
   TextInput,
   Alert,
+  Platform,
 } from 'react-native';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Button } from './ui/Button';
 import { Select } from './ui/Select';
 import { apiClient, ApiAssessment } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+
+// Web-only imports for react-datepicker
+let DatePicker: any = null;
+if (Platform.OS === 'web') {
+  try {
+    DatePicker = require('react-datepicker').default;
+    require('react-datepicker/dist/react-datepicker.css');
+    
+    // Add custom styles for z-index fix
+    const style = document.createElement('style');
+    style.textContent = `
+      .react-datepicker-popper {
+        z-index: 99999 !important;
+      }
+      .react-datepicker {
+        z-index: 99999 !important;
+      }
+      .react-datepicker__portal {
+        z-index: 99999 !important;
+      }
+      .date-picker-popper {
+        z-index: 99999 !important;
+      }
+      .react-datepicker-wrapper {
+        width: 100%;
+        z-index: 10 !important;
+        position: relative !important;
+      }
+      .react-datepicker__input-container {
+        width: 100%;
+      }
+      .react-datepicker__input-container input {
+        width: 100% !important;
+      }
+    `;
+    document.head.appendChild(style);
+  } catch (e) {
+    console.warn('Failed to load react-datepicker:', e);
+  }
+}
 
 const { width } = Dimensions.get('window');
 const isTablet = width > 768;
@@ -181,22 +222,122 @@ export function MyAssessments({ onViewAssessment }: MyAssessmentsProps) {
               {/* Date Filters */}
               <View style={styles.filterField}>
                 <Text style={styles.filterLabel}>Start Date</Text>
-                <TextInput
-                  style={styles.dateInput}
-                  placeholder="mm/dd/yyyy"
-                  value={startDate}
-                  onChangeText={setStartDate}
-                />
+                {Platform.OS === 'web' ? (
+                  // Web: Use react-datepicker
+                  DatePicker ? (
+                    <View style={styles.datePickerContainer}>
+                      <DatePicker
+                        selected={startDate ? new Date(startDate) : null}
+                        onChange={(date: Date | null) => {
+                          if (date) {
+                            setStartDate(date.toISOString().split('T')[0]);
+                          } else {
+                            setStartDate('');
+                          }
+                        }}
+                        dateFormat="MM/dd/yyyy"
+                        placeholderText="Select start date"
+                        popperClassName="date-picker-popper"
+                        wrapperClassName="date-picker-wrapper"
+                        withPortal={true}
+                        portalId="react-datepicker-portal"
+                        isClearable
+                        customInput={
+                          <input
+                            style={{
+                              width: '100%',
+                              padding: '8px 12px',
+                              border: '1px solid #d1d5db',
+                              borderRadius: '6px',
+                              fontSize: '14px',
+                              backgroundColor: '#ffffff',
+                              color: '#374151',
+                              height: '36px',
+                              cursor: 'pointer',
+                              boxSizing: 'border-box',
+                            }}
+                          />
+                        }
+                      />
+                    </View>
+                  ) : (
+                    // Fallback to simple input if DatePicker fails to load
+                    <TextInput
+                      style={styles.dateInput}
+                      placeholder="mm/dd/yyyy"
+                      value={startDate}
+                      onChangeText={setStartDate}
+                    />
+                  )
+                ) : (
+                  // Mobile: Use regular TextInput
+                  <TextInput
+                    style={styles.dateInput}
+                    placeholder="mm/dd/yyyy"
+                    value={startDate}
+                    onChangeText={setStartDate}
+                  />
+                )}
               </View>
 
               <View style={styles.filterField}>
                 <Text style={styles.filterLabel}>End Date</Text>
-                <TextInput
-                  style={styles.dateInput}
-                  placeholder="mm/dd/yyyy"
-                  value={endDate}
-                  onChangeText={setEndDate}
-                />
+                {Platform.OS === 'web' ? (
+                  // Web: Use react-datepicker
+                  DatePicker ? (
+                    <View style={styles.datePickerContainer}>
+                      <DatePicker
+                        selected={endDate ? new Date(endDate) : null}
+                        onChange={(date: Date | null) => {
+                          if (date) {
+                            setEndDate(date.toISOString().split('T')[0]);
+                          } else {
+                            setEndDate('');
+                          }
+                        }}
+                        dateFormat="MM/dd/yyyy"
+                        placeholderText="Select end date"
+                        popperClassName="date-picker-popper"
+                        wrapperClassName="date-picker-wrapper"
+                        withPortal={true}
+                        portalId="react-datepicker-portal"
+                        isClearable
+                        customInput={
+                          <input
+                            style={{
+                              width: '100%',
+                              padding: '8px 12px',
+                              border: '1px solid #d1d5db',
+                              borderRadius: '6px',
+                              fontSize: '14px',
+                              backgroundColor: '#ffffff',
+                              color: '#374151',
+                              height: '36px',
+                              cursor: 'pointer',
+                              boxSizing: 'border-box',
+                            }}
+                          />
+                        }
+                      />
+                    </View>
+                  ) : (
+                    // Fallback to simple input if DatePicker fails to load
+                    <TextInput
+                      style={styles.dateInput}
+                      placeholder="mm/dd/yyyy"
+                      value={endDate}
+                      onChangeText={setEndDate}
+                    />
+                  )
+                ) : (
+                  // Mobile: Use regular TextInput
+                  <TextInput
+                    style={styles.dateInput}
+                    placeholder="mm/dd/yyyy"
+                    value={endDate}
+                    onChangeText={setEndDate}
+                  />
+                )}
               </View>
 
               {/* Results Count */}
@@ -366,6 +507,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     backgroundColor: '#ffffff',
     minHeight: 40,
+  },
+  datePickerContainer: {
+    position: 'relative',
+    zIndex: 1000,
+    isolation: 'isolate',
   },
   resultsCount: {
     backgroundColor: '#f3f4f6',

@@ -40,7 +40,7 @@ export function Header({ title, onMenuPress, onLogout, userInfo, showMenuButton 
         )}
         
         <View style={[styles.titleSection, !showMenuButton && styles.titleSectionNoMenu]}>
-          <Text style={styles.appName}>ShiftNotes</Text>
+          <Text style={styles.appName}>EPAnotes</Text>
           <Text style={styles.subtitle}>Competency Tracking System</Text>
         </View>
       </View>

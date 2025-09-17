@@ -1,5 +1,5 @@
 /**
- * Assessment Detail component for ShiftNotes Mobile
+ * Assessment Detail component for EPAnotes Mobile
  * Shows detailed view of a single assessment with EPAs and comments
  */
 

@@ -29,7 +29,7 @@ interface DemoAccount {
 }
 
 const demoAccounts: DemoAccount[] = [
-  { role: 'Admin', name: 'Dr. Sarah Chen', email: 'admin@demo.com' },
+  { role: 'Coordinator', name: 'Dr. Sarah Chen', email: 'admin@demo.com' },
   { role: 'Faculty', name: 'Dr. Michael Rodriguez', email: 'faculty@demo.com' },
   { role: 'Trainee', name: 'Dr. Alex Martinez', email: 'trainee@demo.com' },
   { role: 'Leadership', name: 'Dr. Amanda Thompson', email: 'leadership@demo.com' },
@@ -202,15 +202,15 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   logo: {
-    width: 160,
-    height: 160,
+    width: 320,
+    height: 320,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   logoImage: {
-    width: 120,
-    height: 120,
+    width: 240,
+    height: 240,
   },
   tagline: {
     fontSize: 18,

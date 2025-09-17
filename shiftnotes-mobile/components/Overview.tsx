@@ -1,5 +1,5 @@
 /**
- * Overview/Dashboard component for ShiftNotes Mobile
+ * Overview/Dashboard component for EPAnotes Mobile
  * Matches the web version design with responsive layout
  */
 

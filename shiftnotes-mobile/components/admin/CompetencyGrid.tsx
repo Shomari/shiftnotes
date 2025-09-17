@@ -1,5 +1,5 @@
 /**
- * Competency Grid component for Admin users
+ * Competency Grid component for Coordinator users
  * Visual milestone tracking similar to ACGME competency reports
  */
 
@@ -284,60 +284,64 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
     }
   };
 
-  const renderMilestoneCell = (level: number, targetLevel: number) => {
-    const isActive = level === targetLevel;
-    const isHalfLevel = targetLevel % 1 === 0.5;
+  const renderMatrixCell = (competency: CompetencyData, targetLevel: number | string) => {
+    const isCurrentLevel = competency.milestoneLevel === targetLevel;
+    const hasData = competency.totalAssessments > 0;
+    const isNoDataColumn = targetLevel === 'none';
+    
+    // Show filled circle for current level or no data column when appropriate
+    const shouldShowCircle = (isCurrentLevel && hasData) || (isNoDataColumn && !hasData);
     
     return (
       <View key={targetLevel} style={[
-        styles.milestoneCell,
-        isActive && styles.activeMilestoneCell
+        styles.matrixCell,
+        shouldShowCircle && styles.activeMatrixCell,
+        !shouldShowCircle && styles.emptyMatrixCell
       ]}>
-        {isActive && (
-          <View style={[
-            styles.milestoneDot,
-            isHalfLevel && styles.halfMilestoneDot
-          ]} />
+        {shouldShowCircle && (
+          <View style={styles.levelCircle} />
         )}
       </View>
     );
   };
 
-  const renderCompetencyRow = (item: CompetencyData, index: number) => {
-    const getLevelText = (level: number) => {
-      if (level === 0) return 'Not Yet Complete';
-      if (level === 6) return 'Not Yet Assessable';
-      return `Level ${level}`;
-    };
-
-    const getLevelColor = (level: number) => {
-      if (level === 0) return '#94a3b8'; // Gray for not complete
-      if (level >= 4.5) return '#059669'; // Green for high levels
-      if (level >= 3) return '#0d9488'; // Teal for good levels
-      if (level >= 2) return '#0891b2'; // Blue for developing
-      return '#7c3aed'; // Purple for beginning
-    };
-
+  const renderMatrixRow = (item: CompetencyData, index: number) => {
+    const levels = ['none', 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
+    
     return (
-      <View key={item.subCompetencyId} style={styles.competencyRow}>
-        <View style={styles.competencyInfo}>
-          <Text style={styles.competencyText} numberOfLines={2}>
+      <View key={item.subCompetencyId} style={styles.matrixRow}>
+        <View style={styles.competencyLabel}>
+          <Text style={styles.competencyText} numberOfLines={3}>
             {item.subCompetencyTitle}
           </Text>
           <Text style={styles.assessmentCount}>
-            ({item.totalAssessments} assessments)
+            {item.totalAssessments > 0 ? `${item.totalAssessments} assessments` : 'No data'}
           </Text>
         </View>
         
-        <View style={styles.levelContainer}>
-          <Text style={[styles.levelText, { color: getLevelColor(item.milestoneLevel) }]}>
-            {getLevelText(item.milestoneLevel)}
-          </Text>
-          {item.milestoneLevel > 0 && item.milestoneLevel < 6 && (
-            <View style={[styles.levelBadge, { backgroundColor: getLevelColor(item.milestoneLevel) }]}>
-              <Text style={styles.levelBadgeText}>{item.milestoneLevel}</Text>
+        <View style={styles.matrixCells}>
+          {levels.map(level => renderMatrixCell(item, level))}
+        </View>
+      </View>
+    );
+  };
+
+  const renderMatrixHeader = () => {
+    const levels = ['none', 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
+    
+    return (
+      <View style={styles.matrixHeader}>
+        <View style={styles.competencyLabelHeader}>
+          <Text style={styles.headerText}>Sub-Competency</Text>
+        </View>
+        <View style={styles.matrixCells}>
+          {levels.map(level => (
+            <View key={level} style={styles.levelHeader}>
+              <Text style={styles.levelHeaderText}>
+                {level === 'none' ? 'No Data' : level}
+              </Text>
             </View>
-          )}
+          ))}
         </View>
       </View>
     );
@@ -349,7 +353,7 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
     return (
       <View key={categoryTitle} style={styles.competencySection}>
         <Text style={styles.sectionHeader}>{categoryTitle}</Text>
-        {items.map((item, index) => renderCompetencyRow(item, index))}
+        {items.map((item, index) => renderMatrixRow(item, index))}
       </View>
     );
   };
@@ -405,15 +409,20 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
                 <Text style={styles.loadingText}>Loading competency data...</Text>
               </View>
             ) : competencyData.length > 0 ? (
-              <View>
-                {/* Competency List */}
-                {competencyCategories.map(category => {
-                  const categoryItems = competencyData.filter(
-                    item => item.coreCompetencyTitle === category
-                  );
-                  return renderCompetencySection(category, categoryItems);
-                })}
-              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+                <View style={styles.matrixContainer}>
+                  {/* Matrix Header */}
+                  {renderMatrixHeader()}
+                  
+                  {/* Competency Matrix */}
+                  {competencyCategories.map(category => {
+                    const categoryItems = competencyData.filter(
+                      item => item.coreCompetencyTitle === category
+                    );
+                    return renderCompetencySection(category, categoryItems);
+                  })}
+                </View>
+              </ScrollView>
             ) : selectedTrainee ? (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyStateText}>
@@ -513,48 +522,85 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
   },
-  competencyRow: {
+  matrixContainer: {
+    minWidth: 1060, // Ensure enough space for the matrix (10 columns now)
+  },
+  matrixHeader: {
     flexDirection: 'row',
-    paddingVertical: 16,
-    paddingHorizontal: 4,
+    borderBottomWidth: 2,
+    borderBottomColor: '#e2e8f0',
+    paddingBottom: 8,
+    marginBottom: 8,
+    backgroundColor: '#f8fafc',
+  },
+  competencyLabelHeader: {
+    width: 250,
+    paddingRight: 16,
+    justifyContent: 'center',
+  },
+  headerText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  levelHeader: {
+    width: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+  },
+  levelHeaderText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  matrixRow: {
+    flexDirection: 'row',
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
+    paddingVertical: 8,
     alignItems: 'center',
   },
-  competencyInfo: {
-    flex: 1,
+  competencyLabel: {
+    width: 250,
     paddingRight: 16,
+    justifyContent: 'center',
   },
   competencyText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#1e293b',
-    lineHeight: 18,
+    lineHeight: 16,
   },
   assessmentCount: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748b',
     marginTop: 2,
   },
-  levelContainer: {
-    alignItems: 'flex-end',
-    minWidth: 120,
+  matrixCells: {
+    flexDirection: 'row',
   },
-  levelText: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  levelBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    minWidth: 32,
+  matrixCell: {
+    width: 60,
+    height: 40,
     alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#ffffff',
   },
-  levelBadgeText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '700',
+  activeMatrixCell: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e2e8f0',
+  },
+  emptyMatrixCell: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
+  },
+  levelCircle: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#000000',
   },
   emptyState: {
     padding: 40,

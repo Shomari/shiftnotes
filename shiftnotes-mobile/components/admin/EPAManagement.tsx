@@ -1,5 +1,5 @@
 /**
- * EPA Management component for Admin users
+ * EPA Management component for Coordinator users
  * Redesigned to match the image layout with statistics and sections
  */
 

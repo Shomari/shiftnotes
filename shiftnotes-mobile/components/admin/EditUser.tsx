@@ -51,7 +51,7 @@ export default function EditUser({ userId, onBack }: EditUserProps) {
   const roleOptions = [
     { label: 'Trainee', value: 'trainee' },
     { label: 'Faculty', value: 'faculty' },
-    { label: 'Admin', value: 'admin' },
+    { label: 'Coordinator', value: 'admin' },
     { label: 'Leadership', value: 'leadership' },
   ];
 

@@ -16,6 +16,48 @@ import {
   KeyboardAvoidingView,
 } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
+import DateTimePicker from '@react-native-community/datetimepicker';
+
+// Web-only imports
+let DatePicker: any = null;
+if (Platform.OS === 'web') {
+  try {
+    DatePicker = require('react-datepicker').default;
+    require('react-datepicker/dist/react-datepicker.css');
+    
+    // Add custom styles for z-index fix
+    const style = document.createElement('style');
+    style.textContent = `
+      .react-datepicker-popper {
+        z-index: 99999 !important;
+      }
+      .react-datepicker {
+        z-index: 99999 !important;
+      }
+      .react-datepicker__portal {
+        z-index: 99999 !important;
+      }
+      .date-picker-popper {
+        z-index: 99999 !important;
+      }
+      .react-datepicker-wrapper {
+        width: 100%;
+        z-index: 10 !important;
+        position: relative !important;
+      }
+      .react-datepicker__input-container {
+        width: 100%;
+      }
+      .react-datepicker__input-container input {
+        width: 100% !important;
+      }
+    `;
+    document.head.appendChild(style);
+  } catch (e) {
+    // Fallback if import fails
+    console.warn('Failed to load react-datepicker:', e);
+  }
+}
 
 import { Button } from '../ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
@@ -48,6 +90,8 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
   const [selectedEPAs, setSelectedEPAs] = useState<string[]>([]);
   const [epaAssessments, setEpaAssessments] = useState<Record<string, Partial<AssessmentEPA>>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
   // Form handling with react-hook-form (same as web!)
   const {
@@ -333,13 +377,86 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
                     name="shiftDate"
                     rules={{ required: 'Shift date is required' }}
                     render={({ field: { onChange, value } }) => (
-                      <Input
-                        value={value}
-                        onChangeText={onChange}
-                        placeholder="08/29/2025"
-                        error={errors.shiftDate?.message}
-                        containerStyle={styles.inputNoMargin}
-                      />
+                      <View>
+                        {Platform.OS === 'web' ? (
+                          // Web: Use react-datepicker
+                          DatePicker ? (
+                            <View style={styles.datePickerContainer}>
+                              <DatePicker
+                                selected={value ? new Date(value) : null}
+                                onChange={(date: Date | null) => {
+                                  if (date) {
+                                    onChange(date.toISOString().split('T')[0]);
+                                  }
+                                }}
+                                dateFormat="MM/dd/yyyy"
+                                placeholderText="Select date"
+                                popperClassName="date-picker-popper"
+                                wrapperClassName="date-picker-wrapper"
+                                withPortal={true}
+                                portalId="react-datepicker-portal"
+                                customInput={
+                                  <input
+                                    style={{
+                                      width: '100%',
+                                      padding: '12px 16px',
+                                      border: errors.shiftDate ? '1px solid #ef4444' : '1px solid #d1d5db',
+                                      borderRadius: '8px',
+                                      fontSize: '16px',
+                                      backgroundColor: '#ffffff',
+                                      color: '#374151',
+                                      height: '48px',
+                                      cursor: 'pointer',
+                                      boxSizing: 'border-box',
+                                    }}
+                                  />
+                                }
+                              />
+                              {errors.shiftDate && (
+                                <Text style={styles.errorText}>{errors.shiftDate.message}</Text>
+                              )}
+                            </View>
+                          ) : (
+                            // Fallback to simple input if DatePicker fails to load
+                            <Input
+                              value={value}
+                              onChangeText={onChange}
+                              placeholder="YYYY-MM-DD"
+                              error={errors.shiftDate?.message}
+                              containerStyle={styles.inputNoMargin}
+                            />
+                          )
+                        ) : (
+                          // Mobile: Use DateTimePicker
+                          <>
+                            <Pressable
+                              style={[styles.datePickerButton, errors.shiftDate && styles.datePickerButtonError]}
+                              onPress={() => setShowDatePicker(true)}
+                            >
+                              <Text style={styles.datePickerText}>
+                                {value ? new Date(value).toLocaleDateString() : 'Select date'}
+                              </Text>
+                            </Pressable>
+                            {errors.shiftDate && (
+                              <Text style={styles.errorText}>{errors.shiftDate.message}</Text>
+                            )}
+                            {showDatePicker && (
+                              <DateTimePicker
+                                value={value ? new Date(value) : selectedDate}
+                                mode="date"
+                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                onChange={(event, date) => {
+                                  setShowDatePicker(Platform.OS === 'ios');
+                                  if (date) {
+                                    setSelectedDate(date);
+                                    onChange(date.toISOString().split('T')[0]);
+                                  }
+                                }}
+                              />
+                            )}
+                          </>
+                        )}
+                      </View>
                     )}
                   />
                 </View>
@@ -667,6 +784,42 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#ef4444',
     marginTop: 4,
+  },
+  datePickerButton: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#ffffff',
+    minHeight: 48,
+    justifyContent: 'center',
+  },
+  datePickerButtonError: {
+    borderColor: '#ef4444',
+  },
+  datePickerText: {
+    fontSize: 16,
+    color: '#374151',
+  },
+  webDateContainer: {
+    width: '100%',
+  },
+  webDateInputGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  dateSeparator: {
+    fontSize: 16,
+    color: '#374151',
+    marginHorizontal: 8,
+    fontWeight: '500',
+  },
+  datePickerContainer: {
+    position: 'relative',
+    zIndex: 10,
+    isolation: 'isolate',
   },
   selectedEpa: {
     marginTop: 16,

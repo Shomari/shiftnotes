@@ -27,7 +27,7 @@ interface SidebarProps {
 
 const getNavigationItems = (userRole?: string): NavigationItem[] => {
 
-  // Admin and System Admin - full access including overview
+  // Coordinator and System Coordinator - full access including overview
   if (userRole === 'admin' || userRole === 'system-admin') {
     return [
       {
@@ -175,7 +175,7 @@ export function Sidebar({ isOpen, onClose, onNavigate, currentRoute, userRole, i
 
       {/* Footer */}
       <View style={styles.sidebarFooter}>
-        <Text style={styles.footerText}>ShiftNotes v1.0</Text>
+        <Text style={styles.footerText}>EPAnotes v1.0</Text>
       </View>
     </View>
   );
