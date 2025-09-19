@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q
+from django.http import JsonResponse
 from .models import Assessment, AssessmentEPA
 from .serializers import AssessmentSerializer, AssessmentCreateSerializer
 
@@ -100,9 +101,93 @@ class AssessmentViewSet(viewsets.ModelViewSet):
             )
         
         from django.utils import timezone
-        assessment.acknowledged_at = timezone.now()
-        assessment.acknowledged_by = request.user
+        # Note: acknowledged_by is now a ManyToManyField, keeping this for backward compatibility
+        # but should be updated to use the new mailbox system
+        assessment.acknowledged_by.add(request.user)
         assessment.save()
         
         serializer = self.get_serializer(assessment)
         return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'], url_path='mailbox')
+    def mailbox(self, request):
+        """Get assessments with private comments that haven't been read by current leadership user"""
+        user = request.user
+        
+        # Only leadership can access mailbox
+        if user.role not in ['leadership', 'admin', 'system-admin']:
+            return Response(
+                {'detail': 'Only leadership can access the mailbox.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Get assessments with private comments that current user hasn't acknowledged
+        assessments = Assessment.objects.filter(
+            private_comments__isnull=False,
+            private_comments__gt='',  # Has non-empty private comments
+            status='submitted'  # Only submitted assessments
+        ).exclude(
+            acknowledged_by=user  # Exclude assessments already acknowledged by this user
+        ).select_related(
+            'trainee', 'evaluator'
+        ).prefetch_related(
+            'assessment_epas__epa'
+        ).order_by('-created_at')
+        
+        # Filter by program if not system admin
+        if user.role != 'system-admin' and user.program:
+            assessments = assessments.filter(trainee__program=user.program)
+        
+        serializer = self.get_serializer(assessments, many=True)
+        return Response({
+            'results': serializer.data,
+            'count': assessments.count(),
+            'unread_count': assessments.count()
+        })
+    
+    @action(detail=True, methods=['post'], url_path='mark-read')
+    def mark_read(self, request, pk=None):
+        """Mark an assessment as read (acknowledged) by current leadership user"""
+        user = request.user
+        assessment = self.get_object()
+        
+        # Only leadership can mark as read
+        if user.role not in ['leadership', 'admin', 'system-admin']:
+            return Response(
+                {'detail': 'Only leadership can mark assessments as read.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Add current user to acknowledged_by
+        assessment.acknowledged_by.add(user)
+        
+        return Response({'detail': 'Assessment marked as read.'})
+    
+    @action(detail=False, methods=['get'], url_path='mailbox/count')
+    def mailbox_count(self, request):
+        """Get count of unread assessments for current leadership user"""
+        user = request.user
+        
+        # Only leadership can access mailbox count
+        if user.role not in ['leadership', 'admin', 'system-admin']:
+            return Response({'unread_count': 0})
+        
+        # Count assessments with private comments that current user hasn't acknowledged
+        unread_count = Assessment.objects.filter(
+            private_comments__isnull=False,
+            private_comments__gt='',  # Has non-empty private comments
+            status='submitted'  # Only submitted assessments
+        ).exclude(
+            acknowledged_by=user  # Exclude assessments already acknowledged by this user
+        ).count()
+        
+        # Filter by program if not system admin
+        if user.role != 'system-admin' and user.program:
+            unread_count = Assessment.objects.filter(
+                private_comments__isnull=False,
+                private_comments__gt='',
+                status='submitted',
+                trainee__program=user.program
+            ).exclude(acknowledged_by=user).count()
+        
+        return Response({'unread_count': unread_count})

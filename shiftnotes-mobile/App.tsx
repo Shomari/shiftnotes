@@ -13,13 +13,20 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NewAssessmentForm } from './components/assessments/NewAssessmentForm';
 import { Overview } from './components/Overview';
 import { MyAssessments } from './components/MyAssessments';
+import { AllAssessments } from './components/AllAssessments';
 import { AssessmentDetail } from './components/AssessmentDetail';
+import { Mailbox } from './components/Mailbox';
+import { CompetencyProgress } from './components/CompetencyProgress';
 import { UserManagement } from './components/admin/UserManagement';
+import { CohortManagement } from './components/admin/CohortManagement';
 import AddUser from './components/admin/AddUser';
 import EditUser from './components/admin/EditUser';
+import AddCohort from './components/admin/AddCohort';
+import EditCohort from './components/admin/EditCohort';
 import { EPAManagement } from './components/admin/EPAManagement';
 import { CompetencyManagement } from './components/admin/CompetencyManagement';
 import { CompetencyGrid } from './components/admin/CompetencyGrid';
+import { FacultyDashboard } from './components/FacultyDashboard';
 import ProgramPerformanceDashboard from './components/analytics/ProgramPerformanceDashboard';
 import { SiteManagement } from './components/admin/SiteManagement';
 import { LoginScreen } from './components/LoginScreen';
@@ -36,6 +43,7 @@ function AppContent() {
   const [resetParams, setResetParams] = useState<{ uidb64: string; token: string } | null>(null);
   const [selectedAssessmentId, setSelectedAssessmentId] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedCohortId, setSelectedCohortId] = useState<string | null>(null);
   
   const { width } = Dimensions.get('window');
   const MOBILE_BREAKPOINT = 768;
@@ -67,6 +75,11 @@ function AppContent() {
     setCurrentRoute('assessment-detail');
   };
 
+  const handleEditAssessment = (assessmentId: string) => {
+    setSelectedAssessmentId(assessmentId);
+    setCurrentRoute('edit-assessment');
+  };
+
   const handleAddUser = () => {
     setCurrentRoute('add-user');
   };
@@ -74,6 +87,15 @@ function AppContent() {
   const handleEditUser = (userId: string) => {
     setSelectedUserId(userId);
     setCurrentRoute('edit-user');
+  };
+
+  const handleAddCohort = () => {
+    setCurrentRoute('add-cohort');
+  };
+
+  const handleEditCohort = (cohortId: string) => {
+    setSelectedCohortId(cohortId);
+    setCurrentRoute('edit-cohort');
   };
 
   const handleBackFromAssessment = () => {
@@ -104,12 +126,28 @@ function AppContent() {
     switch (currentRoute) {
       case 'overview':
         return 'Overview';
+      case 'mailbox':
+        return 'Mailbox';
       case 'new-assessment':
         return 'New Assessment';
+      case 'edit-assessment':
+        return 'Edit Assessment';
       case 'my-assessments':
         return 'My Assessments';
+      case 'competency-progress':
+        return 'Competency Progress';
+      case 'all-assessments':
+        return 'All Assessments';
       case 'user-management':
         return 'User Management';
+      case 'cohort-management':
+        return 'Cohort Management';
+      case 'faculty-dashboard':
+        return 'Faculty Dashboard';
+      case 'add-cohort':
+        return 'Add New Cohort';
+      case 'edit-cohort':
+        return 'Edit Cohort';
       case 'add-user':
         return 'Add New User';
       case 'edit-user':
@@ -135,10 +173,22 @@ function AppContent() {
     switch (currentRoute) {
       case 'overview':
         return <Overview onNewAssessment={handleNewAssessment} userInfo={userInfo} user={user} />;
+      case 'mailbox':
+        return <Mailbox />;
       case 'new-assessment':
         return <NewAssessmentForm onNavigate={handleNavigate} />;
+      case 'edit-assessment':
+        return selectedAssessmentId ? (
+          <NewAssessmentForm onNavigate={handleNavigate} assessmentId={selectedAssessmentId} />
+        ) : (
+          <MyAssessments onViewAssessment={handleViewAssessment} onEditAssessment={handleEditAssessment} />
+        );
       case 'my-assessments':
-        return <MyAssessments onViewAssessment={handleViewAssessment} />;
+        return <MyAssessments onViewAssessment={handleViewAssessment} onEditAssessment={handleEditAssessment} />;
+      case 'competency-progress':
+        return <CompetencyProgress />;
+      case 'all-assessments':
+        return <AllAssessments onViewAssessment={handleViewAssessment} onEditAssessment={handleEditAssessment} />;
       case 'assessment-detail':
         return selectedAssessmentId ? (
           <AssessmentDetail 
@@ -146,10 +196,18 @@ function AppContent() {
             onBack={handleBackFromAssessment} 
           />
         ) : (
-          <MyAssessments onViewAssessment={handleViewAssessment} />
+          <MyAssessments onViewAssessment={handleViewAssessment} onEditAssessment={handleEditAssessment} />
         );
       case 'user-management':
         return <UserManagement onAddUser={handleAddUser} onEditUser={handleEditUser} />;
+      case 'cohort-management':
+        return <CohortManagement onAddCohort={handleAddCohort} onEditCohort={handleEditCohort} />;
+      case 'faculty-dashboard':
+        return <FacultyDashboard />;
+      case 'add-cohort':
+        return <AddCohort onBack={() => setCurrentRoute('cohort-management')} />;
+      case 'edit-cohort':
+        return selectedCohortId ? <EditCohort cohortId={selectedCohortId} onBack={() => setCurrentRoute('cohort-management')} /> : <CohortManagement onAddCohort={handleAddCohort} onEditCohort={handleEditCohort} />;
       case 'add-user':
         return <AddUser onBack={() => setCurrentRoute('user-management')} />;
       case 'edit-user':

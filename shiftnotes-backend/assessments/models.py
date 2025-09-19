@@ -19,8 +19,7 @@ class Assessment(models.Model):
     location = models.CharField(max_length=200, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     private_comments = models.TextField(blank=True)
-    acknowledged_at = models.DateTimeField(null=True, blank=True)
-    acknowledged_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assessments_acknowledged')
+    acknowledged_by = models.ManyToManyField(User, blank=True, related_name='assessments_acknowledged', help_text="Leadership users who have acknowledged this assessment")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -36,6 +35,7 @@ class Assessment(models.Model):
 
     def __str__(self):
         return f"Assessment {self.id} - {self.trainee.name} by {self.evaluator.name}"
+
 
 class AssessmentEPA(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

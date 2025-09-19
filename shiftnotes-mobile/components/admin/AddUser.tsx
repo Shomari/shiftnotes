@@ -29,6 +29,7 @@ interface UserFormData {
   name: string;
   role: string;
   department: string;
+  cohort?: string;
 }
 
 interface AddUserProps {
@@ -38,11 +39,14 @@ interface AddUserProps {
 export default function AddUser({ onBack }: AddUserProps) {
   const { user } = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
+  const [cohorts, setCohorts] = useState<any[]>([]);
+  const [loadingCohorts, setLoadingCohorts] = useState(false);
   const [formData, setFormData] = useState<UserFormData>({
     email: '',
     name: '',
     role: 'trainee',
     department: '',
+    cohort: '',
   });
 
   const roleOptions = [
@@ -52,10 +56,37 @@ export default function AddUser({ onBack }: AddUserProps) {
     { label: 'Leadership', value: 'leadership' },
   ];
 
+  const loadCohorts = async () => {
+    if (!user?.program) return;
+    
+    setLoadingCohorts(true);
+    try {
+      const cohortsData = await apiClient.getCohorts(user.program);
+      setCohorts(cohortsData);
+    } catch (error) {
+      console.error('Failed to load cohorts:', error);
+      Alert.alert('Error', 'Failed to load cohorts');
+    } finally {
+      setLoadingCohorts(false);
+    }
+  };
+
+  useEffect(() => {
+    if (formData.role === 'trainee') {
+      loadCohorts();
+    }
+  }, [formData.role, user?.program]);
+
   const handleSave = async () => {
     // Validation
     if (!formData.email || !formData.name || !formData.role) {
       Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+    
+    // Require cohort for trainees
+    if (formData.role === 'trainee' && !formData.cohort) {
+      Alert.alert('Error', 'Please select a cohort for trainees');
       return;
     }
 
@@ -70,6 +101,8 @@ export default function AddUser({ onBack }: AddUserProps) {
         ...formData,
         organization: user?.organization || '',
         program: user?.program || '',
+        // Only include cohort if user is a trainee and cohort is selected
+        ...(formData.role === 'trainee' && formData.cohort && { cohort: formData.cohort }),
       };
 
       await apiClient.createUser(userData);
@@ -136,11 +169,36 @@ export default function AddUser({ onBack }: AddUserProps) {
               <Text style={styles.label}>Role *</Text>
               <Select
                 value={formData.role}
-                onValueChange={(value) => setFormData({ ...formData, role: value })}
+                onValueChange={(value) => setFormData(prev => ({
+                  ...prev,
+                  role: value,
+                  // Clear cohort if role changes away from trainee
+                  cohort: value === 'trainee' ? prev.cohort : ''
+                }))}
                 options={roleOptions}
                 style={styles.select}
               />
             </View>
+
+            {formData.role === 'trainee' && (
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Cohort *</Text>
+                <Select
+                  value={formData.cohort || ''}
+                  onValueChange={(value) => setFormData({ ...formData, cohort: value })}
+                  options={cohorts.map(cohort => ({
+                    label: cohort.name,
+                    value: cohort.id
+                  }))}
+                  placeholder={loadingCohorts ? "Loading cohorts..." : "Select cohort"}
+                  disabled={loadingCohorts || cohorts.length === 0}
+                  style={styles.select}
+                />
+                {cohorts.length === 0 && !loadingCohorts && (
+                  <Text style={styles.helpText}>No cohorts available. Please create a cohort first.</Text>
+                )}
+              </View>
+            )}
 
             <View style={styles.formGroup}>
               <Text style={styles.label}>Department</Text>

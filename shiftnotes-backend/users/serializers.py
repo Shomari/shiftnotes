@@ -5,20 +5,21 @@ class UserSerializer(serializers.ModelSerializer):
     organization_name = serializers.CharField(source='organization.name', read_only=True)
     program_name = serializers.CharField(source='program.name', read_only=True)
     program_abbreviation = serializers.CharField(source='program.abbreviation', read_only=True)
+    cohort_name = serializers.CharField(source='cohort.name', read_only=True)
     
     class Meta:
         model = User
         fields = [
             'id', 'email', 'name', 'role', 'organization', 'organization_name',
-            'program', 'program_name', 'program_abbreviation', 'department', 
-            'start_date', 'deactivated_at', 'created_at', 'updated_at'
+            'program', 'program_name', 'program_abbreviation', 'cohort', 'cohort_name',
+            'department', 'start_date', 'deactivated_at', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 class UserCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['email', 'name', 'role', 'organization', 'program', 'department']
+        fields = ['email', 'name', 'role', 'organization', 'program', 'cohort', 'department']
     
     def create(self, validated_data):
         import secrets

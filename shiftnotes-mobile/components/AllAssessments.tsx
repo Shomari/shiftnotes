@@ -1,24 +1,20 @@
-/**
- * My Assessments component for EPAnotes Mobile
- * Shows list of assessments with filters and detailed cards
- */
-
 import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
-  Pressable,
-  Dimensions,
   TextInput,
   Alert,
+  ActivityIndicator,
   Platform,
+  Pressable,
 } from 'react-native';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Button } from './ui/Button';
 import { Select } from './ui/Select';
-import { apiClient, ApiAssessment } from '../lib/api';
+import { Assessment } from '../lib/types';
+import { apiClient } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 
 // Web-only imports for react-datepicker
@@ -61,37 +57,24 @@ if (Platform.OS === 'web') {
   }
 }
 
-const { width } = Dimensions.get('window');
-const isTablet = width > 768;
-
-interface Assessment extends ApiAssessment {
-  trainee_name: string;
-  evaluator_name: string;
-  epas: Array<{
-    code: string;
-    level: number;
-  }>;
-}
-
-// Removed hardcoded sample data - now fetching from API
-
-interface MyAssessmentsProps {
+interface AllAssessmentsProps {
   onViewAssessment?: (assessmentId: string) => void;
   onEditAssessment?: (assessmentId: string) => void;
 }
 
-export function MyAssessments({ onViewAssessment, onEditAssessment }: MyAssessmentsProps) {
+export function AllAssessments({ onViewAssessment, onEditAssessment }: AllAssessmentsProps) {
   const { user } = useAuth();
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [traineeFilter, setTraineeFilter] = useState('');
+  const [facultyFilter, setFacultyFilter] = useState('');
   const [epaFilter, setEpaFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  // Fetch assessments on component mount
+  // Fetch all assessments on component mount
   useEffect(() => {
     loadAssessments();
   }, []);
@@ -100,12 +83,10 @@ export function MyAssessments({ onViewAssessment, onEditAssessment }: MyAssessme
     try {
       setLoading(true);
       
-      // Use different API endpoint based on user role
-      const response = user?.role === 'trainee' 
-        ? await apiClient.getReceivedAssessments()
-        : await apiClient.getMyAssessments();
+      // For leadership, get all assessments in the program
+      const response = await apiClient.getAssessments();
       
-      console.log('Fetched assessments:', response);
+      console.log('Fetched all assessments:', response);
       
       // Transform API data to match our interface
       const transformedAssessments: Assessment[] = response.results?.map(assessment => ({
@@ -129,6 +110,7 @@ export function MyAssessments({ onViewAssessment, onEditAssessment }: MyAssessme
 
   const clearFilters = () => {
     setTraineeFilter('');
+    setFacultyFilter('');
     setEpaFilter('');
     setStatusFilter('');
     setStartDate('');
@@ -140,12 +122,14 @@ export function MyAssessments({ onViewAssessment, onEditAssessment }: MyAssessme
   };
 
   // Check if any filters are active
-  const hasActiveFilters = traineeFilter || epaFilter || statusFilter || startDate || endDate;
+  const hasActiveFilters = traineeFilter || facultyFilter || epaFilter || statusFilter || startDate || endDate;
 
   const filteredAssessments = assessments.filter((assessment) => {
-    // Filter by trainee (for faculty view) or evaluator (for trainee view)
-    const nameField = user?.role === 'trainee' ? assessment.evaluator_name : assessment.trainee_name;
-    const matchesTrainee = !traineeFilter || nameField?.toLowerCase().includes(traineeFilter.toLowerCase());
+    // Filter by trainee
+    const matchesTrainee = !traineeFilter || assessment.trainee_name?.toLowerCase().includes(traineeFilter.toLowerCase());
+    
+    // Filter by faculty (evaluator)
+    const matchesFaculty = !facultyFilter || assessment.evaluator_name?.toLowerCase().includes(facultyFilter.toLowerCase());
     
     // Filter by EPA
     const matchesEPA = !epaFilter || assessment.epas.some(epa => 
@@ -160,14 +144,16 @@ export function MyAssessments({ onViewAssessment, onEditAssessment }: MyAssessme
     const matchesStartDate = !startDate || assessmentDate >= new Date(startDate);
     const matchesEndDate = !endDate || assessmentDate <= new Date(endDate);
     
-    return matchesTrainee && matchesEPA && matchesStatus && matchesStartDate && matchesEndDate;
+    return matchesTrainee && matchesFaculty && matchesEPA && matchesStatus && matchesStartDate && matchesEndDate;
   });
 
   // Extract unique options for dropdowns
   const traineeOptions = Array.from(new Set(
-    assessments.map(assessment => 
-      user?.role === 'trainee' ? assessment.evaluator_name : assessment.trainee_name
-    ).filter(Boolean)
+    assessments.map(assessment => assessment.trainee_name).filter(Boolean)
+  )).map(name => ({ label: name, value: name }));
+
+  const facultyOptions = Array.from(new Set(
+    assessments.map(assessment => assessment.evaluator_name).filter(Boolean)
   )).map(name => ({ label: name, value: name }));
 
   const epaOptions = Array.from(new Set(
@@ -202,13 +188,8 @@ export function MyAssessments({ onViewAssessment, onEditAssessment }: MyAssessme
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.pageTitle}>My Assessments</Text>
-        <Text style={styles.pageSubtitle}>
-          {user?.role === 'trainee' 
-            ? "Assessments performed on you by evaluators"
-            : "Assessments you have created for trainees"
-          }
-        </Text>
+        <Text style={styles.pageTitle}>All Assessments</Text>
+        <Text style={styles.pageSubtitle}>View all assessments across the program</Text>
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -216,6 +197,7 @@ export function MyAssessments({ onViewAssessment, onEditAssessment }: MyAssessme
         {loading && (
           <Card style={styles.loadingCard}>
             <CardContent>
+              <ActivityIndicator size="large" color="#0066cc" style={styles.loadingSpinner} />
               <Text style={styles.loadingText}>Loading assessments...</Text>
             </CardContent>
           </Card>
@@ -254,14 +236,23 @@ export function MyAssessments({ onViewAssessment, onEditAssessment }: MyAssessme
             <View style={styles.filtersContainer}>
               {/* Trainee Filter */}
               <View style={styles.filterField}>
-                <Text style={styles.filterLabel}>
-                  {user?.role === 'trainee' ? 'Evaluator' : 'Trainee'}
-                </Text>
+                <Text style={styles.filterLabel}>Trainee</Text>
                 <Select
                   value={traineeFilter}
                   onValueChange={setTraineeFilter}
-                  placeholder={`All ${user?.role === 'trainee' ? 'Evaluators' : 'Trainees'}`}
+                  placeholder="All Trainees"
                   options={traineeOptions}
+                />
+              </View>
+
+              {/* Faculty Filter */}
+              <View style={styles.filterField}>
+                <Text style={styles.filterLabel}>Faculty</Text>
+                <Select
+                  value={facultyFilter}
+                  onValueChange={setFacultyFilter}
+                  placeholder="All Faculty"
+                  options={facultyOptions}
                 />
               </View>
 
@@ -317,13 +308,13 @@ export function MyAssessments({ onViewAssessment, onEditAssessment }: MyAssessme
                           <input
                             style={{
                               width: '100%',
-                              padding: '8px 12px',
+                              padding: '12px 16px',
                               border: '1px solid #d1d5db',
-                              borderRadius: '6px',
-                              fontSize: '14px',
+                              borderRadius: '8px',
+                              fontSize: '16px',
                               backgroundColor: '#ffffff',
                               color: '#374151',
-                              height: '36px',
+                              height: '48px',
                               cursor: 'pointer',
                               boxSizing: 'border-box',
                             }}
@@ -335,7 +326,7 @@ export function MyAssessments({ onViewAssessment, onEditAssessment }: MyAssessme
                     // Fallback to simple input if DatePicker fails to load
                     <TextInput
                       style={styles.dateInput}
-                      placeholder="mm/dd/yyyy"
+                      placeholder="yyyy-mm-dd"
                       value={startDate}
                       onChangeText={setStartDate}
                     />
@@ -377,13 +368,13 @@ export function MyAssessments({ onViewAssessment, onEditAssessment }: MyAssessme
                           <input
                             style={{
                               width: '100%',
-                              padding: '8px 12px',
+                              padding: '12px 16px',
                               border: '1px solid #d1d5db',
-                              borderRadius: '6px',
-                              fontSize: '14px',
+                              borderRadius: '8px',
+                              fontSize: '16px',
                               backgroundColor: '#ffffff',
                               color: '#374151',
-                              height: '36px',
+                              height: '48px',
                               cursor: 'pointer',
                               boxSizing: 'border-box',
                             }}
@@ -395,7 +386,7 @@ export function MyAssessments({ onViewAssessment, onEditAssessment }: MyAssessme
                     // Fallback to simple input if DatePicker fails to load
                     <TextInput
                       style={styles.dateInput}
-                      placeholder="mm/dd/yyyy"
+                      placeholder="yyyy-mm-dd"
                       value={endDate}
                       onChangeText={setEndDate}
                     />
@@ -431,12 +422,11 @@ export function MyAssessments({ onViewAssessment, onEditAssessment }: MyAssessme
           {filteredAssessments.map((assessment) => (
             <Card key={assessment.id} style={styles.assessmentCard}>
               <CardContent>
-                {/* Header with trainee name and View button */}
+                {/* Header with trainee and faculty names and action buttons */}
                 <View style={styles.assessmentHeader}>
-                  <View style={styles.traineeInfo}>
-                    <Text style={styles.traineeName}>
-                      {user?.role === 'trainee' ? assessment.evaluator_name : assessment.trainee_name}
-                    </Text>
+                  <View style={styles.assessmentInfo}>
+                    <Text style={styles.traineeName}>{assessment.trainee_name}</Text>
+                    <Text style={styles.facultyName}>by {assessment.evaluator_name}</Text>
                     <View
                       style={[
                         styles.statusBadge,
@@ -510,7 +500,7 @@ export function MyAssessments({ onViewAssessment, onEditAssessment }: MyAssessme
         </View>
 
         {/* Empty State */}
-        {filteredAssessments.length === 0 && (
+        {filteredAssessments.length === 0 && !loading && (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateText}>
               No assessments found matching your filters
@@ -525,26 +515,38 @@ export function MyAssessments({ onViewAssessment, onEditAssessment }: MyAssessme
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
-  },
-  scrollView: {
-    flex: 1,
+    backgroundColor: '#f8fafc',
   },
   header: {
-    padding: 20,
     backgroundColor: '#ffffff',
+    paddingHorizontal: 24,
+    paddingVertical: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: '#e2e8f0',
   },
   pageTitle: {
     fontSize: 24,
     fontWeight: '600',
-    color: '#1f2937',
+    color: '#1e293b',
     marginBottom: 4,
   },
   pageSubtitle: {
     fontSize: 16,
-    color: '#6b7280',
+    color: '#64748b',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  loadingCard: {
+    margin: 16,
+  },
+  loadingSpinner: {
+    marginBottom: 16,
+  },
+  loadingText: {
+    textAlign: 'center',
+    fontSize: 16,
+    color: '#64748b',
   },
   
   // Filters
@@ -637,6 +639,7 @@ const styles = StyleSheet.create({
   },
   filtersContainer: {
     gap: 16,
+    marginTop: 16,
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
@@ -697,7 +700,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 12,
   },
-  traineeInfo: {
+  assessmentInfo: {
     flex: 1,
     gap: 8,
   },
@@ -714,20 +717,27 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1f2937',
   },
+  facultyName: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontStyle: 'italic',
+  },
   statusBadge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
   statusText: {
+    color: '#ffffff',
     fontSize: 12,
     fontWeight: '500',
-    color: '#ffffff',
   },
   assessmentDetails: {
-    gap: 8,
-    marginBottom: 16,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+    marginBottom: 12,
   },
   detailRow: {
     flexDirection: 'row',
@@ -740,14 +750,14 @@ const styles = StyleSheet.create({
   },
   detailText: {
     fontSize: 14,
-    color: '#6b7280',
+    color: '#4b5563',
   },
   epasSection: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   epasTitle: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#374151',
     marginBottom: 8,
   },
@@ -781,10 +791,11 @@ const styles = StyleSheet.create({
   },
   entrustmentLabel: {
     fontSize: 14,
-    color: '#6b7280',
+    fontWeight: '500',
+    color: '#374151',
   },
   entrustmentValue: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#1f2937',
   },
@@ -794,19 +805,7 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     fontSize: 16,
-    color: '#9ca3af',
-    fontStyle: 'italic',
-  },
-  loadingCard: {
-    marginBottom: 16,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#6b7280',
+    color: '#64748b',
     textAlign: 'center',
-    paddingVertical: 20,
   },
 });
-
-
-

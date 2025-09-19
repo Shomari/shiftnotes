@@ -96,7 +96,7 @@ export function LoginScreen({ onNavigateToForgotPassword }: LoginScreenProps = {
             <View style={styles.formHeader}>
               <Text style={styles.formTitle}>Sign In</Text>
               <Text style={styles.formSubtitle}>
-                Enter your credentials to access your dashboard
+                Enter your credentials to access your dashboard.
               </Text>
             </View>
 
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
     height: 240,
   },
   tagline: {
-    fontSize: 18,
+    fontSize: 24,
     color: '#6b7280',
   },
 

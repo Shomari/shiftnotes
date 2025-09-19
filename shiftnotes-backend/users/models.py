@@ -58,6 +58,14 @@ class User(AbstractUser):
         blank=True,
         help_text='Program this user belongs to'
     )
+    cohort = models.ForeignKey(
+        'Cohort',
+        on_delete=models.SET_NULL,
+        related_name='users',
+        null=True,
+        blank=True,
+        help_text='Cohort this user belongs to (required for trainees)'
+    )
     department = models.CharField(max_length=100, blank=True)
     start_date = models.DateField(null=True, blank=True)
     deactivated_at = models.DateTimeField(
@@ -101,6 +109,10 @@ class User(AbstractUser):
         # Require organization for non-superusers
         if not self.is_superuser and not self.organization:
             raise ValidationError('Organization is required for all users except superusers.')
+        
+        # Require cohort for trainees
+        if self.role == 'trainee' and not self.cohort:
+            raise ValidationError('Cohort is required for trainees.')
     
     @property
     def is_trainee(self):

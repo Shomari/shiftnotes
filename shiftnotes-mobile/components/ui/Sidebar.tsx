@@ -3,8 +3,9 @@
  * Shows as permanent sidebar on desktop/tablet, modal on mobile
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Pressable, StyleSheet, Modal, TouchableWithoutFeedback, Dimensions } from 'react-native';
+import { apiClient } from '../../lib/api';
 
 const { width } = Dimensions.get('window');
 const MOBILE_BREAKPOINT = 768; // iPad width and below is considered mobile
@@ -14,6 +15,8 @@ interface NavigationItem {
   title: string;
   icon: string;
   active?: boolean;
+  showNotification?: boolean;
+  notificationCount?: number;
 }
 
 interface SidebarProps {
@@ -41,6 +44,11 @@ const getNavigationItems = (userRole?: string): NavigationItem[] => {
         icon: '👥',
       },
       {
+        id: 'cohort-management',
+        title: 'Cohort Management',
+        icon: '🎓',
+      },
+      {
         id: 'epa-management',
         title: 'EPA Management',
         icon: '📋',
@@ -63,26 +71,42 @@ const getNavigationItems = (userRole?: string): NavigationItem[] => {
     ];
   }
 
-  // Leadership - analytics and strategic oversight
-  if (userRole === 'leadership') {
-    return [
-      {
-        id: 'overview',
-        title: 'Overview',
-        icon: '📊',
-      },
-      {
-        id: 'program-performance',
-        title: 'Program Performance',
-        icon: '📈',
-      },
-      {
-        id: 'competency-grid',
-        title: 'Competency Grid',
-        icon: '📊',
-      },
-    ];
-  }
+        // Leadership - analytics and strategic oversight
+        if (userRole === 'leadership') {
+          return [
+            {
+              id: 'overview',
+              title: 'Overview',
+              icon: '📊',
+            },
+            {
+              id: 'mailbox',
+              title: 'Mailbox',
+              icon: '📬',
+              showNotification: true,
+            },
+            {
+              id: 'all-assessments',
+              title: 'All Assessments',
+              icon: '📋',
+            },
+            {
+              id: 'faculty-dashboard',
+              title: 'Faculty Dashboard',
+              icon: '👨‍⚕️',
+            },
+            {
+              id: 'program-performance',
+              title: 'Program Performance',
+              icon: '📈',
+            },
+            {
+              id: 'competency-grid',
+              title: 'Competency Grid',
+              icon: '📊',
+            },
+          ];
+        }
 
   // Trainee - very limited access
   if (userRole === 'trainee') {
@@ -96,6 +120,11 @@ const getNavigationItems = (userRole?: string): NavigationItem[] => {
         id: 'my-assessments',
         title: 'My Assessments',
         icon: '📋',
+      },
+      {
+        id: 'competency-progress',
+        title: 'Competency Progress',
+        icon: '📈',
       },
     ];
   }
@@ -123,7 +152,35 @@ const getNavigationItems = (userRole?: string): NavigationItem[] => {
 };
 
 export function Sidebar({ isOpen, onClose, onNavigate, currentRoute, userRole, isPermanent = false }: SidebarProps) {
-  const navigationItems = getNavigationItems(userRole);
+  const [mailboxCount, setMailboxCount] = useState<number>(0);
+  
+  // Load mailbox count for leadership users
+  useEffect(() => {
+    const loadMailboxCount = async () => {
+      if (userRole === 'leadership' || userRole === 'admin' || userRole === 'system-admin') {
+        try {
+          const data = await apiClient.getMailboxCount();
+          setMailboxCount(data.unread_count);
+        } catch (error) {
+          console.log('Failed to load mailbox count:', error);
+        }
+      }
+    };
+
+    loadMailboxCount();
+    
+    // Refresh count every 30 seconds
+    const interval = setInterval(loadMailboxCount, 30000);
+    return () => clearInterval(interval);
+  }, [userRole]);
+
+  const navigationItems = getNavigationItems(userRole).map(item => {
+    if (item.id === 'mailbox' && item.showNotification) {
+      return { ...item, notificationCount: mailboxCount };
+    }
+    return item;
+  });
+  
   const isMobile = width <= MOBILE_BREAKPOINT;
   
   // Determine if sidebar should be permanent (desktop) or modal (mobile)
@@ -159,7 +216,16 @@ export function Sidebar({ isOpen, onClose, onNavigate, currentRoute, userRole, i
                 }
               }}
             >
-              <Text style={styles.navigationIcon}>{item.icon}</Text>
+              <View style={styles.navigationIconContainer}>
+                <Text style={styles.navigationIcon}>{item.icon}</Text>
+                {item.showNotification && item.notificationCount && item.notificationCount > 0 && (
+                  <View style={styles.notificationBadge}>
+                    <Text style={styles.notificationText}>
+                      {item.notificationCount > 99 ? '99+' : item.notificationCount}
+                    </Text>
+                  </View>
+                )}
+              </View>
               <Text
                 style={[
                   styles.navigationText,
@@ -267,11 +333,35 @@ const styles = StyleSheet.create({
     borderRightWidth: 3,
     borderRightColor: '#3b82f6',
   },
-  navigationIcon: {
-    fontSize: 20,
+  navigationIconContainer: {
+    position: 'relative',
     marginRight: 12,
     width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navigationIcon: {
+    fontSize: 20,
     textAlign: 'center',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    backgroundColor: '#ef4444',
+    borderRadius: 10,
+    minWidth: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  notificationText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#ffffff',
+    lineHeight: 12,
   },
   navigationText: {
     fontSize: 16,

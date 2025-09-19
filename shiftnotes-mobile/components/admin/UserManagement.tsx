@@ -31,54 +31,10 @@ import {
   MagnifyingGlass, 
   Plus, 
   PencilSimple, 
-  Trash, 
-  Eye, 
   Users,
-  GraduationCap,
-  X,
-  Calendar,
   Export
 } from 'phosphor-react-native';
 
-// Web-only imports for react-datepicker
-let DatePicker: any = null;
-if (Platform.OS === 'web') {
-  try {
-    DatePicker = require('react-datepicker').default;
-    require('react-datepicker/dist/react-datepicker.css');
-    
-    // Add custom styles for z-index fix
-    const style = document.createElement('style');
-    style.textContent = `
-      .react-datepicker-popper {
-        z-index: 99999 !important;
-      }
-      .react-datepicker {
-        z-index: 99999 !important;
-      }
-      .react-datepicker__portal {
-        z-index: 99999 !important;
-      }
-      .date-picker-popper {
-        z-index: 99999 !important;
-      }
-      .react-datepicker-wrapper {
-        width: 100%;
-        z-index: 10 !important;
-        position: relative !important;
-      }
-      .react-datepicker__input-container {
-        width: 100%;
-      }
-      .react-datepicker__input-container input {
-        width: 100% !important;
-      }
-    `;
-    document.head.appendChild(style);
-  } catch (e) {
-    console.warn('Failed to load react-datepicker:', e);
-  }
-}
 
 const { width } = Dimensions.get('window');
 const isTablet = width >= 768;
@@ -155,33 +111,16 @@ interface UserFormData {
   department: string;
 }
 
-interface CohortFormData {
-  name: string;
-  year: string;
-  startDate: string;
-}
 
 export function UserManagement({ onAddUser, onEditUser }: UserManagementProps) {
-  const [activeTab, setActiveTab] = useState<'users' | 'cohorts'>('users');
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [cohortFilter, setCohortFilter] = useState('');
-  const [showCreateCohortModal, setShowCreateCohortModal] = useState(false);
-  const [editingCohort, setEditingCohort] = useState<any>(null);
   
   // API data state
   const [users, setUsers] = useState<ApiUser[]>(sampleUsers);
   const [cohorts, setCohorts] = useState<ApiCohort[]>([]);
   const [loading, setLoading] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-
-
-  // Cohort form state
-  const [cohortForm, setCohortForm] = useState<CohortFormData>({
-    name: '',
-    year: '',
-    startDate: '',
-  });
   
   // Load data on component mount
   useEffect(() => {
@@ -194,7 +133,7 @@ export function UserManagement({ onAddUser, onEditUser }: UserManagementProps) {
       // Load users and cohorts from API
       const [usersResponse, cohortsResponse] = await Promise.all([
         apiClient.getUsers(),
-        apiClient.getCohorts()
+        apiClient.getCohorts() // Get all cohorts without filtering by program
       ]);
       
       if (usersResponse.results) {
@@ -202,8 +141,13 @@ export function UserManagement({ onAddUser, onEditUser }: UserManagementProps) {
         setUsers(usersResponse.results);
       }
       
-      if (cohortsResponse.results) {
-        setCohorts(cohortsResponse.results);
+      console.log('Cohorts API response:', cohortsResponse);
+      if (cohortsResponse && Array.isArray(cohortsResponse)) {
+        // getCohorts() already returns the array directly
+        setCohorts(cohortsResponse);
+      } else {
+        console.warn('No cohorts found in API response');
+        setCohorts([]);
       }
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -263,11 +207,6 @@ export function UserManagement({ onAddUser, onEditUser }: UserManagementProps) {
 
 
 
-  const handleCreateCohort = () => {
-    console.log('Creating cohort:', cohortForm);
-    setShowCreateCohortModal(false);
-    setCohortForm({ name: '', year: '', startDate: '' });
-  };
 
   const handleEditUser = (user: ApiUser) => {
     console.log('handleEditUser called with user:', user);
@@ -489,52 +428,6 @@ export function UserManagement({ onAddUser, onEditUser }: UserManagementProps) {
     </View>
   );
 
-  const renderCohortsTab = () => (
-    <View style={styles.tabContent}>
-      <View style={styles.sectionHeader}>
-        <View style={styles.sectionTitleContainer}>
-          <Text style={styles.sectionTitle}>Cohorts ({sampleCohorts.length})</Text>
-        </View>
-        <Button
-          title="Add Cohort"
-          onPress={() => setShowCreateCohortModal(true)}
-          icon={<Plus size={16} color="#ffffff" />}
-          size="sm"
-        />
-      </View>
-
-      {sampleCohorts.map(cohort => (
-        <Card key={cohort.id} style={styles.cohortCard}>
-          <CardHeader style={styles.cohortCardHeader}>
-            <View style={styles.cohortInfo}>
-              <Text style={styles.cohortName}>{cohort.name}</Text>
-              <View style={[styles.badge, styles.statusActive]}>
-                <Text style={styles.badgeText}>Active</Text>
-              </View>
-            </View>
-            <View style={styles.cohortActions}>
-              <Pressable style={styles.actionButton}>
-                <Users size={16} color="#64748b" />
-                <Text style={styles.actionButtonText}>Manage Trainees</Text>
-              </Pressable>
-              <Pressable style={styles.actionButton}>
-                <PencilSimple size={16} color="#64748b" />
-                <Text style={styles.actionButtonText}>Edit</Text>
-              </Pressable>
-              <Pressable style={styles.actionButton}>
-                <Trash size={16} color="#dc2626" />
-                <Text style={[styles.actionButtonText, { color: '#dc2626' }]}>Delete</Text>
-              </Pressable>
-            </View>
-          </CardHeader>
-          <CardContent>
-            <Text style={styles.cohortDetails}>Start Date: {cohort.startDate ? format(new Date(cohort.startDate), 'M/d/yyyy') : 'N/A'}</Text>
-            <Text style={styles.cohortDetails}>Trainees: {cohort.trainees}</Text>
-          </CardContent>
-        </Card>
-      ))}
-    </View>
-  );
 
   return (
     <View style={styles.container}>
@@ -554,151 +447,10 @@ export function UserManagement({ onAddUser, onEditUser }: UserManagementProps) {
           />
         </View>
 
-        {/* Tabs */}
-        <View style={styles.tabContainer}>
-          <Pressable
-            style={[styles.tab, activeTab === 'users' && styles.activeTab]}
-            onPress={() => setActiveTab('users')}
-          >
-            <Text style={[styles.tabText, activeTab === 'users' && styles.activeTabText]}>
-              Users
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[styles.tab, activeTab === 'cohorts' && styles.activeTab]}
-            onPress={() => setActiveTab('cohorts')}
-          >
-            <Text style={[styles.tabText, activeTab === 'cohorts' && styles.activeTabText]}>
-              Cohorts
-            </Text>
-          </Pressable>
-        </View>
-
-        {/* Tab Content */}
-        {activeTab === 'users' ? renderUsersTab() : renderCohortsTab()}
+        {/* Users Content */}
+        {renderUsersTab()}
       </ScrollView>
 
-
-      {/* Create Cohort Modal */}
-      <Modal
-        visible={showCreateCohortModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowCreateCohortModal(false)}
-      >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.modalOverlay}
-          >
-            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-              <View style={styles.modalOverlay}>
-                <TouchableWithoutFeedback onPress={() => {}}>
-                  <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Create New Cohort</Text>
-              <Pressable onPress={() => setShowCreateCohortModal(false)}>
-                <X size={24} color="#6b7280" />
-              </Pressable>
-            </View>
-
-            <Text style={styles.modalSubtitle}>Add a new trainee cohort to the system.</Text>
-
-            <View style={styles.modalBody}>
-              <View style={styles.formField}>
-                <Text style={styles.label}>Name</Text>
-                <Input
-                  value={cohortForm.name}
-                  onChangeText={(text) => setCohortForm({ ...cohortForm, name: text })}
-                  placeholder="PGY-1 2024"
-                />
-              </View>
-
-              <View style={styles.formField}>
-                <Text style={styles.label}>Year</Text>
-                <Input
-                  value={cohortForm.year}
-                  onChangeText={(text) => setCohortForm({ ...cohortForm, year: text })}
-                  placeholder="2025"
-                  keyboardType="numeric"
-                />
-              </View>
-
-              <View style={styles.formField}>
-                <Text style={styles.label}>Start Date</Text>
-                {Platform.OS === 'web' ? (
-                  // Web: Use react-datepicker
-                  DatePicker ? (
-                    <View style={styles.datePickerContainer}>
-                      <DatePicker
-                        selected={cohortForm.startDate ? new Date(cohortForm.startDate) : null}
-                        onChange={(date: Date | null) => {
-                          if (date) {
-                            setCohortForm({ ...cohortForm, startDate: date.toISOString().split('T')[0] });
-                          } else {
-                            setCohortForm({ ...cohortForm, startDate: '' });
-                          }
-                        }}
-                        dateFormat="MM/dd/yyyy"
-                        placeholderText="Select start date"
-                        popperClassName="date-picker-popper"
-                        wrapperClassName="date-picker-wrapper"
-                        withPortal={true}
-                        portalId="react-datepicker-portal"
-                        isClearable
-                        customInput={
-                          <input
-                            style={{
-                              width: '100%',
-                              padding: '12px 16px',
-                              border: '1px solid #d1d5db',
-                              borderRadius: '8px',
-                              fontSize: '16px',
-                              backgroundColor: '#ffffff',
-                              color: '#374151',
-                              height: '48px',
-                              cursor: 'pointer',
-                              boxSizing: 'border-box',
-                            }}
-                          />
-                        }
-                      />
-                    </View>
-                  ) : (
-                    // Fallback to Input if DatePicker fails to load
-                    <Input
-                      value={cohortForm.startDate}
-                      onChangeText={(text) => setCohortForm({ ...cohortForm, startDate: text })}
-                      placeholder="mm/dd/yyyy"
-                      icon={<Calendar size={16} color="#64748b" />}
-                    />
-                  )
-                ) : (
-                  // Mobile: Use regular Input
-                  <Input
-                    value={cohortForm.startDate}
-                    onChangeText={(text) => setCohortForm({ ...cohortForm, startDate: text })}
-                    placeholder="mm/dd/yyyy"
-                    icon={<Calendar size={16} color="#64748b" />}
-                  />
-                )}
-              </View>
-            </View>
-
-            <View style={styles.modalFooter}>
-              <Button
-                title="Create Cohort"
-                onPress={handleCreateCohort}
-                disabled={!cohortForm.name || !cohortForm.year}
-              />
-            </View>
-                  </View>
-                </TouchableWithoutFeedback>
-              </View>
-            </TouchableWithoutFeedback>
-          </KeyboardAvoidingView>
-        </TouchableWithoutFeedback>
-      </Modal>
     </View>
   );
 }

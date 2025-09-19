@@ -348,7 +348,7 @@ export function EPAManagement() {
 
   const renderSubCompetencySelector = () => (
     <View style={styles.subCompetencySelector}>
-      <Text style={styles.label}>Associated Sub-Competencies</Text>
+      <Text style={styles.label}>ACGME Subcompetencies</Text>
       <Text style={styles.helperText}>
         Select the sub-competencies that this EPA addresses
       </Text>

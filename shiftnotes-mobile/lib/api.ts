@@ -468,6 +468,10 @@ export class ApiClient {
     return this.request<ApiResponse<ApiAssessment>>('/assessments/received_assessments/');
   }
 
+  async getAssessment(assessmentId: string): Promise<ApiAssessment> {
+    return this.request<ApiAssessment>(`/assessments/${assessmentId}/`);
+  }
+
   async createAssessment(assessmentData: Partial<ApiAssessment>): Promise<ApiAssessment> {
     return this.request<ApiAssessment>('/assessments/', {
       method: 'POST',
@@ -525,6 +529,46 @@ export class ApiClient {
     const results = (response as any).results || [];
     console.log('API: Returning', results.length, 'assessments');
     return results;
+  }
+
+  // Analytics endpoints
+  async getFacultyDashboard(facultyId?: string, startDate?: string, endDate?: string): Promise<any> {
+    const params = new URLSearchParams();
+    if (facultyId) params.append('faculty', facultyId);
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    
+    const url = `/analytics/faculty-dashboard/${params.toString() ? '?' + params.toString() : ''}`;
+    return this.request<any>(url);
+  }
+
+  async getCompetencyProgress(): Promise<any> {
+    return this.request<any>('/analytics/competency-progress/');
+  }
+
+  // Cohort endpoints
+  async getCohorts(programId?: string): Promise<any[]> {
+    const params = new URLSearchParams();
+    if (programId) params.append('program', programId);
+    
+    const url = `/cohorts/${params.toString() ? '?' + params.toString() : ''}`;
+    const response = await this.request<ApiResponse<any[]>>(url);
+    return response.results || [];
+  }
+
+  // Mailbox endpoints
+  async getMailboxAssessments(): Promise<any> {
+    return this.request<any>('/assessments/mailbox/');
+  }
+
+  async getMailboxCount(): Promise<{ unread_count: number }> {
+    return this.request<{ unread_count: number }>('/assessments/mailbox/count/');
+  }
+
+  async markAssessmentAsRead(assessmentId: string): Promise<any> {
+    return this.request<any>(`/assessments/${assessmentId}/mark-read/`, {
+      method: 'POST',
+    });
   }
 }
 

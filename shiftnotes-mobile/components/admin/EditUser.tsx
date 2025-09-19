@@ -27,8 +27,9 @@ import { ArrowLeft, PencilSimple, UserMinus, UserCheck } from 'phosphor-react-na
 interface UserFormData {
   email: string;
   name: string;
-  role: string;
+  role: 'trainee' | 'faculty' | 'admin' | 'leadership' | 'system-admin';
   department: string;
+  cohort?: string;
 }
 
 interface EditUserProps {
@@ -37,15 +38,19 @@ interface EditUserProps {
 }
 
 export default function EditUser({ userId, onBack }: EditUserProps) {
-  const { user } = useContext(AuthContext);
+  const authContext = useContext(AuthContext);
+  const user = authContext?.user;
   const [loading, setLoading] = useState(false);
   const [loadingUser, setLoadingUser] = useState(true);
+  const [cohorts, setCohorts] = useState<any[]>([]);
+  const [loadingCohorts, setLoadingCohorts] = useState(false);
   const [userData, setUserData] = useState<ApiUser | null>(null);
   const [formData, setFormData] = useState<UserFormData>({
     email: '',
     name: '',
     role: 'trainee',
     department: '',
+    cohort: '',
   });
 
   const roleOptions = [
@@ -55,9 +60,30 @@ export default function EditUser({ userId, onBack }: EditUserProps) {
     { label: 'Leadership', value: 'leadership' },
   ];
 
+  const loadCohorts = async () => {
+    if (!user?.program) return;
+    
+    setLoadingCohorts(true);
+    try {
+      const cohortsData = await apiClient.getCohorts(user.program);
+      setCohorts(cohortsData);
+    } catch (error) {
+      console.error('Failed to load cohorts:', error);
+      Alert.alert('Error', 'Failed to load cohorts');
+    } finally {
+      setLoadingCohorts(false);
+    }
+  };
+
   useEffect(() => {
     loadUser();
   }, [userId]);
+
+  useEffect(() => {
+    if (formData.role === 'trainee') {
+      loadCohorts();
+    }
+  }, [formData.role, user?.program]);
 
   const loadUser = async () => {
     if (!userId) return;
@@ -74,6 +100,7 @@ export default function EditUser({ userId, onBack }: EditUserProps) {
           name: foundUser.name,
           role: foundUser.role,
           department: foundUser.department || '',
+          cohort: foundUser.cohort || '',
         });
       } else {
         Alert.alert('Error', 'User not found');
@@ -92,6 +119,12 @@ export default function EditUser({ userId, onBack }: EditUserProps) {
     // Validation
     if (!formData.email || !formData.name || !formData.role) {
       Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+
+    // Require cohort for trainees
+    if (formData.role === 'trainee' && !formData.cohort) {
+      Alert.alert('Error', 'Please select a cohort for trainees');
       return;
     }
 
@@ -115,44 +148,79 @@ export default function EditUser({ userId, onBack }: EditUserProps) {
     }
   };
 
-  const handleDeactivate = () => {
+  const handleDeactivate = async () => {
+    console.log('handleDeactivate called, userData:', userData);
     const isActive = !userData?.deactivated_at;
+    console.log('isActive:', isActive, 'deactivated_at:', userData?.deactivated_at);
     const action = isActive ? 'deactivate' : 'reactivate';
-    const actionTitle = isActive ? 'Deactivate User' : 'Reactivate User';
     const actionMessage = isActive 
       ? `Are you sure you want to deactivate ${userData?.name}? They will no longer appear in reports and cannot log in.`
       : `Are you sure you want to reactivate ${userData?.name}? They will be able to log in and appear in reports again.`;
 
-    Alert.alert(
-      actionTitle,
-      actionMessage,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: action === 'deactivate' ? 'Deactivate' : 'Reactivate',
-          style: action === 'deactivate' ? 'destructive' : 'default',
-          onPress: async () => {
-            setLoading(true);
-            try {
-              const updateData = {
-                ...formData,
-                deactivated_at: isActive ? new Date().toISOString() : null,
-              };
-              
-              await apiClient.updateUser(userId, updateData);
-              console.log(`User ${action}d successfully, redirecting back`);
-              // Directly call onBack instead of relying on Alert which doesn't work well in web
-              onBack?.();
-            } catch (error) {
-              console.error(`Error ${action}ing user:`, error);
-              Alert.alert('Error', `Failed to ${action} user. Please try again.`);
-            } finally {
-              setLoading(false);
-            }
-          },
-        },
-      ]
-    );
+    // Use web-native confirm for better compatibility
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(actionMessage);
+      if (!confirmed) {
+        console.log('User cancelled the action');
+        return;
+      }
+    } else {
+      // Use Alert.alert for mobile
+      return new Promise((resolve) => {
+        Alert.alert(
+          isActive ? 'Deactivate User' : 'Reactivate User',
+          actionMessage,
+          [
+            { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+            {
+              text: action === 'deactivate' ? 'Deactivate' : 'Reactivate',
+              style: action === 'deactivate' ? 'destructive' : 'default',
+              onPress: () => resolve(true)
+            },
+          ]
+        );
+      }).then(async (confirmed) => {
+        if (!confirmed) return;
+        await performDeactivation();
+      });
+    }
+
+    // Perform the actual deactivation/reactivation
+    await performDeactivation();
+
+    async function performDeactivation() {
+      console.log('Starting API call for user deactivation...');
+      setLoading(true);
+      try {
+        const updateData = {
+          ...formData,
+          deactivated_at: isActive ? new Date().toISOString() : undefined,
+        };
+        
+        console.log('Making API call with data:', updateData);
+        await apiClient.updateUser(userId, updateData);
+        console.log(`User ${action}d successfully`);
+        
+        // Reload the user data to show updated status
+        await loadUser();
+        
+        // Show success message using platform-appropriate method
+        if (Platform.OS === 'web') {
+          alert(`User ${action}d successfully.`);
+        } else {
+          Alert.alert('Success', `User ${action}d successfully.`);
+        }
+      } catch (error) {
+        console.error(`Error ${action}ing user:`, error);
+        if (Platform.OS === 'web') {
+          alert(`Failed to ${action} user. Please try again.`);
+        } else {
+          Alert.alert('Error', `Failed to ${action} user. Please try again.`);
+        }
+      } finally {
+        setLoading(false);
+      }
+    }
   };
 
   const handleCancel = () => {
@@ -255,11 +323,37 @@ export default function EditUser({ userId, onBack }: EditUserProps) {
               <Text style={styles.label}>Role *</Text>
               <Select
                 value={formData.role}
-                onValueChange={(value) => setFormData({ ...formData, role: value })}
+                onValueChange={(value) => setFormData(prev => ({
+                  ...prev,
+                  role: value as 'trainee' | 'faculty' | 'admin' | 'leadership' | 'system-admin',
+                  // Clear cohort if role changes away from trainee
+                  cohort: value === 'trainee' ? prev.cohort : ''
+                }))}
                 options={roleOptions}
+                placeholder="Select role"
                 style={styles.select}
               />
             </View>
+
+            {formData.role === 'trainee' && (
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Cohort *</Text>
+                <Select
+                  value={formData.cohort || ''}
+                  onValueChange={(value) => setFormData({ ...formData, cohort: value })}
+                  options={cohorts.map(cohort => ({
+                    label: cohort.name,
+                    value: cohort.id
+                  }))}
+                  placeholder={loadingCohorts ? "Loading cohorts..." : "Select cohort"}
+                  disabled={loadingCohorts || cohorts.length === 0}
+                  style={styles.select}
+                />
+                {cohorts.length === 0 && !loadingCohorts && (
+                  <Text style={styles.helpText}>No cohorts available. Please create a cohort first.</Text>
+                )}
+              </View>
+            )}
 
             <View style={styles.formGroup}>
               <Text style={styles.label}>Department</Text>
@@ -385,6 +479,12 @@ const styles = StyleSheet.create({
   },
   select: {
     marginBottom: 0,
+  },
+  helpText: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   actions: {
     flexDirection: 'row',

@@ -22,16 +22,18 @@ class AssessmentSerializer(serializers.ModelSerializer):
     assessment_epas = AssessmentEPASerializer(many=True, read_only=True)
     epa_count = serializers.SerializerMethodField()
     average_entrustment = serializers.SerializerMethodField()
+    acknowledged_by_names = serializers.SerializerMethodField()
+    is_read_by_current_user = serializers.SerializerMethodField()
 
     class Meta:
         model = Assessment
         fields = [
             'id', 'trainee', 'trainee_name', 'evaluator', 'evaluator_name',
             'shift_date', 'location', 'status', 'private_comments',
-            'acknowledged_at', 'acknowledged_by', 'created_at', 'updated_at',
-            'assessment_epas', 'epa_count', 'average_entrustment'
+            'acknowledged_by', 'acknowledged_by_names', 'is_read_by_current_user',
+            'created_at', 'updated_at', 'assessment_epas', 'epa_count', 'average_entrustment'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'acknowledged_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
     def get_epa_count(self, obj):
         return obj.assessment_epas.count()
@@ -41,6 +43,15 @@ class AssessmentSerializer(serializers.ModelSerializer):
         if not epas.exists():
             return None
         return sum(epa.entrustment_level for epa in epas) / epas.count()
+    
+    def get_acknowledged_by_names(self, obj):
+        return [user.name for user in obj.acknowledged_by.all()]
+    
+    def get_is_read_by_current_user(self, obj):
+        request = self.context.get('request')
+        if request and request.user:
+            return obj.acknowledged_by.filter(id=request.user.id).exists()
+        return False
 
 class AssessmentCreateSerializer(serializers.ModelSerializer):
     assessment_epas = AssessmentEPASerializer(many=True)

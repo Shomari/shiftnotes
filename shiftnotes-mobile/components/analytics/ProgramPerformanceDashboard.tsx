@@ -44,10 +44,22 @@ interface ProgramPerformanceData {
     total_assessments: number;
     average_competency_level: number;
   }>;
+  cohort_breakdown: Array<{
+    id: string;
+    name: string;
+    start_date: string;
+    trainee_count: number;
+    assessment_count: number;
+    average_entrustment_level: number | null;
+  }>;
   trends: {
     monthly_assessments: Array<{
       month: string;
       assessments: number;
+    }>;
+    monthly_entrustment: Array<{
+      month: string;
+      average_entrustment: number;
     }>;
   };
 }
@@ -261,6 +273,42 @@ const ProgramPerformanceDashboard: React.FC<ProgramPerformanceProps> = ({ user }
             </Card>
           )}
 
+          {/* Cohort Breakdown */}
+          {dashboardData.cohort_breakdown && dashboardData.cohort_breakdown.length > 0 && (
+            <Card style={styles.distributionCard}>
+              <CardHeader>
+                <CardTitle>Average Entrustment by Cohort</CardTitle>
+              </CardHeader>
+              
+              <CardContent>
+                {dashboardData.cohort_breakdown.map((cohort) => (
+                  <View key={cohort.id} style={styles.cohortItem}>
+                    <View style={styles.cohortHeader}>
+                      <View style={styles.cohortInfo}>
+                        <Text style={styles.cohortName}>{cohort.name}</Text>
+                        <Text style={styles.cohortDetails}>
+                          {cohort.trainee_count} trainee{cohort.trainee_count !== 1 ? 's' : ''} • {cohort.assessment_count} assessments
+                        </Text>
+                      </View>
+                      <View style={styles.cohortMetrics}>
+                        {cohort.average_entrustment_level !== null ? (
+                          <Text style={[
+                            styles.cohortLevel,
+                            { color: getMetricColor(cohort.average_entrustment_level, 'level') }
+                          ]}>
+                            {cohort.average_entrustment_level.toFixed(2)}
+                          </Text>
+                        ) : (
+                          <Text style={styles.cohortNoData}>No Data</Text>
+                        )}
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Six-Month Trends */}
           {dashboardData.trends?.monthly_assessments && dashboardData.trends.monthly_assessments.length > 0 && (
             <Card style={styles.trendsCard}>
@@ -287,6 +335,43 @@ const ProgramPerformanceDashboard: React.FC<ProgramPerformanceProps> = ({ user }
                         <Text style={styles.trendsBarValue}>{trend.assessments}</Text>
                       </View>
                     ))}
+                  </View>
+                </View>
+
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Monthly Entrustment Trends */}
+          {dashboardData.trends?.monthly_entrustment && dashboardData.trends.monthly_entrustment.length > 0 && (
+            <Card style={styles.trendsCard}>
+              <CardHeader>
+                <CardTitle>📈 Monthly Average Entrustment Level</CardTitle>
+              </CardHeader>
+              
+              <CardContent>
+                <View style={styles.trendsChart}>
+                  <Text style={styles.trendsLabel}>Average Entrustment Level by Month</Text>
+                  <View style={styles.trendsBars}>
+                    {dashboardData.trends.monthly_entrustment.map((trend, index) => {
+                      const maxLevel = 5; // EPA levels typically go from 1-5
+                      const heightPercent = Math.min(Math.max((trend.average_entrustment / maxLevel) * 85, 8), 85);
+                      return (
+                        <View key={index} style={styles.trendsBar}>
+                          <View 
+                            style={[
+                              styles.trendsBarFill, 
+                              { 
+                                height: `${heightPercent}%`,
+                                backgroundColor: getMetricColor(trend.average_entrustment, 'level')
+                              }
+                            ]} 
+                          />
+                          <Text style={styles.trendsBarLabel}>{trend.month}</Text>
+                          <Text style={styles.trendsBarValue}>{trend.average_entrustment.toFixed(1)}</Text>
+                        </View>
+                      );
+                    })}
                   </View>
                 </View>
               </CardContent>
@@ -539,6 +624,43 @@ const styles = StyleSheet.create({
     color: '#64748b',
     textAlign: 'center',
     padding: 20,
+  },
+  cohortItem: {
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  cohortHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cohortInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  cohortName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 4,
+  },
+  cohortDetails: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  cohortMetrics: {
+    alignItems: 'flex-end',
+  },
+  cohortLevel: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  cohortNoData: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#9ca3af',
   },
 });
 

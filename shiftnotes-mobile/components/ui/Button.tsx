@@ -19,6 +19,21 @@ interface ButtonProps {
   icon?: string | React.ComponentType<any> | React.ReactElement;
 }
 
+// Helper function to get icon color based on variant
+const getIconColor = (variant: string) => {
+  switch (variant) {
+    case 'default':
+    case 'destructive':
+      return '#ffffff';
+    case 'outline':
+      return '#374151';
+    case 'ghost':
+      return '#3b82f6';
+    default:
+      return '#007AFF';
+  }
+};
+
 export function Button({
   title,
   onPress,
@@ -56,18 +71,18 @@ export function Button({
       disabled={disabled || loading}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'default' ? '#ffffff' : '#007AFF'} />
+        <ActivityIndicator color={getIconColor(variant)} />
       ) : (
         <View style={styles.buttonContent}>
           {icon && (
             typeof icon === 'string' ? (
-              icon === 'plus' && <Plus size={16} color={variant === 'default' ? '#ffffff' : '#007AFF'} />
+              icon === 'plus' && <Plus size={16} color={getIconColor(variant)} />
             ) : React.isValidElement(icon) ? (
               icon
             ) : (
               React.createElement(icon as React.ComponentType<any>, {
                 size: 16,
-                color: variant === 'default' ? '#ffffff' : '#007AFF'
+                color: getIconColor(variant)
               })
             )
           )}

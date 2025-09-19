@@ -79,19 +79,21 @@ const isTablet = width > 768;
 
 interface NewAssessmentFormProps {
   onNavigate: (routeId: string) => void;
+  assessmentId?: string; // Optional - if provided, form will load and edit existing assessment
 }
 
-export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
+export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFormProps) {
   const { user } = useAuth();
   
   // State management (updated for single-program architecture)
   const [epas, setEPAs] = useState<EPA[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [selectedEPAs, setSelectedEPAs] = useState<string[]>([]);
-  const [epaAssessments, setEpaAssessments] = useState<Record<string, Partial<AssessmentEPA>>>({});
+  const [selectedEPA, setSelectedEPA] = useState<string>('');
+  const [epaAssessment, setEpaAssessment] = useState<Partial<AssessmentEPA>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showDraftNotification, setShowDraftNotification] = useState(false);
 
   // Form handling with react-hook-form (same as web!)
   const {
@@ -119,6 +121,14 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
       loadTraineesForProgram(user.program);
     }
   }, [user]);
+
+  // Load assessment data for editing when assessmentId is provided
+  useEffect(() => {
+    if (assessmentId && user?.program) {
+      console.log('Loading assessment data for editing:', assessmentId);
+      loadAssessmentData(assessmentId);
+    }
+  }, [assessmentId, user?.program]);
 
   const loadEPAsForProgram = async (programId: string) => {
     try {
@@ -167,34 +177,73 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
   };
 
 
-  // EPA selection handling
-  const handleEPAToggle = (epaId: string) => {
-    setSelectedEPAs(current => {
-      if (current.includes(epaId)) {
-        const updated = current.filter(id => id !== epaId);
-        const newAssessments = { ...epaAssessments };
-        delete newAssessments[epaId];
-        setEpaAssessments(newAssessments);
-        return updated;
-      } else {
-        return [...current, epaId];
-      }
+  // EPA selection handling (single EPA only)
+  const handleEPASelect = (epaId: string) => {
+    setSelectedEPA(epaId);
+    // Reset assessment data when changing EPA
+    setEpaAssessment({
+      entrustmentLevel: 1,
+      whatWentWell: '',
+      whatCouldImprove: '',
     });
   };
 
-  const updateEPAAssessment = (epaId: string, field: string, value: any) => {
-    setEpaAssessments(current => ({
+  const updateEPAAssessment = (field: string, value: any) => {
+    setEpaAssessment(current => ({
       ...current,
-      [epaId]: {
-        ...current[epaId],
-        [field]: value,
-      },
+      [field]: value,
     }));
+  };
+
+  // Load assessment data for editing
+  const loadAssessmentData = async (id: string) => {
+    try {
+      setIsLoading(true);
+      console.log('Fetching assessment data:', id);
+      
+      const assessment = await apiClient.getAssessment(id);
+      console.log('Loaded assessment data:', assessment);
+      
+      // Populate form fields
+      setValue('traineeId', assessment.trainee || '');
+      setValue('shiftDate', assessment.shift_date || '');
+      setValue('location', assessment.location || '');
+      setValue('privateComments', assessment.private_comments || '');
+      
+      // Populate EPA assessment (single EPA only)
+      if (assessment.assessment_epas && assessment.assessment_epas.length > 0) {
+        const firstEpaAssessment = assessment.assessment_epas[0]; // Take only the first EPA
+        if (firstEpaAssessment.epa) {
+          setSelectedEPA(firstEpaAssessment.epa);
+          setEpaAssessment({
+            entrustmentLevel: firstEpaAssessment.entrustment_level || 1,
+            whatWentWell: firstEpaAssessment.what_went_well || '',
+            whatCouldImprove: firstEpaAssessment.what_could_improve || '',
+          });
+        }
+      }
+      
+      console.log('Form populated with assessment data');
+    } catch (error) {
+      console.error('Error loading assessment data:', error);
+      Alert.alert('Error', 'Failed to load assessment data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Draft notification function
+  const showDraftSavedNotification = () => {
+    setShowDraftNotification(true);
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+      setShowDraftNotification(false);
+    }, 3000);
   };
 
   // Form submission
   const onSubmit = async (data: AssessmentFormData, isDraft: boolean = false) => {
-    console.log('Form submission started:', { data, isDraft, selectedEPAs: selectedEPAs.length });
+    console.log('Form submission started:', { data, isDraft, selectedEPA });
     console.log('Current user:', user);
     console.log('User program:', user?.program);
     
@@ -209,24 +258,20 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
       return;
     }
     
-    if (!isDraft && selectedEPAs.length === 0) {
-      Alert.alert('Validation Error', 'Please select at least one EPA to assess.');
+    if (!isDraft && !selectedEPA) {
+      Alert.alert('Validation Error', 'Please select an EPA to assess.');
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const assessmentEPAs = selectedEPAs.map(epaId => {
-        const epa = epas.find(e => e.id === epaId)!;
-        const assessment = epaAssessments[epaId];
-        return {
-          epa: epaId,
-          entrustment_level: assessment?.entrustmentLevel || 1,
-          what_went_well: assessment?.whatWentWell || '',
-          what_could_improve: assessment?.whatCouldImprove || '',
-        };
-      });
+      const assessmentEPAs = selectedEPA ? [{
+        epa: selectedEPA,
+        entrustment_level: epaAssessment?.entrustmentLevel || 1,
+        what_went_well: epaAssessment?.whatWentWell || '',
+        what_could_improve: epaAssessment?.whatCouldImprove || '',
+      }] : [];
 
       const assessmentData = {
         trainee: data.traineeId,
@@ -239,70 +284,81 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
       };
 
       console.log('Submitting assessment data:', assessmentData);
-      const result = await apiClient.createAssessment(assessmentData);
+      const result = assessmentId 
+        ? await apiClient.updateAssessment(assessmentId, assessmentData)
+        : await apiClient.createAssessment(assessmentData);
       console.log('Assessment submission result:', result);
       
       console.log('About to show success alert...');
       
-      // For web environment, use a different approach
-      if (Platform.OS === 'web') {
-        console.log('Web platform detected, using confirm instead of Alert');
-        const message = isDraft 
-          ? 'Assessment saved as draft. You can continue editing it later.' 
-          : 'Assessment submitted successfully! The trainee will be notified.';
-        
-        if ((window as any).confirm(`Success! 🎉\n\n${message}\n\nClick OK to continue.`)) {
-          console.log('Web confirm Continue button pressed');
-          // Clear form data
-          reset();
-          setSelectedEPAs([]);
-          setEpaAssessments({});
-          
-          console.log('About to navigate to overview...');
-          console.log('onNavigate function:', onNavigate);
-          // Small delay for better UX, then navigate
-          setTimeout(() => {
-            console.log('Calling onNavigate with overview');
-            try {
-              onNavigate('overview');
-              console.log('onNavigate called successfully');
-            } catch (error) {
-              console.error('Error calling onNavigate:', error);
-            }
-          }, 500);
+      if (isDraft) {
+        // For draft saves, show subtle notification and don't navigate away
+        console.log('Draft saved successfully');
+        if (Platform.OS === 'web') {
+          showDraftSavedNotification();
+        } else {
+          Alert.alert('Draft Saved', 'Your assessment has been saved as a draft.', [
+            { text: 'OK', onPress: () => {} }
+          ]);
         }
       } else {
-        Alert.alert(
-          'Success! 🎉',
-          isDraft 
-            ? 'Assessment saved as draft. You can continue editing it later.' 
-            : 'Assessment submitted successfully! The trainee will be notified.',
-          [
-            {
-              text: 'Continue',
-              onPress: () => {
-                console.log('Success alert Continue button pressed');
-                // Clear form data
-                reset();
-                setSelectedEPAs([]);
-                setEpaAssessments({});
-                
-                console.log('About to navigate to overview...');
-                console.log('onNavigate function:', onNavigate);
-                // Small delay for better UX, then navigate
-                setTimeout(() => {
-                  console.log('Calling onNavigate with overview');
-                  try {
-                    onNavigate('overview');
-                    console.log('onNavigate called successfully');
-                  } catch (error) {
-                    console.error('Error calling onNavigate:', error);
-                  }
-                }, 500);
+        // For final submissions, show full success flow and navigate
+        // For web environment, use a different approach
+        if (Platform.OS === 'web') {
+          console.log('Web platform detected, using confirm instead of Alert');
+          const message = 'Assessment submitted successfully! The trainee will be notified.';
+          
+          if ((window as any).confirm(`Success! 🎉\n\n${message}\n\nClick OK to continue.`)) {
+            console.log('Web confirm Continue button pressed');
+            // Clear form data
+            reset();
+            setSelectedEPA('');
+            setEpaAssessment({});
+            
+            console.log('About to navigate to overview...');
+            console.log('onNavigate function:', onNavigate);
+            // Small delay for better UX, then navigate
+            setTimeout(() => {
+              console.log('Calling onNavigate with overview');
+              try {
+                onNavigate('overview');
+                console.log('onNavigate called successfully');
+              } catch (error) {
+                console.error('Error calling onNavigate:', error);
+              }
+            }, 500);
+          }
+        } else {
+          Alert.alert(
+            'Success! 🎉',
+            'Assessment submitted successfully! The trainee will be notified.',
+            [
+              {
+                text: 'Continue',
+                onPress: () => {
+                  console.log('Success alert Continue button pressed');
+                  // Clear form data
+                  reset();
+                  setSelectedEPA('');
+                  setEpaAssessment({});
+                  
+                  console.log('About to navigate to overview...');
+                  console.log('onNavigate function:', onNavigate);
+                  // Small delay for better UX, then navigate
+                  setTimeout(() => {
+                    console.log('Calling onNavigate with overview');
+                    try {
+                      onNavigate('overview');
+                      console.log('onNavigate called successfully');
+                    } catch (error) {
+                      console.error('Error calling onNavigate:', error);
+                    }
+                  }, 500);
+                },
               },
-            },
-          ]
-        );
+            ]
+          );
+        }
       }
       console.log('Success alert called');
     } catch (error) {
@@ -327,9 +383,21 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
     >
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.pageTitle}>New Assessment</Text>
-        <Text style={styles.pageSubtitle}>Complete a post-shift EPA assessment for a trainee</Text>
+        <Text style={styles.pageTitle}>{assessmentId ? 'Edit Assessment' : 'New Assessment'}</Text>
+        <Text style={styles.pageSubtitle}>
+          {assessmentId 
+            ? 'Edit this draft assessment before submitting' 
+            : 'Complete a post-shift EPA assessment for a trainee'
+          }
+        </Text>
       </View>
+
+      {/* Draft Saved Notification */}
+      {showDraftNotification && (
+        <View style={styles.draftNotification}>
+          <Text style={styles.draftNotificationText}>✅ Draft saved successfully</Text>
+        </View>
+      )}
 
       <View style={[styles.content, isTablet && styles.contentTablet]}>
         {/* Main Form */}
@@ -375,7 +443,15 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
                   <Controller
                     control={control}
                     name="shiftDate"
-                    rules={{ required: 'Shift date is required' }}
+                    rules={{ 
+                      required: 'Shift date is required',
+                      validate: (value) => {
+                        const selectedDate = new Date(value);
+                        const today = new Date();
+                        today.setHours(23, 59, 59, 999); // Set to end of today
+                        return selectedDate <= today || 'Shift date cannot be in the future';
+                      }
+                    }}
                     render={({ field: { onChange, value } }) => (
                       <View>
                         {Platform.OS === 'web' ? (
@@ -391,6 +467,7 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
                                 }}
                                 dateFormat="MM/dd/yyyy"
                                 placeholderText="Select date"
+                                maxDate={new Date()} // Prevent future dates
                                 popperClassName="date-picker-popper"
                                 wrapperClassName="date-picker-wrapper"
                                 withPortal={true}
@@ -445,6 +522,7 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
                                 value={value ? new Date(value) : selectedDate}
                                 mode="date"
                                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                maximumDate={new Date()} // Prevent future dates
                                 onChange={(event, date) => {
                                   setShowDatePicker(Platform.OS === 'ios');
                                   if (date) {
@@ -490,16 +568,16 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
             <Card style={styles.epaCard}>
             <CardHeader>
               <CardTitle>EPA Selection</CardTitle>
-              <Text style={styles.cardSubtitle}>Select the EPAs observed during this shift</Text>
+              <Text style={styles.cardSubtitle}>Select the EPA observed during this shift</Text>
             </CardHeader>
             <CardContent>
               <View style={styles.field}>
-                  <Text style={styles.label}>Select EPA</Text>
+                  <Text style={styles.label}>Select EPA *</Text>
                   <Select
-                    value=""
-                    onValueChange={(value) => value && handleEPAToggle(value)}
+                    value={selectedEPA}
+                    onValueChange={(value) => value && handleEPASelect(value)}
                     placeholder="Choose an EPA to assess"
-                    options={epas.filter(epa => !selectedEPAs.includes(epa.id)).map(epa => ({
+                    options={epas.map(epa => ({
                       label: `${epa.code}: ${epa.title}`,
                       value: epa.id,
                       subtitle: epa.category,
@@ -507,18 +585,18 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
                   />
                 </View>
 
-              {/* Selected EPAs */}
-              {selectedEPAs.map(epaId => {
-                const epa = epas.find(e => e.id === epaId)!;
+              {/* Selected EPA Assessment */}
+              {selectedEPA && (() => {
+                const epa = epas.find(e => e.id === selectedEPA)!;
                 return (
-                  <View key={epaId} style={styles.selectedEpa}>
+                  <View key={selectedEPA} style={styles.selectedEpa}>
                     <View style={styles.epaHeader}>
                       <View style={styles.epaInfo}>
                         <Text style={styles.epaCode}>{epa.code}</Text>
                         <Text style={styles.epaTitle}>{epa.title}</Text>
                       </View>
                       <Pressable
-                        onPress={() => handleEPAToggle(epaId)}
+                        onPress={() => setSelectedEPA('')}
                         style={styles.removeButton}
                       >
                         <Text style={styles.removeText}>✕</Text>
@@ -531,9 +609,9 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
                       <View style={styles.field}>
                         <Text style={styles.label}>Entrustment Level *</Text>
                         <Select
-                          value={String(epaAssessments[epaId]?.entrustmentLevel || 1)}
+                          value={String(epaAssessment?.entrustmentLevel || 1)}
                           onValueChange={(value) =>
-                            updateEPAAssessment(epaId, 'entrustmentLevel', parseInt(value))
+                            updateEPAAssessment('entrustmentLevel', parseInt(value))
                           }
                           placeholder="Select entrustment level"
                           options={Object.entries(ENTRUSTMENT_LEVELS).map(([level, description]) => ({
@@ -547,9 +625,9 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
                       <View style={styles.field}>
                         <Text style={styles.label}>What Went Well *</Text>
                         <Input
-                          value={epaAssessments[epaId]?.whatWentWell || ''}
+                          value={epaAssessment?.whatWentWell || ''}
                           onChangeText={(value) =>
-                            updateEPAAssessment(epaId, 'whatWentWell', value)
+                            updateEPAAssessment('whatWentWell', value)
                           }
                           placeholder="Describe what the trainee did well..."
                           multiline
@@ -562,9 +640,9 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
                       <View style={styles.field}>
                         <Text style={styles.label}>What Could Improve *</Text>
                         <Input
-                          value={epaAssessments[epaId]?.whatCouldImprove || ''}
+                          value={epaAssessment?.whatCouldImprove || ''}
                           onChangeText={(value) =>
-                            updateEPAAssessment(epaId, 'whatCouldImprove', value)
+                            updateEPAAssessment('whatCouldImprove', value)
                           }
                           placeholder="Describe areas for improvement..."
                           multiline
@@ -576,7 +654,7 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
                     </View>
                   </View>
                 );
-              })}
+              })()}
             </CardContent>
           </Card>
 
@@ -629,9 +707,9 @@ export function NewAssessmentForm({ onNavigate }: NewAssessmentFormProps) {
                 </View>
                 
                 <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>EPAs:</Text>
+                  <Text style={styles.summaryLabel}>EPA:</Text>
                   <Text style={styles.summaryValue}>
-                    {selectedEPAs.length}
+                    {selectedEPA ? epas.find(e => e.id === selectedEPA)?.code || 'Selected' : 'None'}
                   </Text>
                 </View>
 
@@ -709,6 +787,22 @@ const styles = StyleSheet.create({
   pageSubtitle: {
     fontSize: 16,
     color: '#64748b',
+  },
+  draftNotification: {
+    backgroundColor: '#dcfce7',
+    borderColor: '#16a34a',
+    borderWidth: 1,
+    borderRadius: 8,
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  draftNotificationText: {
+    color: '#15803d',
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
   },
   content: {
     flex: 1,

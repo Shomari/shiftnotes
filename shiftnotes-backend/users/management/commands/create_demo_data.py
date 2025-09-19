@@ -11,6 +11,7 @@ from django.db import transaction
 from organizations.models import Organization, Program
 from curriculum.models import CoreCompetency, SubCompetency, EPA, EPACategory, SubCompetencyEPA
 from assessments.models import Assessment, AssessmentEPA
+from users.models import Cohort
 import random
 from datetime import datetime, timedelta
 
@@ -37,14 +38,18 @@ class Command(BaseCommand):
             epas = self.create_epas(programs, epa_categories)
             self.map_epas_to_subcompetencies(epas, subcompetencies)
             
+            # Create cohorts
+            cohorts = self.create_cohorts(organization, programs)
+            
             # Create users
             admin_user = self.create_admin_user(organization, programs)
             doctors = self.create_doctor_users(organization, programs)
             leadership = self.create_leadership_user(organization, programs)
-            trainees = self.create_trainee_users(organization, programs)
+            trainees = self.create_trainee_users(organization, programs, cohorts)
             
-            # Create assessments
-            self.create_assessments(doctors, trainees, epas)
+            # Create assessments (include both doctors and leadership as evaluators)
+            all_evaluators = doctors + [leadership]
+            self.create_assessments(all_evaluators, trainees, epas)
             
         self.stdout.write(self.style.SUCCESS('✅ Demo data created successfully!'))
         self.print_login_credentials()
@@ -267,6 +272,44 @@ class Command(BaseCommand):
                 
                 self.stdout.write(f'  ↳ {epa.code}: {len(selected_subcomps)} mappings')
 
+    def create_cohorts(self, organization, programs):
+        """Create demo cohorts for each program"""
+        from datetime import date, timedelta
+        
+        cohorts = []
+        current_year = date.today().year
+        
+        for program in programs:
+            # Create 3 cohorts per program with different years
+            cohorts_data = [
+                {
+                    "name": f"Class of {current_year + 2}",
+                    "start_date": date(current_year - 2, 7, 1),
+                    "end_date": date(current_year + 2, 6, 30),
+                },
+                {
+                    "name": f"Class of {current_year + 3}",
+                    "start_date": date(current_year - 1, 7, 1),
+                    "end_date": date(current_year + 3, 6, 30),
+                },
+                {
+                    "name": f"Class of {current_year + 4}",
+                    "start_date": date(current_year, 7, 1),
+                    "end_date": date(current_year + 4, 6, 30),
+                },
+            ]
+            
+            for cohort_data in cohorts_data:
+                cohort = Cohort.objects.create(
+                    org=organization,
+                    program=program,
+                    **cohort_data
+                )
+                cohorts.append(cohort)
+                self.stdout.write(f'🎓 Created cohort: {cohort.name} - {program.name}')
+        
+        return cohorts
+
     def create_admin_user(self, organization, programs):
         """Create admin user for demo"""
         admin = User.objects.create_user(
@@ -322,8 +365,8 @@ class Command(BaseCommand):
         self.stdout.write(f'👔 Created leadership: {leadership.name}')
         return leadership
 
-    def create_trainee_users(self, organization, programs):
-        """Create 3 trainee users with different skill levels"""
+    def create_trainee_users(self, organization, programs, cohorts):
+        """Create 3 trainee users with different skill levels distributed across cohorts"""
         trainees_data = [
             {"name": "Dr. Alex Martinez", "email": "trainee@demo.com", "level": "strong", "department": "Emergency Medicine", "program": 0},
             {"name": "Dr. Sam Patel", "email": "trainee2@demo.com", "level": "average", "department": "Family Medicine", "program": 0},
@@ -331,7 +374,14 @@ class Command(BaseCommand):
         ]
         
         trainees = []
-        for trainee_data in trainees_data:
+        for i, trainee_data in enumerate(trainees_data):
+            # Get cohorts for the trainee's program
+            program = programs[trainee_data["program"]] if trainee_data["program"] < len(programs) else programs[0]
+            program_cohorts = [c for c in cohorts if c.program == program]
+            
+            # Distribute trainees evenly across cohorts
+            selected_cohort = program_cohorts[i % len(program_cohorts)] if program_cohorts else None
+            
             trainee = User.objects.create_user(
                 email=trainee_data["email"],
                 password='password123',
@@ -339,17 +389,19 @@ class Command(BaseCommand):
                 role='trainee',
                 department=trainee_data["department"],
                 organization=organization,
-                program=programs[trainee_data["program"]] if trainee_data["program"] < len(programs) else programs[0]
+                program=program,
+                cohort=selected_cohort
             )
             trainee.skill_level = trainee_data["level"]  # Store for assessment creation
             
             trainees.append(trainee)
-            self.stdout.write(f'🎓 Created trainee: {trainee.name} ({trainee_data["level"]})')
+            cohort_name = selected_cohort.name if selected_cohort else "No cohort"
+            self.stdout.write(f'🎓 Created trainee: {trainee.name} ({trainee_data["level"]}) - {cohort_name}')
         
         return trainees
 
-    def create_assessments(self, doctors, trainees, epas):
-        """Create realistic assessments for each trainee"""
+    def create_assessments(self, evaluators, trainees, epas):
+        """Create realistic assessments with varied patterns per evaluator"""
         self.stdout.write('📊 Creating assessments...')
         
         # Assessment patterns for different skill levels
@@ -361,51 +413,119 @@ class Command(BaseCommand):
         
         locations = ["Emergency Department", "Medical ICU", "General Medicine Ward", "Outpatient Clinic", "Family Medicine Clinic"]
         
-        for trainee in trainees:
-            skill_level = getattr(trainee, 'skill_level', 'average')
-            pattern = rating_patterns[skill_level]
-            
-            # Get EPAs from trainee's program
-            if not trainee.program:
+        # Define evaluator-specific patterns for realism
+        evaluator_patterns = {}
+        for evaluator in evaluators:
+            # Each evaluator has their own assessment habits
+            evaluator_patterns[evaluator.id] = {
+                'assessments_per_month': random.randint(2, 7),  # 2-7 assessments per month
+                'avg_turnaround_bias': random.uniform(0.3, 1.8),  # Multiplier for turnaround (creates varied averages)
+                'consistency': random.uniform(0.3, 1.0)  # How consistent their turnaround is
+            }
+        
+        # Generate assessments for the last 6 months
+        end_date = datetime.now().date()
+        start_date = end_date - timedelta(days=180)  # 6 months ago
+        
+        total_assessments = 0
+        
+        for evaluator in evaluators:
+            if not evaluator.program:
                 continue
-            available_epas = EPA.objects.filter(program=trainee.program)
+                
+            pattern = evaluator_patterns[evaluator.id]
+            program_trainees = [t for t in trainees if t.program == evaluator.program]
             
+            if not program_trainees:
+                continue
+            
+            # Get EPAs from evaluator's program
+            available_epas = EPA.objects.filter(program=evaluator.program)
             if not available_epas:
                 continue
             
-            # Create 20-25 assessments for each trainee
-            num_assessments = random.randint(20, 25)
+            # Create assessments for each month
+            current_month = start_date.replace(day=1)
+            evaluator_total = 0
             
-            for i in range(num_assessments):
-                # Random date in last 6 months
-                days_ago = random.randint(1, 180)
-                assessment_date = datetime.now().date() - timedelta(days=days_ago)
+            while current_month <= end_date:
+                # Calculate next month
+                if current_month.month == 12:
+                    next_month = current_month.replace(year=current_month.year + 1, month=1)
+                else:
+                    next_month = current_month.replace(month=current_month.month + 1)
                 
-                # Random doctor from same program
-                program_doctors = [d for d in doctors if d.program == trainee.program]
-                if not program_doctors:
-                    program_doctors = doctors
+                month_end = min(next_month - timedelta(days=1), end_date)
                 
-                assessor = random.choice(program_doctors)
-                location = random.choice(locations)
+                # Vary the number of assessments per month (±1-2 from base)
+                base_count = pattern['assessments_per_month']
+                month_assessments = max(1, base_count + random.randint(-2, 2))
                 
-                # Create assessment
-                assessment = Assessment.objects.create(
-                    trainee=trainee,
-                    evaluator=assessor,  # Note: field name is 'evaluator' not 'assessor'
-                    shift_date=assessment_date,
-                    location=location,
-                    status='submitted',
-                    private_comments=f"Assessment for {trainee.name} on {assessment_date}"
-                )
-                
-                # Create 2-4 EPA ratings per assessment
-                num_epa_ratings = random.randint(2, 4)
-                selected_epas = random.sample(list(available_epas), min(num_epa_ratings, len(available_epas)))
-                
-                for epa in selected_epas:
+                # Create assessments for this month
+                for i in range(month_assessments):
+                    # Random shift date within the month
+                    days_in_month = (month_end - current_month).days + 1
+                    shift_day_offset = random.randint(0, days_in_month - 1)
+                    shift_date = current_month + timedelta(days=shift_day_offset)
+                    
+                    # Make sure shift date doesn't exceed our end date
+                    if shift_date > end_date:
+                        shift_date = end_date
+                    
+                    # Calculate turnaround time based on evaluator's pattern
+                    base_turnaround = random.randint(1, 4)
+                    turnaround_variance = random.uniform(-pattern['consistency'], pattern['consistency'])
+                    actual_turnaround = max(1, int(base_turnaround * pattern['avg_turnaround_bias'] + turnaround_variance))
+                    actual_turnaround = min(actual_turnaround, 7)  # Cap at 7 days
+                    
+                    # Assessment created after the shift date
+                    created_date = shift_date + timedelta(days=actual_turnaround)
+                    
+                    # Don't create assessments in the future
+                    if created_date > end_date:
+                        created_date = end_date
+                    
+                    # Random trainee from same program
+                    trainee = random.choice(program_trainees)
+                    location = random.choice(locations)
+                    
+                    # Get skill level and rating pattern
+                    skill_level = getattr(trainee, 'skill_level', 'average')
+                    pattern_ratings = rating_patterns[skill_level]
+                    
+                    # Add some private comments to random assessments for mailbox testing
+                    private_comment = ""
+                    if random.choice([True, False, False, False]):  # 25% chance of having private comments
+                        private_comments_options = [
+                            f"{trainee.name} struggled with patient communication during this shift. Recommend additional training in this area.",
+                            f"Excellent performance by {trainee.name}. Ready for increased autonomy in similar cases.",
+                            f"{trainee.name} showed good clinical reasoning but needs to work on time management. Shift ran 30 minutes over.",
+                            f"Concerning incident: {trainee.name} missed critical lab values. Requires discussion with program director.",
+                            f"{trainee.name} demonstrated exceptional leadership during busy period. Consider for chief resident track.",
+                            f"Need to discuss {trainee.name}'s approach to difficult family conversations. Showed some difficulty with empathy.",
+                            f"{trainee.name} excelled in emergency procedures today. Recommend advanced procedure training.",
+                        ]
+                        private_comment = random.choice(private_comments_options)
+                    
+                    # Create assessment
+                    assessment = Assessment.objects.create(
+                        trainee=trainee,
+                        evaluator=evaluator,
+                        shift_date=shift_date,
+                        location=location,
+                        status='submitted',
+                        private_comments=private_comment
+                    )
+                    
+                    # Override the created_at timestamp to match our calculated date
+                    assessment.created_at = datetime.combine(created_date, datetime.now().time())
+                    assessment.save()
+                    
+                    # Create 1 EPA rating per assessment (business rule: single EPA per assessment)
+                    epa = random.choice(list(available_epas))
+                    
                     # Get rating based on skill level with some variation
-                    base_rating = random.choice(pattern)
+                    base_rating = random.choice(pattern_ratings)
                     # Add slight variation (±1, but keep within 1-5 range)
                     rating = max(1, min(5, base_rating + random.randint(-1, 1)))
                     
@@ -416,8 +536,15 @@ class Command(BaseCommand):
                         what_went_well=f"Good performance in {epa.title.lower()}",
                         what_could_improve="Continue practicing and refining skills"
                     )
+                    
+                    evaluator_total += 1
+                    total_assessments += 1
+                
+                current_month = next_month
             
-            self.stdout.write(f'  ↳ Created {num_assessments} assessments for {trainee.name}')
+            self.stdout.write(f'  ↳ Created {evaluator_total} assessments for {evaluator.name}')
+        
+        self.stdout.write(f'📊 Total assessments created: {total_assessments}')
 
     def print_login_credentials(self):
         """Print demo login credentials"""
