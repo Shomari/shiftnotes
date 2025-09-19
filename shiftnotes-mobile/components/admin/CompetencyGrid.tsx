@@ -13,21 +13,63 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  Pressable,
 } from 'react-native';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Select } from '../ui/Select';
 import { Input } from '../ui/Input';
+import { Button } from '../ui/Button';
 import { User } from '../../lib/types';
 import { apiClient } from '../../lib/api';
 
-// Web-only import for date picker
+// Web-only imports for react-datepicker
 let DatePicker: any = null;
 if (Platform.OS === 'web') {
   try {
-    DatePicker = require('react-datepicker');
+    DatePicker = require('react-datepicker').default;
     require('react-datepicker/dist/react-datepicker.css');
+    
+    // Add custom styles for z-index fix with higher values
+    const style = document.createElement('style');
+    style.textContent = `
+      .react-datepicker-popper {
+        z-index: 999999 !important;
+      }
+      .react-datepicker {
+        z-index: 999999 !important;
+      }
+      .react-datepicker__portal {
+        z-index: 999999 !important;
+        position: fixed !important;
+      }
+      .date-picker-popper {
+        z-index: 999999 !important;
+      }
+      .react-datepicker-wrapper {
+        width: 100%;
+        z-index: 1000 !important;
+        position: relative !important;
+      }
+      .react-datepicker__input-container {
+        width: 100%;
+        position: relative;
+        z-index: 1000;
+      }
+      .react-datepicker__input-container input {
+        width: 100% !important;
+        position: relative;
+        z-index: 1000;
+      }
+      .react-datepicker__tab-loop {
+        z-index: 999999 !important;
+      }
+      .react-datepicker-ignore-onclickoutside {
+        z-index: 999999 !important;
+      }
+    `;
+    document.head.appendChild(style);
   } catch (e) {
-    console.log('react-datepicker not available');
+    console.warn('Failed to load react-datepicker:', e);
   }
 }
 
@@ -54,8 +96,9 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
   const [loading, setLoading] = useState(false);
   
   // Date filter state
-  const [startDate, setStartDate] = useState<Date | null>(null);
-  const [endDate, setEndDate] = useState<Date | null>(null);
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   // Core competency categories matching ACGME structure
   const competencyCategories = [
@@ -99,6 +142,13 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
     return Math.ceil(value * 2) / 2;
   };
 
+  const toggleFilters = () => {
+    setFiltersExpanded(!filtersExpanded);
+  };
+
+  // Check if any filters are active
+  const hasActiveFilters = startDate || endDate;
+
   const loadTrainees = async () => {
     try {
       setLoading(true);
@@ -128,8 +178,8 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
       let assessments = [];
       try {
         // Format date parameters if they exist
-        const startDateStr = startDate ? startDate.toISOString().split('T')[0] : undefined;
-        const endDateStr = endDate ? endDate.toISOString().split('T')[0] : undefined;
+        const startDateStr = startDate || undefined;
+        const endDateStr = endDate || undefined;
         
         assessments = await apiClient.getAssessmentsForTrainee(traineeId, startDateStr, endDateStr);
         console.log('Fetched assessments:', assessments.length, 'with date filter:', { startDateStr, endDateStr });
@@ -412,87 +462,222 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
                 />
               </View>
             </View>
-            
-            {/* Date Filter Controls */}
-            <View style={styles.controlRow}>
-              <View style={styles.controlGroup}>
-                <Text style={styles.label}>Date Range (Optional):</Text>
-                <View style={styles.dateFilters}>
-                  {Platform.OS === 'web' && DatePicker ? (
-                    <>
-                      <View style={styles.datePickerContainer}>
-                        <Text style={styles.dateLabel}>From:</Text>
-                        <DatePicker.default
-                          selected={startDate}
-                          onChange={(date: Date | null) => setStartDate(date)}
-                          placeholderText="Start date"
-                          dateFormat="yyyy-MM-dd"
-                          className="date-picker-input"
-                          isClearable
-                        />
-                      </View>
-                      <View style={styles.datePickerContainer}>
-                        <Text style={styles.dateLabel}>To:</Text>
-                        <DatePicker.default
-                          selected={endDate}
-                          onChange={(date: Date | null) => setEndDate(date)}
-                          placeholderText="End date"
-                          dateFormat="yyyy-MM-dd"
-                          className="date-picker-input"
-                          isClearable
-                          minDate={startDate}
-                        />
-                      </View>
-                    </>
-                  ) : (
-                    <>
-                      <View style={styles.dateInputContainer}>
-                        <Text style={styles.dateLabel}>From:</Text>
-                        <Input
-                          value={startDate ? startDate.toISOString().split('T')[0] : ''}
-                          onChangeText={(text) => {
-                            if (text) {
-                              const date = new Date(text);
-                              if (!isNaN(date.getTime())) {
-                                setStartDate(date);
-                              }
-                            } else {
-                              setStartDate(null);
-                            }
-                          }}
-                          placeholder="YYYY-MM-DD"
-                          style={styles.dateInput}
-                        />
-                      </View>
-                      <View style={styles.dateInputContainer}>
-                        <Text style={styles.dateLabel}>To:</Text>
-                        <Input
-                          value={endDate ? endDate.toISOString().split('T')[0] : ''}
-                          onChangeText={(text) => {
-                            if (text) {
-                              const date = new Date(text);
-                              if (!isNaN(date.getTime())) {
-                                setEndDate(date);
-                              }
-                            } else {
-                              setEndDate(null);
-                            }
-                          }}
-                          placeholder="YYYY-MM-DD"
-                          style={styles.dateInput}
-                        />
-                      </View>
-                    </>
-                  )}
-                </View>
-                <Text style={styles.helpText}>
-                  Filter assessments by date range. Leave empty to include all assessments.
-                </Text>
-              </View>
-            </View>
           </View>
         </CardContent>
       </Card>
+
+      {/* Filters Section */}
+      {selectedTrainee && (
+        <Card style={styles.filtersCard}>
+          <CardHeader style={styles.filtersCardHeader}>
+            <Pressable
+              onPress={toggleFilters}
+              style={styles.filtersToggleButton}
+            >
+              <View style={styles.filtersHeader}>
+                <Text style={styles.filtersIcon}>📅</Text>
+                <Text style={styles.filtersTitle}>Date Filters</Text>
+                {hasActiveFilters && (
+                  <View style={styles.activeFiltersBadge}>
+                    <Text style={styles.activeFiltersText}>Active</Text>
+                  </View>
+                )}
+                <View style={styles.filtersHeaderSpacer} />
+                <Text style={styles.clickHint}>Click to {filtersExpanded ? 'collapse' : 'expand'}</Text>
+                <View style={styles.expandArrowContainer}>
+                  <Text style={[styles.expandIcon, { transform: [{ rotate: filtersExpanded ? '180deg' : '0deg' }] }]}>
+                    ▼
+                  </Text>
+                </View>
+              </View>
+            </Pressable>
+          </CardHeader>
+          {filtersExpanded && (
+            <CardContent>
+              <View style={styles.filtersContainer}>
+                {/* Date Filters */}
+                <View style={styles.filterField}>
+                  <Text style={styles.filterLabel}>Start Date</Text>
+                  {Platform.OS === 'web' ? (
+                    // Web: Use react-datepicker
+                    DatePicker ? (
+                      <View style={styles.datePickerContainer}>
+                        <DatePicker
+                          selected={startDate ? new Date(startDate) : null}
+                          onChange={(date: Date | null) => {
+                            if (date) {
+                              setStartDate(date.toISOString().split('T')[0]);
+                            } else {
+                              setStartDate('');
+                            }
+                          }}
+                          dateFormat="MM/dd/yyyy"
+                          placeholderText="Select start date"
+                          popperClassName="date-picker-popper"
+                          wrapperClassName="date-picker-wrapper"
+                          withPortal={true}
+                          portalId="react-datepicker-portal-start"
+                          isClearable
+                          popperModifiers={[
+                            {
+                              name: 'offset',
+                              options: {
+                                offset: [0, 10],
+                              },
+                            },
+                            {
+                              name: 'preventOverflow',
+                              options: {
+                                rootBoundary: 'viewport',
+                                tether: false,
+                                altAxis: true,
+                              },
+                            },
+                          ]}
+                          customInput={
+                            <input
+                              style={{
+                                width: '100%',
+                                padding: '8px 12px',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '6px',
+                                fontSize: '14px',
+                                backgroundColor: '#ffffff',
+                                color: '#374151',
+                                height: '36px',
+                                cursor: 'pointer',
+                                boxSizing: 'border-box',
+                                position: 'relative',
+                                zIndex: 1000,
+                              }}
+                            />
+                          }
+                        />
+                      </View>
+                    ) : (
+                      // Fallback to simple input if DatePicker fails to load
+                      <Input
+                        style={styles.dateInput}
+                        placeholder="mm/dd/yyyy"
+                        value={startDate}
+                        onChangeText={setStartDate}
+                      />
+                    )
+                  ) : (
+                    // Mobile: Use regular TextInput
+                    <Input
+                      style={styles.dateInput}
+                      placeholder="mm/dd/yyyy"
+                      value={startDate}
+                      onChangeText={setStartDate}
+                    />
+                  )}
+                </View>
+
+                <View style={styles.filterField}>
+                  <Text style={styles.filterLabel}>End Date</Text>
+                  {Platform.OS === 'web' ? (
+                    // Web: Use react-datepicker
+                    DatePicker ? (
+                      <View style={styles.datePickerContainer}>
+                        <DatePicker
+                          selected={endDate ? new Date(endDate) : null}
+                          onChange={(date: Date | null) => {
+                            if (date) {
+                              setEndDate(date.toISOString().split('T')[0]);
+                            } else {
+                              setEndDate('');
+                            }
+                          }}
+                          dateFormat="MM/dd/yyyy"
+                          placeholderText="Select end date"
+                          popperClassName="date-picker-popper"
+                          wrapperClassName="date-picker-wrapper"
+                          withPortal={true}
+                          portalId="react-datepicker-portal-end"
+                          isClearable
+                          minDate={startDate ? new Date(startDate) : null}
+                          popperModifiers={[
+                            {
+                              name: 'offset',
+                              options: {
+                                offset: [0, 10],
+                              },
+                            },
+                            {
+                              name: 'preventOverflow',
+                              options: {
+                                rootBoundary: 'viewport',
+                                tether: false,
+                                altAxis: true,
+                              },
+                            },
+                          ]}
+                          customInput={
+                            <input
+                              style={{
+                                width: '100%',
+                                padding: '8px 12px',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '6px',
+                                fontSize: '14px',
+                                backgroundColor: '#ffffff',
+                                color: '#374151',
+                                height: '36px',
+                                cursor: 'pointer',
+                                boxSizing: 'border-box',
+                                position: 'relative',
+                                zIndex: 1000,
+                              }}
+                            />
+                          }
+                        />
+                      </View>
+                    ) : (
+                      // Fallback to simple input if DatePicker fails to load
+                      <Input
+                        style={styles.dateInput}
+                        placeholder="mm/dd/yyyy"
+                        value={endDate}
+                        onChangeText={setEndDate}
+                      />
+                    )
+                  ) : (
+                    // Mobile: Use regular TextInput
+                    <Input
+                      style={styles.dateInput}
+                      placeholder="mm/dd/yyyy"
+                      value={endDate}
+                      onChangeText={setEndDate}
+                    />
+                  )}
+                </View>
+
+                {/* Clear Filters Button */}
+                {hasActiveFilters && (
+                  <View style={styles.filterField}>
+                    <Button
+                      title="Clear Date Filters"
+                      onPress={() => {
+                        setStartDate('');
+                        setEndDate('');
+                      }}
+                      style={styles.clearFiltersButton}
+                    />
+                  </View>
+                )}
+              </View>
+            </CardContent>
+          )}
+        </Card>
+      )}
+      
+      {Platform.OS === 'web' && (
+        <View style={{ height: 0, position: 'fixed', top: 0, left: 0, zIndex: 999999 }}>
+          <div id="react-datepicker-portal-start" />
+          <div id="react-datepicker-portal-end" />
+        </View>
+      )}
 
       {selectedTraineeData && (
         <Card style={styles.gridCard}>
@@ -720,32 +905,100 @@ const styles = StyleSheet.create({
   controlGroup: {
     flex: 1,
   },
-  dateFilters: {
+  
+  // Filters
+  filtersCard: {
+    margin: 16,
+    marginBottom: 8,
+    backgroundColor: '#ffffff',
+  },
+  filtersCardHeader: {
+    margin: 0,
+    marginBottom: 0, // Override Card header default margin
+    padding: 0,
+  },
+  filtersToggleButton: {
+    padding: 0,
+    margin: 0,
+    justifyContent: 'center',
+  },
+  filtersHeader: {
     flexDirection: 'row',
-    gap: 16,
-    marginTop: 8,
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
-  datePickerContainer: {
+  filtersIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  filtersTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  activeFiltersBadge: {
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  activeFiltersText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  filtersHeaderSpacer: {
     flex: 1,
-    minWidth: 150,
   },
-  dateInputContainer: {
-    flex: 1,
-    minWidth: 150,
-  },
-  dateLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#374151',
-    marginBottom: 4,
-  },
-  dateInput: {
-    fontSize: 14,
-  },
-  helpText: {
+  clickHint: {
     fontSize: 12,
     color: '#6b7280',
-    marginTop: 8,
     fontStyle: 'italic',
+    marginRight: 8,
+  },
+  expandArrowContainer: {
+    paddingHorizontal: 4,
+  },
+  expandIcon: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontWeight: '600',
+  },
+  filtersContainer: {
+    gap: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  filterField: {
+    gap: 8,
+    marginBottom: 4,
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 6,
+    marginLeft: 2,
+  },
+  dateInput: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    backgroundColor: '#ffffff',
+    minHeight: 40,
+  },
+  datePickerContainer: {
+    position: 'relative',
+    zIndex: 10000,
+    isolation: 'isolate',
+  },
+  clearFiltersButton: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
   },
 });
