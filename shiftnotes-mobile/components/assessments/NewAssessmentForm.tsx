@@ -248,18 +248,61 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
     console.log('User program:', user?.program);
     
     // Validate required fields
+    const validationErrors = [];
+    
     if (!data.traineeId) {
-      Alert.alert('Validation Error', 'Please select a trainee.');
-      return;
+      validationErrors.push('Please select a trainee');
+    }
+    
+    if (!data.shiftDate) {
+      validationErrors.push('Please select a shift date');
+    }
+    
+    if (!data.location) {
+      validationErrors.push('Please select a location/site');
     }
     
     if (!user?.program) {
-      Alert.alert('Validation Error', 'User program not found.');
-      return;
+      validationErrors.push('User program not found');
     }
     
     if (!isDraft && !selectedEPA) {
-      Alert.alert('Validation Error', 'Please select an EPA to assess.');
+      validationErrors.push('Please select an EPA to assess');
+    }
+    
+    // Additional validation for non-draft submissions
+    if (!isDraft && selectedEPA) {
+      if (!epaAssessment?.entrustmentLevel || epaAssessment.entrustmentLevel < 1) {
+        validationErrors.push('Please select an entrustment level for the EPA');
+      }
+      
+      if (!epaAssessment?.whatWentWell?.trim()) {
+        validationErrors.push('Please provide feedback on what went well');
+      }
+      
+      if (!epaAssessment?.whatCouldImprove?.trim()) {
+        validationErrors.push('Please provide feedback on what could improve');
+      }
+    }
+    
+    // Validate that shift date is not in the future
+    if (data.shiftDate) {
+      const shiftDate = new Date(data.shiftDate);
+      const today = new Date();
+      today.setHours(23, 59, 59, 999); // End of today
+      
+      if (shiftDate > today) {
+        validationErrors.push('Shift date cannot be in the future');
+      }
+    }
+    
+    // If there are validation errors, show them
+    if (validationErrors.length > 0) {
+      const errorMessage = validationErrors.length === 1 
+        ? validationErrors[0] 
+        : `Please fix the following issues:\n\n• ${validationErrors.join('\n• ')}`;
+      
+      Alert.alert('Validation Error', errorMessage);
       return;
     }
 
