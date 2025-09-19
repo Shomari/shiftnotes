@@ -12,11 +12,24 @@ import {
   Dimensions,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Select } from '../ui/Select';
+import { Input } from '../ui/Input';
 import { User } from '../../lib/types';
 import { apiClient } from '../../lib/api';
+
+// Web-only import for date picker
+let DatePicker: any = null;
+if (Platform.OS === 'web') {
+  try {
+    DatePicker = require('react-datepicker');
+    require('react-datepicker/dist/react-datepicker.css');
+  } catch (e) {
+    console.log('react-datepicker not available');
+  }
+}
 
 const { width } = Dimensions.get('window');
 const isTablet = width >= 768;
@@ -39,6 +52,10 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
   const [selectedTrainee, setSelectedTrainee] = useState<string>('');
   const [competencyData, setCompetencyData] = useState<CompetencyData[]>([]);
   const [loading, setLoading] = useState(false);
+  
+  // Date filter state
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
 
   // Core competency categories matching ACGME structure
   const competencyCategories = [
@@ -75,7 +92,7 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
     } else {
       console.log('No trainee selected yet');
     }
-  }, [selectedTrainee]);
+  }, [selectedTrainee, startDate, endDate]);
 
   // Function to round up to nearest 0.5
   const roundUpToNearestHalf = (value: number): number => {
@@ -110,8 +127,12 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
       console.log('About to fetch assessments...');
       let assessments = [];
       try {
-        assessments = await apiClient.getAssessmentsForTrainee(traineeId);
-        console.log('Fetched assessments:', assessments.length);
+        // Format date parameters if they exist
+        const startDateStr = startDate ? startDate.toISOString().split('T')[0] : undefined;
+        const endDateStr = endDate ? endDate.toISOString().split('T')[0] : undefined;
+        
+        assessments = await apiClient.getAssessmentsForTrainee(traineeId, startDateStr, endDateStr);
+        console.log('Fetched assessments:', assessments.length, 'with date filter:', { startDateStr, endDateStr });
         if (assessments.length > 0) {
           console.log('First assessment structure:', assessments[0]);
         } else {
@@ -372,21 +393,103 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
         
         <CardContent>
           <View style={styles.controls}>
-            <Text style={styles.label}>Select Trainee:</Text>
-            <Select
-              key={`trainee-select-${user?.organization}-${trainees.length}`}
-              value={selectedTrainee}
-              onValueChange={setSelectedTrainee}
-              placeholder={loading ? "Loading trainees..." : "Choose a trainee to view competency grid"}
-              options={[
-                { value: '', label: 'Select a trainee' },
-                ...trainees.map(trainee => ({
-                  value: trainee.id,
-                  label: `${trainee.name} (${trainee.department || 'No Department'})`
-                }))
-              ]}
-              disabled={loading || trainees.length === 0}
-            />
+            <View style={styles.controlRow}>
+              <View style={styles.controlGroup}>
+                <Text style={styles.label}>Select Trainee:</Text>
+                <Select
+                  key={`trainee-select-${user?.organization}-${trainees.length}`}
+                  value={selectedTrainee}
+                  onValueChange={setSelectedTrainee}
+                  placeholder={loading ? "Loading trainees..." : "Choose a trainee to view competency grid"}
+                  options={[
+                    { value: '', label: 'Select a trainee' },
+                    ...trainees.map(trainee => ({
+                      value: trainee.id,
+                      label: `${trainee.name} (${trainee.department || 'No Department'})`
+                    }))
+                  ]}
+                  disabled={loading || trainees.length === 0}
+                />
+              </View>
+            </View>
+            
+            {/* Date Filter Controls */}
+            <View style={styles.controlRow}>
+              <View style={styles.controlGroup}>
+                <Text style={styles.label}>Date Range (Optional):</Text>
+                <View style={styles.dateFilters}>
+                  {Platform.OS === 'web' && DatePicker ? (
+                    <>
+                      <View style={styles.datePickerContainer}>
+                        <Text style={styles.dateLabel}>From:</Text>
+                        <DatePicker.default
+                          selected={startDate}
+                          onChange={(date: Date | null) => setStartDate(date)}
+                          placeholderText="Start date"
+                          dateFormat="yyyy-MM-dd"
+                          className="date-picker-input"
+                          isClearable
+                        />
+                      </View>
+                      <View style={styles.datePickerContainer}>
+                        <Text style={styles.dateLabel}>To:</Text>
+                        <DatePicker.default
+                          selected={endDate}
+                          onChange={(date: Date | null) => setEndDate(date)}
+                          placeholderText="End date"
+                          dateFormat="yyyy-MM-dd"
+                          className="date-picker-input"
+                          isClearable
+                          minDate={startDate}
+                        />
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      <View style={styles.dateInputContainer}>
+                        <Text style={styles.dateLabel}>From:</Text>
+                        <Input
+                          value={startDate ? startDate.toISOString().split('T')[0] : ''}
+                          onChangeText={(text) => {
+                            if (text) {
+                              const date = new Date(text);
+                              if (!isNaN(date.getTime())) {
+                                setStartDate(date);
+                              }
+                            } else {
+                              setStartDate(null);
+                            }
+                          }}
+                          placeholder="YYYY-MM-DD"
+                          style={styles.dateInput}
+                        />
+                      </View>
+                      <View style={styles.dateInputContainer}>
+                        <Text style={styles.dateLabel}>To:</Text>
+                        <Input
+                          value={endDate ? endDate.toISOString().split('T')[0] : ''}
+                          onChangeText={(text) => {
+                            if (text) {
+                              const date = new Date(text);
+                              if (!isNaN(date.getTime())) {
+                                setEndDate(date);
+                              }
+                            } else {
+                              setEndDate(null);
+                            }
+                          }}
+                          placeholder="YYYY-MM-DD"
+                          style={styles.dateInput}
+                        />
+                      </View>
+                    </>
+                  )}
+                </View>
+                <Text style={styles.helpText}>
+                  Filter assessments by date range. Leave empty to include all assessments.
+                </Text>
+              </View>
+            </View>
           </View>
         </CardContent>
       </Card>
@@ -610,5 +713,39 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#64748b',
     textAlign: 'center',
+  },
+  controlRow: {
+    marginBottom: 16,
+  },
+  controlGroup: {
+    flex: 1,
+  },
+  dateFilters: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 8,
+  },
+  datePickerContainer: {
+    flex: 1,
+    minWidth: 150,
+  },
+  dateInputContainer: {
+    flex: 1,
+    minWidth: 150,
+  },
+  dateLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 4,
+  },
+  dateInput: {
+    fontSize: 14,
+  },
+  helpText: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
 });

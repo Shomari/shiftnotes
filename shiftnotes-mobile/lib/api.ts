@@ -520,11 +520,18 @@ export class ApiClient {
   }
 
   // Competency Grid APIs
-  async getAssessmentsForTrainee(traineeId: string): Promise<any[]> {
+  async getAssessmentsForTrainee(traineeId: string, startDate?: string, endDate?: string): Promise<any[]> {
     console.log('API: Fetching assessments for trainee:', traineeId);
     const token = await TokenStorage.getToken();
     console.log('API: Using token:', token ? token.substring(0, 10) + '...' : 'NO TOKEN');
-    const response = await this.request(`/assessments/?trainee=${traineeId}&limit=100`);
+    
+    const params = new URLSearchParams();
+    params.append('trainee', traineeId);
+    params.append('limit', '100');
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    
+    const response = await this.request(`/assessments/?${params.toString()}`);
     console.log('API: Assessments response:', response);
     const results = (response as any).results || [];
     console.log('API: Returning', results.length, 'assessments');

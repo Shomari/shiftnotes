@@ -26,24 +26,32 @@ class AssessmentViewSet(viewsets.ModelViewSet):
         
         # System admins can see all assessments
         if user.role == 'system-admin':
-            return Assessment.objects.all()
-        
-        # All other users can only see assessments within their program
-        if not user.program:
-            return Assessment.objects.none()
-        
-        # Filter assessments by user's program
-        if user.role in ['admin', 'leadership']:
+            queryset = Assessment.objects.all()
+        elif not user.program:
+            # All other users need a program
+            queryset = Assessment.objects.none()
+        elif user.role in ['admin', 'leadership']:
             # Admins and leadership can see all assessments in their program
-            return Assessment.objects.filter(
+            queryset = Assessment.objects.filter(
                 Q(trainee__program=user.program) | 
                 Q(evaluator__program=user.program)
             ).distinct()
+        else:
+            # Faculty and trainees can see assessments they gave or received
+            queryset = Assessment.objects.filter(
+                Q(trainee=user) | Q(evaluator=user)
+            ).distinct()
         
-        # Faculty and trainees can see assessments they gave or received
-        return Assessment.objects.filter(
-            Q(trainee=user) | Q(evaluator=user)
-        ).distinct()
+        # Apply date range filtering if provided
+        start_date = self.request.query_params.get('start_date')
+        end_date = self.request.query_params.get('end_date')
+        
+        if start_date:
+            queryset = queryset.filter(shift_date__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(shift_date__lte=end_date)
+        
+        return queryset
 
     @action(detail=False, methods=['get'])
     def my_assessments(self, request):
