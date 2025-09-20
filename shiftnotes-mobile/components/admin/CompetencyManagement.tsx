@@ -12,6 +12,7 @@ import {
   Alert,
   Modal,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Input } from '../ui/Input';
@@ -79,6 +80,10 @@ export function CompetencyManagement() {
     title: '',
     program: '',
   });
+  
+  // Validation error states
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
+  const [subCompetencyValidationErrors, setSubCompetencyValidationErrors] = useState<{[key: string]: string}>({});
 
   const [subCompetencyFormData, setSubCompetencyFormData] = useState<SubCompetencyFormData>({
     code: '',
@@ -147,6 +152,7 @@ export function CompetencyManagement() {
   }, {} as GroupedSubCompetencies);
 
   const handleCreateCompetency = () => {
+    setValidationErrors({});
     setFormData({
       code: '',
       title: '',
@@ -157,6 +163,7 @@ export function CompetencyManagement() {
   };
 
   const handleEditCompetency = (competency: ApiCoreCompetency) => {
+    setValidationErrors({});
     setFormData({
       code: competency.code,
       title: competency.title,
@@ -167,8 +174,23 @@ export function CompetencyManagement() {
   };
 
   const handleSaveCompetency = async () => {
-    if (!formData.code.trim() || !formData.title.trim()) {
-      Alert.alert('Error', 'Please fill in all required fields');
+    // Clear previous validation errors
+    setValidationErrors({});
+    
+    // Validate required fields
+    const fieldErrors: {[key: string]: string} = {};
+    
+    if (!formData.code || !formData.code.trim()) {
+      fieldErrors.code = 'Please enter a competency code';
+    }
+    
+    if (!formData.title || !formData.title.trim()) {
+      fieldErrors.title = 'Please enter a competency title';
+    }
+    
+    // If there are validation errors, set them and return
+    if (Object.keys(fieldErrors).length > 0) {
+      setValidationErrors(fieldErrors);
       return;
     }
 
@@ -180,11 +202,40 @@ export function CompetencyManagement() {
       }
       
       setShowCreateModal(false);
-      loadData();
-      Alert.alert('Success', `Competency ${editingCompetency ? 'updated' : 'created'} successfully`);
-    } catch (error) {
+      await loadData();
+      
+      const successMessage = `Competency ${editingCompetency ? 'updated' : 'created'} successfully`;
+      if (Platform.OS === 'web') {
+        window.alert(successMessage);
+      } else {
+        Alert.alert('Success', successMessage);
+      }
+    } catch (error: any) {
       console.error('Error saving competency:', error);
-      Alert.alert('Error', 'Failed to save competency');
+      
+      // Parse API error response
+      let errorMessage = 'Failed to save competency. Please try again.';
+      
+      if (error.response && error.response.data) {
+        console.log('Competency error response:', error.response.data);
+        
+        // Check for DRF ValidationError format
+        if (error.response.data.code) {
+          const codeError = Array.isArray(error.response.data.code) 
+            ? error.response.data.code[0] 
+            : error.response.data.code;
+          setValidationErrors({ code: codeError });
+          errorMessage = codeError;
+        } else if (error.response.data.error) {
+          errorMessage = error.response.data.error;
+        }
+      }
+      
+      if (Platform.OS === 'web') {
+        window.alert(errorMessage);
+      } else {
+        Alert.alert('Error', errorMessage);
+      }
     }
   };
 
@@ -213,6 +264,7 @@ export function CompetencyManagement() {
   };
 
   const handleCreateSubCompetency = (coreCompetency: ApiCoreCompetency) => {
+    setSubCompetencyValidationErrors({});
     setSubCompetencyFormData({
       code: '',
       title: '',
@@ -229,6 +281,7 @@ export function CompetencyManagement() {
   };
 
   const handleEditSubCompetency = (subCompetency: ApiSubCompetency) => {
+    setSubCompetencyValidationErrors({});
     setSubCompetencyFormData({
       code: subCompetency.code,
       title: subCompetency.title,
@@ -245,8 +298,27 @@ export function CompetencyManagement() {
   };
 
   const handleSaveSubCompetency = async () => {
-    if (!subCompetencyFormData.code.trim() || !subCompetencyFormData.title.trim()) {
-      Alert.alert('Error', 'Please fill in all required fields');
+    // Clear previous validation errors
+    setSubCompetencyValidationErrors({});
+    
+    // Validate required fields
+    const fieldErrors: {[key: string]: string} = {};
+    
+    if (!subCompetencyFormData.code || !subCompetencyFormData.code.trim()) {
+      fieldErrors.code = 'Please enter a sub-competency code';
+    }
+    
+    if (!subCompetencyFormData.title || !subCompetencyFormData.title.trim()) {
+      fieldErrors.title = 'Please enter a sub-competency title';
+    }
+    
+    if (!subCompetencyFormData.core_competency) {
+      fieldErrors.core_competency = 'Please select a core competency';
+    }
+    
+    // If there are validation errors, set them and return
+    if (Object.keys(fieldErrors).length > 0) {
+      setSubCompetencyValidationErrors(fieldErrors);
       return;
     }
 
@@ -258,11 +330,40 @@ export function CompetencyManagement() {
       }
       
       setShowSubCompetencyModal(false);
-      loadData();
-      Alert.alert('Success', `Sub-competency ${editingSubCompetency ? 'updated' : 'created'} successfully`);
-    } catch (error) {
+      await loadData();
+      
+      const successMessage = `Sub-competency ${editingSubCompetency ? 'updated' : 'created'} successfully`;
+      if (Platform.OS === 'web') {
+        window.alert(successMessage);
+      } else {
+        Alert.alert('Success', successMessage);
+      }
+    } catch (error: any) {
       console.error('Error saving sub-competency:', error);
-      Alert.alert('Error', 'Failed to save sub-competency');
+      
+      // Parse API error response
+      let errorMessage = 'Failed to save sub-competency. Please try again.';
+      
+      if (error.response && error.response.data) {
+        console.log('Sub-competency error response:', error.response.data);
+        
+        // Check for DRF ValidationError format
+        if (error.response.data.code) {
+          const codeError = Array.isArray(error.response.data.code) 
+            ? error.response.data.code[0] 
+            : error.response.data.code;
+          setSubCompetencyValidationErrors({ code: codeError });
+          errorMessage = codeError;
+        } else if (error.response.data.error) {
+          errorMessage = error.response.data.error;
+        }
+      }
+      
+      if (Platform.OS === 'web') {
+        window.alert(errorMessage);
+      } else {
+        Alert.alert('Error', errorMessage);
+      }
     }
   };
 
@@ -462,6 +563,9 @@ export function CompetencyManagement() {
                 placeholder="e.g., COMP1"
                 style={styles.input}
               />
+              {validationErrors.code && (
+                <Text style={styles.errorText}>{validationErrors.code}</Text>
+              )}
             </View>
 
             <View style={styles.field}>
@@ -472,13 +576,19 @@ export function CompetencyManagement() {
                 placeholder="e.g., Patient Care and Procedural Skills"
                 style={styles.input}
               />
+              {validationErrors.title && (
+                <Text style={styles.errorText}>{validationErrors.title}</Text>
+              )}
             </View>
           </ScrollView>
 
           <View style={styles.modalFooter}>
             <Button
               title="Cancel"
-              onPress={() => setShowCreateModal(false)}
+              onPress={() => {
+                setShowCreateModal(false);
+                setValidationErrors({});
+              }}
               style={[styles.button, styles.cancelButton]}
             />
             <Button
@@ -518,6 +628,9 @@ export function CompetencyManagement() {
                 placeholder="e.g., COMP1.1"
                 style={styles.input}
               />
+              {subCompetencyValidationErrors.code && (
+                <Text style={styles.errorText}>{subCompetencyValidationErrors.code}</Text>
+              )}
             </View>
 
             <View style={styles.field}>
@@ -528,6 +641,9 @@ export function CompetencyManagement() {
                 placeholder="e.g., Clinical Reasoning"
                 style={styles.input}
               />
+              {subCompetencyValidationErrors.title && (
+                <Text style={styles.errorText}>{subCompetencyValidationErrors.title}</Text>
+              )}
             </View>
 
             <Text style={styles.milestoneLabel}>Milestone Levels</Text>
@@ -551,7 +667,10 @@ export function CompetencyManagement() {
           <View style={styles.modalFooter}>
             <Button
               title="Cancel"
-              onPress={() => setShowSubCompetencyModal(false)}
+              onPress={() => {
+                setShowSubCompetencyModal(false);
+                setSubCompetencyValidationErrors({});
+              }}
               style={[styles.button, styles.cancelButton]}
             />
             <Button
@@ -756,6 +875,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#ef4444',
+    marginTop: 4,
   },
   milestoneLabel: {
     fontSize: 16,

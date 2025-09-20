@@ -242,9 +242,36 @@ export class ApiClient {
       const response = await fetch(url, config);
       
       if (!response.ok) {
-        const errorData = await response.text();
+        let errorData;
+        const contentType = response.headers.get('content-type');
+        
+        try {
+          if (contentType?.includes('application/json')) {
+            errorData = await response.json();
+          } else {
+            errorData = await response.text();
+          }
+        } catch (parseError) {
+          errorData = 'Unknown error';
+        }
+        
         console.error(`API Error: ${response.status} ${response.statusText}`, errorData);
-        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+        
+        // Create enhanced error object with response data
+        const error: any = new Error(`API Error: ${response.status} ${response.statusText}`);
+        error.response = {
+          status: response.status,
+          statusText: response.statusText,
+          data: errorData
+        };
+        throw error;
+      }
+
+      // Handle empty responses (like DELETE 204)
+      const contentType = response.headers.get('content-type');
+      if (response.status === 204 || !contentType?.includes('application/json')) {
+        console.log(`API Response: ${url} - No content`);
+        return null as T;
       }
 
       const data = await response.json();

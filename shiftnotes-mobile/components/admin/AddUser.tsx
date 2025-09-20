@@ -41,6 +41,7 @@ export default function AddUser({ onBack }: AddUserProps) {
   const [loading, setLoading] = useState(false);
   const [cohorts, setCohorts] = useState<any[]>([]);
   const [loadingCohorts, setLoadingCohorts] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const [formData, setFormData] = useState<UserFormData>({
     email: '',
     name: '',
@@ -78,20 +79,34 @@ export default function AddUser({ onBack }: AddUserProps) {
   }, [formData.role, user?.program]);
 
   const handleSave = async () => {
-    // Validation
-    if (!formData.email || !formData.name || !formData.role) {
-      Alert.alert('Error', 'Please fill in all required fields');
-      return;
+    // Clear previous validation errors
+    setValidationErrors({});
+    
+    // Validate required fields
+    const fieldErrors: {[key: string]: string} = {};
+    
+    if (!formData.email || !formData.email.trim()) {
+      fieldErrors.email = 'Please enter an email address';
+    } else if (!formData.email.includes('@')) {
+      fieldErrors.email = 'Please enter a valid email address';
+    }
+    
+    if (!formData.name || !formData.name.trim()) {
+      fieldErrors.name = 'Please enter a full name';
+    }
+    
+    if (!formData.role) {
+      fieldErrors.role = 'Please select a role';
     }
     
     // Require cohort for trainees
     if (formData.role === 'trainee' && !formData.cohort) {
-      Alert.alert('Error', 'Please select a cohort for trainees');
-      return;
+      fieldErrors.cohort = 'Please select a cohort for trainees';
     }
-
-    if (!formData.email.includes('@')) {
-      Alert.alert('Error', 'Please enter a valid email address');
+    
+    // If there are validation errors, set them and return
+    if (Object.keys(fieldErrors).length > 0) {
+      setValidationErrors(fieldErrors);
       return;
     }
 
@@ -106,12 +121,49 @@ export default function AddUser({ onBack }: AddUserProps) {
       };
 
       await apiClient.createUser(userData);
-      Alert.alert('Success', 'User created successfully', [
-        { text: 'OK', onPress: onBack }
-      ]);
-    } catch (error) {
+      
+      const successMessage = 'User created successfully';
+      if (Platform.OS === 'web') {
+        window.alert(successMessage);
+        onBack?.();
+      } else {
+        Alert.alert('Success', successMessage, [
+          { text: 'OK', onPress: onBack }
+        ]);
+      }
+    } catch (error: any) {
       console.error('Error creating user:', error);
-      Alert.alert('Error', 'Failed to create user. Please try again.');
+      
+      // Parse API error response
+      let errorMessage = 'Failed to create user. Please try again.';
+      let fieldError = '';
+      
+      if (error.response && error.response.data) {
+        console.log('User creation error response:', error.response.data);
+        
+        // Check for DRF ValidationError format
+        if (error.response.data.email) {
+          const emailError = Array.isArray(error.response.data.email) 
+            ? error.response.data.email[0] 
+            : error.response.data.email;
+          fieldError = emailError;
+          errorMessage = emailError;
+          setValidationErrors({ email: emailError });
+        } else if (error.response.data.error) {
+          errorMessage = error.response.data.error;
+        } else if (error.response.data.non_field_errors) {
+          const nonFieldError = Array.isArray(error.response.data.non_field_errors)
+            ? error.response.data.non_field_errors[0]
+            : error.response.data.non_field_errors;
+          errorMessage = nonFieldError;
+        }
+      }
+      
+      if (Platform.OS === 'web') {
+        window.alert(errorMessage);
+      } else {
+        Alert.alert('Error', errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -153,6 +205,9 @@ export default function AddUser({ onBack }: AddUserProps) {
                 autoCapitalize="none"
                 style={styles.input}
               />
+              {validationErrors.email && (
+                <Text style={styles.errorText}>{validationErrors.email}</Text>
+              )}
             </View>
 
             <View style={styles.formGroup}>
@@ -163,6 +218,9 @@ export default function AddUser({ onBack }: AddUserProps) {
                 placeholder="John Doe"
                 style={styles.input}
               />
+              {validationErrors.name && (
+                <Text style={styles.errorText}>{validationErrors.name}</Text>
+              )}
             </View>
 
             <View style={styles.formGroup}>
@@ -178,6 +236,9 @@ export default function AddUser({ onBack }: AddUserProps) {
                 options={roleOptions}
                 style={styles.select}
               />
+              {validationErrors.role && (
+                <Text style={styles.errorText}>{validationErrors.role}</Text>
+              )}
             </View>
 
             {formData.role === 'trainee' && (
@@ -194,6 +255,9 @@ export default function AddUser({ onBack }: AddUserProps) {
                   disabled={loadingCohorts || cohorts.length === 0}
                   style={styles.select}
                 />
+                {validationErrors.cohort && (
+                  <Text style={styles.errorText}>{validationErrors.cohort}</Text>
+                )}
                 {cohorts.length === 0 && !loadingCohorts && (
                   <Text style={styles.helpText}>No cohorts available. Please create a cohort first.</Text>
                 )}
@@ -274,6 +338,11 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     marginTop: 4,
     fontStyle: 'italic',
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#ef4444',
+    marginTop: 4,
   },
   actions: {
     flexDirection: 'row',

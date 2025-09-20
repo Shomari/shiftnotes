@@ -1,6 +1,8 @@
 from django.shortcuts import render
-from rest_framework import viewsets
+from django.db import IntegrityError
+from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import EPACategory, EPA, CoreCompetency, SubCompetency, SubCompetencyEPA
 from .serializers import EPACategorySerializer, EPASerializer, CoreCompetencySerializer, SubCompetencySerializer, SubCompetencyEPASerializer
@@ -24,6 +26,8 @@ class EPAViewSet(viewsets.ModelViewSet):
     filterset_fields = ['program', 'category', 'is_active']
     search_fields = ['code', 'title', 'description']
     ordering = ['code']
+    
+    # Clean ViewSet - validation is handled by the serializer
 
 class CoreCompetencyViewSet(viewsets.ModelViewSet):
     queryset = CoreCompetency.objects.all()

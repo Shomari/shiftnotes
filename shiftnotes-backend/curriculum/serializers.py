@@ -15,7 +15,6 @@ class EPACategorySerializer(serializers.ModelSerializer):
 class EPASerializer(serializers.ModelSerializer):
     program_name = serializers.CharField(source='program.name', read_only=True)
     category_title = serializers.CharField(source='category.title', read_only=True)
-    program = serializers.PrimaryKeyRelatedField(read_only=True)
     
     class Meta:
         model = EPA
@@ -23,7 +22,28 @@ class EPASerializer(serializers.ModelSerializer):
             'id', 'code', 'title', 'description', 'is_active',
             'program', 'program_name', 'category', 'category_title'
         ]
-        read_only_fields = ['program']
+        
+    def validate(self, data):
+        """Validate that EPA code is unique within the program"""
+        code = data.get('code')
+        program = data.get('program')
+        
+        # For create operations, check if EPA with same code exists in same program
+        if self.instance is None:  # Creating new EPA
+            if code and program:
+                if EPA.objects.filter(code=code, program=program).exists():
+                    raise serializers.ValidationError({
+                        'code': f'EPA code "{code}" is already in use. Please choose a different code.'
+                    })
+        else:  # Updating existing EPA
+            if code and program:
+                existing = EPA.objects.filter(code=code, program=program).exclude(id=self.instance.id)
+                if existing.exists():
+                    raise serializers.ValidationError({
+                        'code': f'EPA code "{code}" is already in use. Please choose a different code.'
+                    })
+        
+        return data
 
 class CoreCompetencySerializer(serializers.ModelSerializer):
     program_name = serializers.CharField(source='program.name', read_only=True)

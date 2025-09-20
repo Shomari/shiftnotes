@@ -81,6 +81,9 @@ export function EPAManagement() {
     is_active: true,
     sub_competencies: [],
   });
+  
+  // Validation errors state
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
 
   // Initialize when user is available and auto-load their program data
   useEffect(() => {
@@ -157,6 +160,7 @@ export function EPAManagement() {
 
   const handleCreateEPA = () => {
     setEditingEPA(null);
+    setValidationErrors({});
     setFormData({
       code: 'EPA 23', // Pre-filled as shown in image
       title: '',
@@ -170,6 +174,7 @@ export function EPAManagement() {
 
   const handleEditEPA = (epa: ApiEPA) => {
     setEditingEPA(epa);
+    setValidationErrors({});
     setFormData({
       code: epa.code,
       title: epa.title,
@@ -182,8 +187,34 @@ export function EPAManagement() {
   };
 
   const handleSaveEPA = async () => {
-    if (!formData.code || !formData.title || !formData.category) {
-      Alert.alert('Error', 'Please fill in all required fields');
+    console.log('handleSaveEPA called', { formData, editingEPA });
+    
+    // Clear previous validation errors
+    setValidationErrors({});
+    
+    // Validate required fields
+    const fieldErrors: {[key: string]: string} = {};
+    
+    if (!formData.code || !formData.code.trim()) {
+      fieldErrors.code = 'Please enter an EPA code';
+    }
+    
+    if (!formData.title || !formData.title.trim()) {
+      fieldErrors.title = 'Please enter an EPA title';
+    }
+    
+    if (!formData.category) {
+      fieldErrors.category = 'Please select a category';
+    }
+    
+    if (!formData.description || !formData.description.trim()) {
+      fieldErrors.description = 'Please enter a description';
+    }
+    
+    // If there are validation errors, set them and return
+    if (Object.keys(fieldErrors).length > 0) {
+      setValidationErrors(fieldErrors);
+      console.log('Validation errors:', fieldErrors);
       return;
     }
 
@@ -198,79 +229,196 @@ export function EPAManagement() {
         program: user?.program || '',
       };
 
+      console.log('Saving EPA data:', epaData);
+
       let savedEPA: ApiEPA;
       if (editingEPA) {
         // Update existing EPA
+        console.log('Updating EPA with ID:', editingEPA.id);
         savedEPA = await apiClient.updateEPA(editingEPA.id, epaData);
       } else {
         // Create new EPA
+        console.log('Creating new EPA');
         savedEPA = await apiClient.createEPA(epaData);
       }
 
+      console.log('EPA saved successfully:', savedEPA);
+
       // Handle sub-competency relationships
-      await handleSubCompetencyRelationships(savedEPA.id);
+      try {
+        await handleSubCompetencyRelationships(savedEPA.id);
+        console.log('Sub-competency relationships handled successfully');
+      } catch (subCompError) {
+        console.error('Error handling sub-competency relationships:', subCompError);
+        throw new Error(`EPA saved but failed to update sub-competency relationships: ${subCompError.message}`);
+      }
 
       setShowCreateModal(false);
-      loadData();
-      Alert.alert('Success', `EPA ${editingEPA ? 'updated' : 'created'} successfully`);
-    } catch (error) {
+      await loadData(); // Make sure data reloads
+      
+      const successMessage = `EPA ${editingEPA ? 'updated' : 'created'} successfully`;
+      if (Platform.OS === 'web') {
+        window.alert(successMessage);
+      } else {
+        Alert.alert('Success', successMessage);
+      }
+    } catch (error: any) {
       console.error('Error saving EPA:', error);
-      Alert.alert('Error', 'Failed to save EPA');
+      
+      // Check for specific error types
+      let errorMessage = 'Failed to save EPA. Please try again.';
+      let fieldError = '';
+      
+      // Try to parse structured error response from backend
+      if (error.response && error.response.data) {
+        console.log('Error response data:', error.response.data);
+        
+        // Check for DRF ValidationError format (field-specific errors)
+        if (error.response.data.code) {
+          // Field-specific error from ValidationError - could be array or string
+          const codeError = Array.isArray(error.response.data.code) 
+            ? error.response.data.code[0] 
+            : error.response.data.code;
+          errorMessage = codeError;
+          fieldError = codeError;
+        } else if (error.response.data.error) {
+          // Generic error format
+          errorMessage = error.response.data.error;
+          if (errorMessage.toLowerCase().includes('already exists') || 
+              errorMessage.toLowerCase().includes('duplicate') ||
+              errorMessage.toLowerCase().includes('already in use')) {
+            fieldError = 'This EPA code is already taken';
+          }
+        } else if (error.response.data.non_field_errors) {
+          // Handle non_field_errors from DRF
+          const nonFieldError = Array.isArray(error.response.data.non_field_errors)
+            ? error.response.data.non_field_errors[0]
+            : error.response.data.non_field_errors;
+          errorMessage = nonFieldError;
+          // If it's about unique constraint, treat as code error
+          if (nonFieldError.toLowerCase().includes('unique') || 
+              nonFieldError.toLowerCase().includes('duplicate')) {
+            fieldError = 'This EPA code is already taken';
+            errorMessage = 'This EPA code is already taken. Please choose a different code.';
+          }
+        }
+      } else if (error.message) {
+        // Fallback to checking error message
+        if (error.message.includes('400') || error.message.includes('500')) {
+          // Check for duplicate EPA code error indicators
+          if (error.message.toLowerCase().includes('unique') || 
+              error.message.toLowerCase().includes('duplicate') ||
+              error.message.toLowerCase().includes('already exists') ||
+              error.message.includes('400')) {
+            errorMessage = `EPA code "${formData.code}" is already taken. Please choose a different code.`;
+            fieldError = 'This EPA code is already taken';
+          }
+        }
+      }
+      
+      // Set field-specific error if we detected a duplicate code issue
+      if (fieldError) {
+        setValidationErrors({ code: fieldError });
+      }
+      
+      if (Platform.OS === 'web') {
+        window.alert(errorMessage);
+      } else {
+        Alert.alert('Error', errorMessage);
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleSubCompetencyRelationships = async (epaId: string) => {
+    console.log('Handling sub-competency relationships for EPA:', epaId);
+    console.log('Form sub-competencies:', formData.sub_competencies);
+    
     // Get current relationships for this EPA
     const currentRelationships = subCompetencyEPAs.filter(rel => rel.epa === epaId);
     const currentSubCompIds = currentRelationships.map(rel => rel.sub_competency);
+    console.log('Current relationships:', currentRelationships);
+    console.log('Current sub-competency IDs:', currentSubCompIds);
 
     // Determine which relationships to add and remove
     const toAdd = formData.sub_competencies.filter(id => !currentSubCompIds.includes(id));
     const toRemove = currentSubCompIds.filter(id => !formData.sub_competencies.includes(id));
+    console.log('To add:', toAdd);
+    console.log('To remove:', toRemove);
 
     // Remove old relationships
     for (const rel of currentRelationships) {
       if (toRemove.includes(rel.sub_competency)) {
-        await apiClient.deleteSubCompetencyEPA(rel.id);
+        console.log('Deleting sub-competency relationship:', rel.id);
+        try {
+          await apiClient.deleteSubCompetencyEPA(rel.id);
+          console.log('Successfully deleted relationship:', rel.id);
+        } catch (deleteError) {
+          console.error('Error deleting relationship:', rel.id, deleteError);
+          throw deleteError;
+        }
       }
     }
 
     // Add new relationships
     for (const subCompId of toAdd) {
-      await apiClient.createSubCompetencyEPA({
-        sub_competency: subCompId,
-        epa: epaId,
-      });
+      console.log('Creating sub-competency relationship:', { sub_competency: subCompId, epa: epaId });
+      try {
+        const result = await apiClient.createSubCompetencyEPA({
+          sub_competency: subCompId,
+          epa: epaId,
+        });
+        console.log('Successfully created relationship:', result);
+      } catch (createError) {
+        console.error('Error creating relationship:', { sub_competency: subCompId, epa: epaId }, createError);
+        throw createError;
+      }
     }
+    
+    console.log('All sub-competency relationships processed successfully');
   };
 
   const handleDeleteEPA = async (epa: ApiEPA) => {
-    Alert.alert(
-      'Delete EPA',
-      `Are you sure you want to delete "${epa.title}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setLoading(true);
-            try {
-              await apiClient.deleteEPA(epa.id);
-              loadData();
-              Alert.alert('Success', 'EPA deleted successfully');
-            } catch (error) {
-              console.error('Error deleting EPA:', error);
-              Alert.alert('Error', 'Failed to delete EPA');
-            } finally {
-              setLoading(false);
-            }
-          },
-        },
-      ]
-    );
+    const message = `Are you sure you want to delete "${epa.title}"? This cannot be undone.`;
+    
+    const confirmDelete = Platform.OS === 'web' 
+      ? window.confirm(message)
+      : await new Promise<boolean>((resolve) => {
+          Alert.alert(
+            'Delete EPA',
+            message,
+            [
+              { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+              { text: 'Delete', style: 'destructive', onPress: () => resolve(true) },
+            ]
+          );
+        });
+
+    if (!confirmDelete) return;
+
+    setLoading(true);
+    try {
+      await apiClient.deleteEPA(epa.id);
+      await loadData();
+      
+      const successMessage = 'EPA deleted successfully';
+      if (Platform.OS === 'web') {
+        window.alert(successMessage);
+      } else {
+        Alert.alert('Success', successMessage);
+      }
+    } catch (error) {
+      console.error('Error deleting EPA:', error);
+      const errorMessage = 'Failed to delete EPA';
+      if (Platform.OS === 'web') {
+        window.alert(errorMessage);
+      } else {
+        Alert.alert('Error', errorMessage);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const toggleCompetencyExpansion = (coreId: string) => {
@@ -282,6 +430,20 @@ export function EPAManagement() {
         newSet.add(coreId);
       }
       return newSet;
+    });
+  };
+
+  const closeModal = () => {
+    setShowCreateModal(false);
+    setEditingEPA(null);
+    setValidationErrors({});
+    setFormData({
+      code: '',
+      title: '',
+      description: '',
+      category: '',
+      is_active: true,
+      sub_competencies: [],
     });
   };
 
@@ -464,7 +626,7 @@ export function EPAManagement() {
             </Text>
             <Pressable
               style={styles.closeButton}
-              onPress={() => setShowCreateModal(false)}
+              onPress={closeModal}
             >
               <X size={24} color="#64748b" />
             </Pressable>
@@ -479,6 +641,9 @@ export function EPAManagement() {
                 placeholder="EPA 23"
                 style={styles.input}
               />
+              {validationErrors.code && (
+                <Text style={styles.errorText}>{validationErrors.code}</Text>
+              )}
             </View>
 
             <View style={styles.field}>
@@ -487,11 +652,14 @@ export function EPAManagement() {
                 value={formData.category}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
                 placeholder="Select category"
-                options={Array.from(new Set(epaCategories.map(cat => cat.title))).map(title => ({
-                  label: title,
-                  value: title,
+                options={epaCategories.map(cat => ({
+                  label: cat.title,
+                  value: cat.id,
                 }))}
               />
+              {validationErrors.category && (
+                <Text style={styles.errorText}>{validationErrors.category}</Text>
+              )}
             </View>
 
             <View style={styles.field}>
@@ -502,6 +670,9 @@ export function EPAManagement() {
                 placeholder="Brief title describing the EPA"
                 style={styles.input}
               />
+              {validationErrors.title && (
+                <Text style={styles.errorText}>{validationErrors.title}</Text>
+              )}
             </View>
 
             <View style={styles.field}>
@@ -514,6 +685,9 @@ export function EPAManagement() {
                 numberOfLines={4}
                 style={[styles.input, styles.textArea]}
               />
+              {validationErrors.description && (
+                <Text style={styles.errorText}>{validationErrors.description}</Text>
+              )}
             </View>
 
             {renderSubCompetencySelector()}
@@ -539,7 +713,7 @@ export function EPAManagement() {
           <View style={styles.modalFooter}>
             <Button
               title="Cancel"
-              onPress={() => setShowCreateModal(false)}
+              onPress={closeModal}
               style={styles.cancelButton}
               textStyle={styles.cancelButtonText}
             />
@@ -769,6 +943,11 @@ const styles = StyleSheet.create({
   textArea: {
     height: 80,
     textAlignVertical: 'top',
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#ef4444',
+    marginTop: 4,
   },
   subCompetencySelector: {
     marginBottom: 20,

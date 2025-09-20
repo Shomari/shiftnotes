@@ -34,6 +34,9 @@
       "orientation": "any",
       "dir": "auto",
       "preferRelatedApplications": false
-    }
+    },
+    "plugins": [
+      "expo-router"
+    ]
   }
 }
