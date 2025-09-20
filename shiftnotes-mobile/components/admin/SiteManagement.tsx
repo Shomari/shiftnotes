@@ -12,6 +12,7 @@ import {
   Alert,
   Modal,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Input } from '../ui/Input';
@@ -36,6 +37,7 @@ const isTablet = width > 768;
 
 interface SiteFormData {
   name: string;
+  org: string;
   program: string;
 }
 
@@ -50,8 +52,12 @@ export function SiteManagement() {
   // Form state
   const [formData, setFormData] = useState<SiteFormData>({
     name: '',
+    org: '',
     program: '',
   });
+  
+  // Validation errors state
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
 
   // Initialize when user is available and auto-load their program data
   useEffect(() => {
@@ -85,8 +91,10 @@ export function SiteManagement() {
   };
 
   const handleCreateSite = () => {
+    setValidationErrors({});
     setFormData({
       name: '',
+      org: user?.organization || '',
       program: user?.program || '',
     });
     setEditingSite(null);
@@ -94,8 +102,10 @@ export function SiteManagement() {
   };
 
   const handleEditSite = (site: ApiSite) => {
+    setValidationErrors({});
     setFormData({
       name: site.name,
+      org: site.org,
       program: site.program,
     });
     setEditingSite(site);
@@ -103,8 +113,19 @@ export function SiteManagement() {
   };
 
   const handleSaveSite = async () => {
-    if (!formData.name.trim()) {
-      Alert.alert('Error', 'Please enter a site name');
+    // Clear previous validation errors
+    setValidationErrors({});
+    
+    // Validate required fields
+    const fieldErrors: {[key: string]: string} = {};
+    
+    if (!formData.name || !formData.name.trim()) {
+      fieldErrors.name = 'Please enter a site name';
+    }
+    
+    // If there are validation errors, set them and return
+    if (Object.keys(fieldErrors).length > 0) {
+      setValidationErrors(fieldErrors);
       return;
     }
 
@@ -116,36 +137,90 @@ export function SiteManagement() {
       }
       
       setShowCreateModal(false);
-      loadData();
-      Alert.alert('Success', `Site ${editingSite ? 'updated' : 'created'} successfully`);
-    } catch (error) {
+      await loadData();
+      
+      const successMessage = `Site ${editingSite ? 'updated' : 'created'} successfully`;
+      if (Platform.OS === 'web') {
+        window.alert(successMessage);
+      } else {
+        Alert.alert('Success', successMessage);
+      }
+    } catch (error: any) {
       console.error('Error saving site:', error);
-      Alert.alert('Error', 'Failed to save site');
+      
+      // Parse API error response
+      let errorMessage = 'Failed to save site. Please try again.';
+      
+      if (error.response && error.response.data) {
+        console.log('Site error response:', error.response.data);
+        
+        // Check for DRF ValidationError format
+        if (error.response.data.name) {
+          const nameError = Array.isArray(error.response.data.name) 
+            ? error.response.data.name[0] 
+            : error.response.data.name;
+          setValidationErrors({ name: nameError });
+          errorMessage = nameError;
+        } else if (error.response.data.error) {
+          errorMessage = error.response.data.error;
+        } else if (error.response.data.non_field_errors) {
+          const nonFieldError = Array.isArray(error.response.data.non_field_errors)
+            ? error.response.data.non_field_errors[0]
+            : error.response.data.non_field_errors;
+          errorMessage = nonFieldError;
+          // If it's about duplicate site name, treat as name error
+          if (nonFieldError.toLowerCase().includes('unique') || 
+              nonFieldError.toLowerCase().includes('duplicate')) {
+            setValidationErrors({ name: 'This site name is already taken' });
+          }
+        }
+      }
+      
+      if (Platform.OS === 'web') {
+        window.alert(errorMessage);
+      } else {
+        Alert.alert('Error', errorMessage);
+      }
     }
   };
 
-  const handleDeleteSite = (site: ApiSite) => {
-    Alert.alert(
-      'Delete Site',
-      `Are you sure you want to delete "${site.name}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await apiClient.deleteSite(site.id);
-              loadData();
-              Alert.alert('Success', 'Site deleted successfully');
-            } catch (error) {
-              console.error('Error deleting site:', error);
-              Alert.alert('Error', 'Failed to delete site');
-            }
-          },
-        },
-      ]
-    );
+  const handleDeleteSite = async (site: ApiSite) => {
+    const message = `Are you sure you want to delete "${site.name}"? This cannot be undone.`;
+    
+    const confirmDelete = Platform.OS === 'web' 
+      ? window.confirm(message)
+      : await new Promise<boolean>((resolve) => {
+          Alert.alert(
+            'Delete Site',
+            message,
+            [
+              { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+              { text: 'Delete', style: 'destructive', onPress: () => resolve(true) },
+            ]
+          );
+        });
+
+    if (!confirmDelete) return;
+
+    try {
+      await apiClient.deleteSite(site.id);
+      await loadData();
+      
+      const successMessage = 'Site deleted successfully';
+      if (Platform.OS === 'web') {
+        window.alert(successMessage);
+      } else {
+        Alert.alert('Success', successMessage);
+      }
+    } catch (error) {
+      console.error('Error deleting site:', error);
+      const errorMessage = 'Failed to delete site';
+      if (Platform.OS === 'web') {
+        window.alert(errorMessage);
+      } else {
+        Alert.alert('Error', errorMessage);
+      }
+    }
   };
 
   const renderSiteCard = (site: ApiSite) => {
@@ -248,7 +323,10 @@ export function SiteManagement() {
             </Text>
             <Pressable
               style={styles.closeButton}
-              onPress={() => setShowCreateModal(false)}
+              onPress={() => {
+                setShowCreateModal(false);
+                setValidationErrors({});
+              }}
             >
               <X size={24} color="#6b7280" />
             </Pressable>
@@ -263,6 +341,9 @@ export function SiteManagement() {
                 placeholder="e.g., Main Hospital, Outpatient Clinic"
                 style={styles.input}
               />
+              {validationErrors.name && (
+                <Text style={styles.errorText}>{validationErrors.name}</Text>
+              )}
             </View>
 
             {/* Program is automatically set to user's program */}
@@ -271,7 +352,10 @@ export function SiteManagement() {
           <View style={styles.modalFooter}>
             <Button
               title="Cancel"
-              onPress={() => setShowCreateModal(false)}
+              onPress={() => {
+                setShowCreateModal(false);
+                setValidationErrors({});
+              }}
               style={[styles.button, styles.cancelButton]}
             />
             <Button
@@ -445,6 +529,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#ef4444',
+    marginTop: 4,
   },
   modalFooter: {
     flexDirection: 'row',
