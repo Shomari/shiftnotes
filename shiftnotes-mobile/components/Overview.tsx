@@ -229,8 +229,8 @@ export function Overview({ onNewAssessment, userInfo, user: userProp }: Overview
                       {user?.role === 'system-admin' 
                         ? 'Active Users' 
                         : user?.role === 'admin' || user?.role === 'leadership'
-                        ? 'This Month'
-                        : 'This Month'
+                        ? 'Assessments This Month'
+                        : 'Assessments This Month'
                       }
                     </Text>
                     <Text style={styles.statValue}>{stats.thisMonth}</Text>
@@ -241,8 +241,8 @@ export function Overview({ onNewAssessment, userInfo, user: userProp }: Overview
                       {user?.role === 'system-admin' 
                         ? 'Total Users' 
                         : user?.role === 'admin' || user?.role === 'leadership'
-                        ? 'Total'
-                        : 'Total'
+                        ? 'Total Assessments'
+                        : 'Total Assessments'
                       }
                     </Text>
                     <Text style={styles.statValue}>{stats.total}</Text>

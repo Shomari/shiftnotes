@@ -94,6 +94,7 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDraftNotification, setShowDraftNotification] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
 
   // Form handling with react-hook-form (same as web!)
   const {
@@ -243,45 +244,53 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
 
   // Form submission
   const onSubmit = async (data: AssessmentFormData, isDraft: boolean = false) => {
-    console.log('Form submission started:', { data, isDraft, selectedEPA });
+    console.log('=== Form submission started ===');
+    console.log('Form data:', data);
+    console.log('Is draft:', isDraft);
+    console.log('Selected EPA:', selectedEPA);
+    console.log('EPA assessment:', epaAssessment);
     console.log('Current user:', user);
     console.log('User program:', user?.program);
     
+    // Clear previous validation errors
+    setValidationErrors({});
+    
     // Validate required fields
-    const validationErrors = [];
+    const fieldErrors: {[key: string]: string} = {};
+    console.log('Starting validation...');
     
     if (!data.traineeId) {
-      validationErrors.push('Please select a trainee');
+      fieldErrors.traineeId = 'Please select a trainee';
     }
     
     if (!data.shiftDate) {
-      validationErrors.push('Please select a shift date');
+      fieldErrors.shiftDate = 'Please select a shift date';
     }
     
     if (!data.location) {
-      validationErrors.push('Please select a location/site');
+      fieldErrors.location = 'Please select a location/site';
     }
     
     if (!user?.program) {
-      validationErrors.push('User program not found');
+      fieldErrors.program = 'User program not found';
     }
     
     if (!isDraft && !selectedEPA) {
-      validationErrors.push('Please select an EPA to assess');
+      fieldErrors.epa = 'Please select an EPA to assess';
     }
     
     // Additional validation for non-draft submissions
     if (!isDraft && selectedEPA) {
       if (!epaAssessment?.entrustmentLevel || epaAssessment.entrustmentLevel < 1) {
-        validationErrors.push('Please select an entrustment level for the EPA');
+        fieldErrors.entrustmentLevel = 'Please select an entrustment level for the EPA';
       }
       
       if (!epaAssessment?.whatWentWell?.trim()) {
-        validationErrors.push('Please provide feedback on what went well');
+        fieldErrors.whatWentWell = 'Please provide feedback on what went well';
       }
       
       if (!epaAssessment?.whatCouldImprove?.trim()) {
-        validationErrors.push('Please provide feedback on what could improve');
+        fieldErrors.whatCouldImprove = 'Please provide feedback on what could improve';
       }
     }
     
@@ -292,17 +301,14 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
       today.setHours(23, 59, 59, 999); // End of today
       
       if (shiftDate > today) {
-        validationErrors.push('Shift date cannot be in the future');
+        fieldErrors.shiftDate = 'Shift date cannot be in the future';
       }
     }
     
-    // If there are validation errors, show them
-    if (validationErrors.length > 0) {
-      const errorMessage = validationErrors.length === 1 
-        ? validationErrors[0] 
-        : `Please fix the following issues:\n\n• ${validationErrors.join('\n• ')}`;
-      
-      Alert.alert('Validation Error', errorMessage);
+    // If there are validation errors, set them and return
+    if (Object.keys(fieldErrors).length > 0) {
+      console.log('Validation errors found:', fieldErrors);
+      setValidationErrors(fieldErrors);
       return;
     }
 
@@ -603,6 +609,9 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
                     />
                   )}
                 />
+                {validationErrors.location && (
+                  <Text style={styles.errorText}>{validationErrors.location}</Text>
+                )}
               </View>
             </CardContent>
           </Card>
@@ -626,6 +635,9 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
                       subtitle: epa.category,
                     }))}
                   />
+                  {validationErrors.epa && (
+                    <Text style={styles.errorText}>{validationErrors.epa}</Text>
+                  )}
                 </View>
 
               {/* Selected EPA Assessment */}
@@ -662,6 +674,9 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
                             value: level,
                           }))}
                         />
+                        {validationErrors.entrustmentLevel && (
+                          <Text style={styles.errorText}>{validationErrors.entrustmentLevel}</Text>
+                        )}
                       </View>
 
                       {/* Feedback Fields */}
@@ -678,6 +693,9 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
                           style={styles.textArea}
                           containerStyle={styles.inputNoMargin}
                         />
+                        {validationErrors.whatWentWell && (
+                          <Text style={styles.errorText}>{validationErrors.whatWentWell}</Text>
+                        )}
                       </View>
 
                       <View style={styles.field}>
@@ -693,6 +711,9 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
                           style={styles.textArea}
                           containerStyle={styles.inputNoMargin}
                         />
+                        {validationErrors.whatCouldImprove && (
+                          <Text style={styles.errorText}>{validationErrors.whatCouldImprove}</Text>
+                        )}
                       </View>
                     </View>
                   </View>

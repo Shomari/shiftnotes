@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, Dimensions, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Dimensions, Alert, ActivityIndicator, Pressable } from 'react-native';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Select } from '../ui/Select';
+import { Button } from '../ui/Button';
 import { User } from '../../lib/types';
 import { apiClient } from '../../lib/api';
 
@@ -68,6 +69,16 @@ const ProgramPerformanceDashboard: React.FC<ProgramPerformanceProps> = ({ user }
   const [loading, setLoading] = useState(true);
   const [selectedTimeframe, setSelectedTimeframe] = useState<number>(6);
   const [dashboardData, setDashboardData] = useState<ProgramPerformanceData | null>(null);
+  
+  // Filter states
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const [cohortFilter, setCohortFilter] = useState('');
+  const [traineeFilter, setTraineeFilter] = useState('');
+  const [availableTrainees, setAvailableTrainees] = useState<any[]>([]);
+  
+  // Separate state for full unfiltered options (for dropdowns)
+  const [allCohorts, setAllCohorts] = useState<any[]>([]);
+  const [allTrainees, setAllTrainees] = useState<any[]>([]);
 
   const timeframeOptions = [
     { value: '1', label: '1 Month' },
@@ -76,18 +87,82 @@ const ProgramPerformanceDashboard: React.FC<ProgramPerformanceProps> = ({ user }
     { value: '12', label: '12 Months' },
   ];
 
-  // Load dashboard data when timeframe changes
+  // Load initial data for dropdowns (unfiltered)
+  useEffect(() => {
+    loadDropdownOptions();
+  }, []);
+
+  // Load dashboard data when timeframe or filters change
   useEffect(() => {
     loadDashboardData();
-  }, [selectedTimeframe]);
+  }, [selectedTimeframe, cohortFilter, traineeFilter]);
 
+  // Update available trainees when cohort filter changes
+  useEffect(() => {
+    if (cohortFilter) {
+      // Filter trainees by selected cohort from the full list
+      const cohortTrainees = allTrainees.filter(
+        (trainee: any) => trainee.cohort === cohortFilter
+      );
+      setAvailableTrainees(cohortTrainees);
+    } else {
+      // No cohort filter - show all trainees
+      setAvailableTrainees(allTrainees);
+    }
+  }, [cohortFilter, allTrainees]);
+
+  const toggleFilters = () => {
+    setFiltersExpanded(!filtersExpanded);
+  };
+
+  const clearFilters = () => {
+    setCohortFilter('');
+    setTraineeFilter('');
+  };
+
+  // Clear trainee filter when cohort changes (since selected trainee might not be in new cohort)
+  useEffect(() => {
+    if (cohortFilter) {
+      setTraineeFilter(''); // Clear trainee selection when cohort changes
+    }
+  }, [cohortFilter]);
+
+  // Check if any filters are active
+  const hasActiveFilters = cohortFilter || traineeFilter;
+
+  const loadDropdownOptions = async () => {
+    try {
+      // Load all cohorts and trainees for dropdown options (unfiltered)
+      const [cohortsResponse, usersResponse] = await Promise.all([
+        apiClient.getCohorts(),
+        apiClient.getUsers()
+      ]);
+
+      // Set all cohorts - getCohorts returns array directly
+      setAllCohorts(Array.isArray(cohortsResponse) ? cohortsResponse : []);
+
+      // Set all trainees for the current user's program
+      const programTrainees = (usersResponse.results || []).filter(
+        (trainee: any) => trainee.role === 'trainee' && trainee.program === user.program
+      );
+      setAllTrainees(programTrainees);
+
+    } catch (error) {
+      console.error('Error loading dropdown options:', error);
+    }
+  };
 
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      console.log('Loading dashboard data for user program, timeframe:', selectedTimeframe);
+      console.log('Loading dashboard data for user program, timeframe:', selectedTimeframe, 'cohort:', cohortFilter, 'trainee:', traineeFilter);
       
-      const data = await apiClient.getProgramPerformanceData(selectedTimeframe);
+      // Build filter parameters
+      const filters: { cohort?: string; trainee?: string } = {};
+      if (cohortFilter) filters.cohort = cohortFilter;
+      if (traineeFilter) filters.trainee = traineeFilter;
+      
+      const data = await apiClient.getProgramPerformanceData(selectedTimeframe, filters);
       console.log('Dashboard data loaded:', data);
       
       setDashboardData(data);
@@ -98,6 +173,7 @@ const ProgramPerformanceDashboard: React.FC<ProgramPerformanceProps> = ({ user }
       setLoading(false);
     }
   };
+
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Never';
@@ -160,6 +236,89 @@ const ProgramPerformanceDashboard: React.FC<ProgramPerformanceProps> = ({ user }
           </View>
         </CardContent>
       </Card>
+
+      {/* Filters Section */}
+      <Card style={styles.filtersCard}>
+        <CardHeader style={styles.filtersCardHeader}>
+          <Pressable
+            onPress={toggleFilters}
+            style={styles.filtersToggleButton}
+          >
+            <View style={styles.filtersHeader}>
+              <Text style={styles.filtersIcon}>🔍</Text>
+              <Text style={styles.filtersTitle}>Filters</Text>
+              {hasActiveFilters && (
+                <View style={styles.activeFiltersBadge}>
+                  <Text style={styles.activeFiltersText}>Active</Text>
+                </View>
+              )}
+              <View style={styles.filtersHeaderSpacer} />
+              <Text style={styles.clickHint}>Click to {filtersExpanded ? 'collapse' : 'expand'}</Text>
+              <View style={styles.expandArrowContainer}>
+                <Text style={[styles.expandIcon, { transform: [{ rotate: filtersExpanded ? '180deg' : '0deg' }] }]}>
+                  ▼
+                </Text>
+              </View>
+            </View>
+          </Pressable>
+        </CardHeader>
+        {filtersExpanded && (
+          <CardContent>
+            <View style={styles.filtersContainer}>
+                      {/* Cohort Filter */}
+                      {allCohorts.length > 0 && (
+                        <View style={styles.filterField}>
+                          <Text style={styles.filterLabel}>Cohort</Text>
+                          <Select
+                            value={cohortFilter}
+                            onValueChange={setCohortFilter}
+                            placeholder="All Cohorts"
+                            options={[
+                              { label: 'All Cohorts', value: '' },
+                              ...allCohorts.map(cohort => ({
+                                label: cohort.name,
+                                value: cohort.id
+                              }))
+                            ]}
+                          />
+                        </View>
+                      )}
+
+              {/* Trainee Filter */}
+              {availableTrainees.length > 0 && (
+                <View style={styles.filterField}>
+                  <Text style={styles.filterLabel}>Trainee</Text>
+                  <Select
+                    value={traineeFilter}
+                    onValueChange={setTraineeFilter}
+                    placeholder="All Trainees"
+                    options={[
+                      { label: 'All Trainees', value: '' },
+                      ...availableTrainees.map(trainee => ({
+                        label: trainee.name,
+                        value: trainee.id
+                      }))
+                    ]}
+                  />
+                </View>
+              )}
+
+
+              {/* Clear Filters Button */}
+              {hasActiveFilters && (
+                <View style={styles.filterField}>
+                  <Button
+                    title="Clear Filters"
+                    onPress={clearFilters}
+                    style={styles.clearFiltersButton}
+                  />
+                </View>
+              )}
+            </View>
+          </CardContent>
+        )}
+      </Card>
+
 
       {/* Dashboard Content */}
       {dashboardData ? (
@@ -661,6 +820,102 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#9ca3af',
+  },
+  
+  // Filter styles
+  filtersCard: {
+    margin: 16,
+    marginBottom: 8,
+    backgroundColor: '#ffffff',
+  },
+  filtersCardHeader: {
+    margin: 0,
+    marginBottom: 0,
+    padding: 0,
+  },
+  filtersToggleButton: {
+    padding: 0,
+    margin: 0,
+    justifyContent: 'center',
+  },
+  filtersHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  filtersIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  filtersTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  activeFiltersBadge: {
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  activeFiltersText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  filtersHeaderSpacer: {
+    flex: 1,
+  },
+  clickHint: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontStyle: 'italic',
+    marginRight: 8,
+  },
+  expandArrowContainer: {
+    paddingHorizontal: 4,
+  },
+  expandIcon: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontWeight: '600',
+  },
+  filtersContainer: {
+    gap: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  filterField: {
+    gap: 8,
+    marginBottom: 4,
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 6,
+    marginLeft: 2,
+  },
+  dateInput: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    backgroundColor: '#ffffff',
+    minHeight: 40,
+  },
+  datePickerContainer: {
+    position: 'relative',
+    zIndex: 10000,
+    isolation: 'isolate',
+  },
+  clearFiltersButton: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
   },
 });
 

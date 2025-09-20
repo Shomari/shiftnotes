@@ -54,6 +54,11 @@ const getNavigationItems = (userRole?: string): NavigationItem[] => {
         icon: '📋',
       },
       {
+        id: 'category-management',
+        title: 'Category Management',
+        icon: '🏷️',
+      },
+      {
         id: 'competency-management',
         title: 'Competency Management',
         icon: '🎯',

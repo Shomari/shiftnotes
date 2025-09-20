@@ -426,6 +426,26 @@ export class ApiClient {
     return this.request<ApiResponse<ApiEPACategory>>(url);
   }
 
+  async createEPACategory(data: Partial<ApiEPACategory>): Promise<ApiEPACategory> {
+    return this.request<ApiEPACategory>('/epa-categories/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateEPACategory(id: string, data: Partial<ApiEPACategory>): Promise<ApiEPACategory> {
+    return this.request<ApiEPACategory>(`/epa-categories/${id}/`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteEPACategory(id: string): Promise<void> {
+    return this.request<void>(`/epa-categories/${id}/`, {
+      method: 'DELETE',
+    });
+  }
+
 
   // Sub-Competency-EPA relationship endpoints
   async getSubCompetencyEPAs(): Promise<ApiResponse<ApiSubCompetencyEPA>> {
@@ -444,8 +464,13 @@ export class ApiClient {
   }
 
   // Cohort endpoints
-  async getCohorts(): Promise<ApiResponse<ApiCohort>> {
-    return this.request<ApiResponse<ApiCohort>>('/cohorts/');
+  async getCohorts(programId?: string): Promise<any[]> {
+    const params = new URLSearchParams();
+    if (programId) params.append('program', programId);
+    
+    const url = `/cohorts/${params.toString() ? '?' + params.toString() : ''}`;
+    const response = await this.request<ApiResponse<any[]>>(url);
+    return response.results || [];
   }
 
   async createCohort(cohortData: Partial<ApiCohort>): Promise<ApiCohort> {
@@ -514,8 +539,18 @@ export class ApiClient {
   }
 
   // Analytics endpoints
-  async getProgramPerformanceData(months: number = 6): Promise<any> {
-    const url = `/analytics/program-performance/?months=${months}`;
+  async getProgramPerformanceData(months: number = 6, filters?: { cohort?: string; trainee?: string }): Promise<any> {
+    const params = new URLSearchParams();
+    params.append('months', months.toString());
+    
+    if (filters?.cohort) {
+      params.append('cohort', filters.cohort);
+    }
+    if (filters?.trainee) {
+      params.append('trainee', filters.trainee);
+    }
+    
+    const url = `/analytics/program-performance/?${params.toString()}`;
     return this.request(url);
   }
 
@@ -551,16 +586,6 @@ export class ApiClient {
 
   async getCompetencyProgress(): Promise<any> {
     return this.request<any>('/analytics/competency-progress/');
-  }
-
-  // Cohort endpoints
-  async getCohorts(programId?: string): Promise<any[]> {
-    const params = new URLSearchParams();
-    if (programId) params.append('program', programId);
-    
-    const url = `/cohorts/${params.toString() ? '?' + params.toString() : ''}`;
-    const response = await this.request<ApiResponse<any[]>>(url);
-    return response.results || [];
   }
 
   // Mailbox endpoints

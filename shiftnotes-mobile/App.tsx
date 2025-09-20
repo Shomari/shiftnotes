@@ -17,6 +17,8 @@ import { AllAssessments } from './components/AllAssessments';
 import { AssessmentDetail } from './components/AssessmentDetail';
 import { Mailbox } from './components/Mailbox';
 import { CompetencyProgress } from './components/CompetencyProgress';
+import { SupportRequestForm } from './components/SupportRequestForm';
+import { HelpButton } from './components/ui/HelpButton';
 import { UserManagement } from './components/admin/UserManagement';
 import { CohortManagement } from './components/admin/CohortManagement';
 import AddUser from './components/admin/AddUser';
@@ -24,6 +26,7 @@ import EditUser from './components/admin/EditUser';
 import AddCohort from './components/admin/AddCohort';
 import EditCohort from './components/admin/EditCohort';
 import { EPAManagement } from './components/admin/EPAManagement';
+import { CategoryManagement } from './components/admin/CategoryManagement';
 import { CompetencyManagement } from './components/admin/CompetencyManagement';
 import { CompetencyGrid } from './components/admin/CompetencyGrid';
 import { FacultyDashboard } from './components/FacultyDashboard';
@@ -154,6 +157,8 @@ function AppContent() {
         return 'Edit User';
       case 'epa-management':
         return 'EPA Management';
+      case 'category-management':
+        return 'Category Management';
       case 'competency-management':
         return 'Competency Management';
       case 'competency-grid':
@@ -162,6 +167,8 @@ function AppContent() {
         return 'Program Performance';
       case 'site-management':
         return 'Site Management';
+      case 'support-request':
+        return 'Support Request';
       default:
         return 'AptiTools';
     }
@@ -214,6 +221,8 @@ function AppContent() {
         return selectedUserId ? <EditUser userId={selectedUserId} onBack={() => setCurrentRoute('user-management')} /> : <UserManagement onAddUser={handleAddUser} onEditUser={handleEditUser} />;
       case 'epa-management':
         return <EPAManagement />;
+      case 'category-management':
+        return <CategoryManagement />;
       case 'competency-management':
         return <CompetencyManagement />;
       case 'competency-grid':
@@ -222,6 +231,8 @@ function AppContent() {
         return <ProgramPerformanceDashboard user={user} />;
       case 'site-management':
         return <SiteManagement />;
+      case 'support-request':
+        return <SupportRequestForm onBack={() => setCurrentRoute('overview')} />;
       default:
         return <Overview onNewAssessment={handleNewAssessment} userInfo={userInfo} user={user} />;
     }
@@ -287,6 +298,9 @@ function AppContent() {
                 {renderContent()}
               </View>
             </View>
+
+            {/* Help Button - appears on all authenticated screens */}
+            <HelpButton onPress={() => setCurrentRoute('support-request')} />
 
             {/* Mobile Sidebar Modal */}
             {isMobile && (

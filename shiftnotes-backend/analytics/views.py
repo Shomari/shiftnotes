@@ -11,10 +11,12 @@ from organizations.models import Program
 from curriculum.models import CoreCompetency, SubCompetency, EPA
 import calendar
 
-def get_cohort_breakdown(program, assessments):
+def get_cohort_breakdown(program, assessments, cohort_id=None):
     """Calculate average entrustment level by cohort for the given program and assessments"""
-    # Get all cohorts for this program
+    # Get cohorts for this program - filter by specific cohort if provided
     cohorts = Cohort.objects.filter(program=program).order_by('-start_date')
+    if cohort_id:
+        cohorts = cohorts.filter(id=cohort_id)
     
     cohort_breakdown = []
     for cohort in cohorts:
@@ -51,6 +53,8 @@ def get_cohort_breakdown(program, assessments):
 @permission_classes([IsAuthenticated])
 def program_performance_data(request):
     months = int(request.GET.get('months', 6))
+    cohort_id = request.GET.get('cohort')
+    trainee_id = request.GET.get('trainee')
     
     # Get the user's program
     if not request.user.program:
@@ -69,17 +73,48 @@ def program_performance_data(request):
         created_at__lte=end_date
     )
     
-    # Get active trainees (those with assessments in timeframe)
-    active_trainees = User.objects.filter(
+    # Apply cohort filter if provided
+    if cohort_id:
+        try:
+            cohort = Cohort.objects.get(id=cohort_id, program=program)
+            assessments = assessments.filter(trainee__cohort=cohort)
+        except Cohort.DoesNotExist:
+            return JsonResponse({'error': 'Cohort not found'}, status=404)
+    
+    # Apply trainee filter if provided
+    if trainee_id:
+        try:
+            trainee = User.objects.get(id=trainee_id, program=program, role='trainee')
+            assessments = assessments.filter(trainee=trainee)
+        except User.DoesNotExist:
+            return JsonResponse({'error': 'Trainee not found'}, status=404)
+    
+    # Get active trainees (those with assessments in timeframe) - filtered by cohort/trainee if provided
+    active_trainees_query = User.objects.filter(
         role='trainee',
         program=program,
         assessments_received__created_at__gte=start_date
-    ).distinct()
+    )
+    
+    # Apply same filters to trainee query
+    if cohort_id:
+        active_trainees_query = active_trainees_query.filter(cohort_id=cohort_id)
+    if trainee_id:
+        active_trainees_query = active_trainees_query.filter(id=trainee_id)
+    
+    active_trainees = active_trainees_query.distinct()
     
     # Calculate metrics
     total_assessments = assessments.count()
     active_trainee_count = active_trainees.count()
-    total_trainees = User.objects.filter(role='trainee', program=program).count()
+    
+    # Calculate total trainees respecting filters
+    total_trainees_query = User.objects.filter(role='trainee', program=program)
+    if cohort_id:
+        total_trainees_query = total_trainees_query.filter(cohort_id=cohort_id)
+    if trainee_id:
+        total_trainees_query = total_trainees_query.filter(id=trainee_id)
+    total_trainees = total_trainees_query.count()
     avg_competency_level = assessments.aggregate(avg_score=Avg('assessment_epas__entrustment_level'))['avg_score'] or 0
     
     # Assessment distribution by entrustment level
@@ -184,7 +219,7 @@ def program_performance_data(request):
         },
         'trainee_breakdown': trainee_breakdown,
         'competency_breakdown': competency_breakdown,
-        'cohort_breakdown': get_cohort_breakdown(program, assessments),
+        'cohort_breakdown': get_cohort_breakdown(program, assessments, cohort_id),
         'trends': {
             'monthly_assessments': monthly_data,
             'monthly_entrustment': monthly_entrustment_data
