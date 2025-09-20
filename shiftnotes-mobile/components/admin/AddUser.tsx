@@ -189,10 +189,10 @@ export default function AddUser({ onBack }: AddUserProps) {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <Card style={styles.formCard}>
           <CardHeader>
-            <CardTitle style={styles.cardTitle}>
+            <View style={styles.cardTitle}>
               <Plus size={20} color="#3b82f6" />
               <Text style={styles.cardTitleText}>User Information</Text>
-            </CardTitle>
+            </View>
           </CardHeader>
           <CardContent>
             <View style={styles.formGroup}>

@@ -199,10 +199,10 @@ export function CategoryManagement() {
         {/* Header */}
         <Card style={styles.headerCard}>
           <CardHeader>
-            <CardTitle style={styles.headerTitle}>
+            <View style={styles.headerTitle}>
               <Tag size={24} color="#3B82F6" />
-              Category Management
-            </CardTitle>
+              <Text style={styles.headerTitleText}>Category Management</Text>
+            </View>
             <Text style={styles.headerSubtitle}>
               Manage EPA categories for {program.name}
             </Text>
@@ -349,6 +349,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  headerTitleText: {
     fontSize: 24,
     fontWeight: '700',
     color: '#1F2937',
