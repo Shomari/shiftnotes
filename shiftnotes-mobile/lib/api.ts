@@ -538,6 +538,12 @@ export class ApiClient {
     });
   }
 
+  async deleteAssessment(assessmentId: string): Promise<void> {
+    return this.request<void>(`/assessments/${assessmentId}/`, {
+      method: 'DELETE',
+    });
+  }
+
   async acknowledgeAssessment(assessmentId: string): Promise<void> {
     return this.request(`/assessments/${assessmentId}/acknowledge/`, {
       method: 'POST',

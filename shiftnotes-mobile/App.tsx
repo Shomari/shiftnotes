@@ -83,6 +83,12 @@ function AppContent() {
     setCurrentRoute('edit-assessment');
   };
 
+  const handleDiscardDraft = (assessmentId: string) => {
+    // The discard logic is handled in MyAssessments component
+    // No navigation needed since the assessment is deleted
+    console.log('Draft discarded:', assessmentId);
+  };
+
   const handleAddUser = () => {
     setCurrentRoute('add-user');
   };
@@ -188,7 +194,7 @@ function AppContent() {
         return selectedAssessmentId ? (
           <NewAssessmentForm onNavigate={handleNavigate} assessmentId={selectedAssessmentId} />
         ) : (
-          <MyAssessments onViewAssessment={handleViewAssessment} onEditAssessment={handleEditAssessment} />
+          <MyAssessments onViewAssessment={handleViewAssessment} onEditAssessment={handleEditAssessment} onDiscardDraft={handleDiscardDraft} />
         );
       case 'my-assessments':
         return <MyAssessments onViewAssessment={handleViewAssessment} onEditAssessment={handleEditAssessment} />;
@@ -203,7 +209,7 @@ function AppContent() {
             onBack={handleBackFromAssessment} 
           />
         ) : (
-          <MyAssessments onViewAssessment={handleViewAssessment} onEditAssessment={handleEditAssessment} />
+          <MyAssessments onViewAssessment={handleViewAssessment} onEditAssessment={handleEditAssessment} onDiscardDraft={handleDiscardDraft} />
         );
       case 'user-management':
         return <UserManagement onAddUser={handleAddUser} onEditUser={handleEditUser} />;

@@ -78,9 +78,10 @@ interface Assessment extends ApiAssessment {
 interface MyAssessmentsProps {
   onViewAssessment?: (assessmentId: string) => void;
   onEditAssessment?: (assessmentId: string) => void;
+  onDiscardDraft?: (assessmentId: string) => void;
 }
 
-export function MyAssessments({ onViewAssessment, onEditAssessment }: MyAssessmentsProps) {
+export function MyAssessments({ onViewAssessment, onEditAssessment, onDiscardDraft }: MyAssessmentsProps) {
   const { user } = useAuth();
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,6 +134,47 @@ export function MyAssessments({ onViewAssessment, onEditAssessment }: MyAssessme
     setStatusFilter('');
     setStartDate('');
     setEndDate('');
+  };
+
+  const handleDiscardDraft = async (assessmentId: string) => {
+    const message = 'Are you sure you want to discard this draft? This action cannot be undone.';
+    
+    const confirmDiscard = Platform.OS === 'web' 
+      ? window.confirm(message)
+      : await new Promise<boolean>((resolve) => {
+          Alert.alert(
+            'Discard Draft',
+            message,
+            [
+              { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+              { text: 'Discard', style: 'destructive', onPress: () => resolve(true) },
+            ]
+          );
+        });
+
+    if (!confirmDiscard) return;
+
+    try {
+      await apiClient.deleteAssessment(assessmentId);
+      
+      // Reload assessments to reflect the deletion
+      await loadAssessments();
+      
+      const successMessage = 'Draft discarded successfully';
+      if (Platform.OS === 'web') {
+        window.alert(successMessage);
+      } else {
+        Alert.alert('Success', successMessage);
+      }
+    } catch (error) {
+      console.error('Error discarding draft:', error);
+      const errorMessage = 'Failed to discard draft. Please try again.';
+      if (Platform.OS === 'web') {
+        window.alert(errorMessage);
+      } else {
+        Alert.alert('Error', errorMessage);
+      }
+    }
   };
 
   const toggleFilters = () => {
@@ -448,14 +490,24 @@ export function MyAssessments({ onViewAssessment, onEditAssessment }: MyAssessme
                   </View>
                   <View style={styles.actionButtons}>
                     {assessment.status === 'draft' && (
-                      <Button
-                        title="Edit"
-                        onPress={() => onEditAssessment?.(assessment.id!)}
-                        variant="default"
-                        size="sm"
-                        icon="✏️"
-                        style={styles.editButton}
-                      />
+                      <>
+                        <Button
+                          title="Edit"
+                          onPress={() => onEditAssessment?.(assessment.id!)}
+                          variant="default"
+                          size="sm"
+                          icon="✏️"
+                          style={styles.editButton}
+                        />
+                        <Button
+                          title="Discard"
+                          onPress={() => handleDiscardDraft(assessment.id!)}
+                          variant="outline"
+                          size="sm"
+                          icon="🗑️"
+                          style={styles.discardButton}
+                        />
+                      </>
                     )}
                     <Button
                       title="View"
@@ -708,6 +760,10 @@ const styles = StyleSheet.create({
   },
   editButton: {
     marginRight: 4,
+  },
+  discardButton: {
+    marginRight: 4,
+    borderColor: '#ef4444',
   },
   traineeName: {
     fontSize: 18,
