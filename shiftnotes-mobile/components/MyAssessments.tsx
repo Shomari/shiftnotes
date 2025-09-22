@@ -26,8 +26,7 @@ let DatePicker: any = null;
 if (Platform.OS === 'web') {
   try {
     DatePicker = require('react-datepicker').default;
-    // Import our local CSS file instead of the problematic node_modules version
-    require('../assets/react-datepicker.css');
+    require('react-datepicker/dist/react-datepicker.css');
   } catch (e) {
     console.warn('Failed to load react-datepicker:', e);
   }
