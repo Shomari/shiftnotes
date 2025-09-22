@@ -26,7 +26,11 @@ let DatePicker: any = null;
 if (Platform.OS === 'web') {
   try {
     DatePicker = require('react-datepicker').default;
-    require('react-datepicker/dist/react-datepicker.css');
+    try {
+      require('react-datepicker/dist/react-datepicker.css');
+    } catch (cssError) {
+      console.warn('Could not load react-datepicker CSS:', cssError);
+    }
     
     // Add custom styles for z-index fix
     const style = document.createElement('style');
