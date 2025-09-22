@@ -26,40 +26,8 @@ let DatePicker: any = null;
 if (Platform.OS === 'web') {
   try {
     DatePicker = require('react-datepicker').default;
-    try {
-      require('react-datepicker/dist/react-datepicker.css');
-    } catch (cssError) {
-      console.warn('Could not load react-datepicker CSS:', cssError);
-    }
-    
-    // Add custom styles for z-index fix
-    const style = document.createElement('style');
-    style.textContent = `
-      .react-datepicker-popper {
-        z-index: 99999 !important;
-      }
-      .react-datepicker {
-        z-index: 99999 !important;
-      }
-      .react-datepicker__portal {
-        z-index: 99999 !important;
-      }
-      .date-picker-popper {
-        z-index: 99999 !important;
-      }
-      .react-datepicker-wrapper {
-        width: 100%;
-        z-index: 10 !important;
-        position: relative !important;
-      }
-      .react-datepicker__input-container {
-        width: 100%;
-      }
-      .react-datepicker__input-container input {
-        width: 100% !important;
-      }
-    `;
-    document.head.appendChild(style);
+    // Import our local CSS file instead of the problematic node_modules version
+    require('../assets/react-datepicker.css');
   } catch (e) {
     console.warn('Failed to load react-datepicker:', e);
   }
