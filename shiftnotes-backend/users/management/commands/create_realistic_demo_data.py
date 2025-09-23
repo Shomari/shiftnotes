@@ -623,15 +623,18 @@ class Command(BaseCommand):
                         datetime.min.time().replace(hour=random.randint(8, 18), minute=random.randint(0, 59))
                     )
                     
+                    # Create assessment (created_at will be auto-set, then we'll update it)
                     assessment = Assessment.objects.create(
                         trainee=trainee,
                         evaluator=evaluator,
                         shift_date=shift_date,
                         location=site.name,
                         status='submitted',
-                        private_comments=private_comment,
-                        created_at=creation_datetime
+                        private_comments=private_comment
                     )
+                    
+                    # Update created_at to our realistic date (bypassing auto_now_add)
+                    Assessment.objects.filter(id=assessment.id).update(created_at=creation_datetime)
                     
                     # Create assessment EPA with realistic feedback
                     feedback_options = {
