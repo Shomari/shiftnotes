@@ -244,25 +244,30 @@ export function FacultyDetailView({ facultyId, onBack }: FacultyDetailViewProps)
               <View style={styles.monthlyChart}>
                 {facultyData.monthly_breakdown.map((month, index) => {
                   const maxAssessments = Math.max(...facultyData.monthly_breakdown.map(m => m.assessment_count));
-                  const heightPercent = maxAssessments > 0 ? (month.assessment_count / maxAssessments) * 100 : 0;
-                  const actualHeight = Math.max(heightPercent, month.assessment_count > 0 ? 12 : 0);
+                  const widthPercent = maxAssessments > 0 ? (month.assessment_count / maxAssessments) * 100 : 0;
+                  const actualWidth = Math.max(widthPercent, month.assessment_count > 0 ? 8 : 0);
                   
                   return (
-                    <View key={index} style={styles.monthlyBar}>
-                      <Text style={styles.monthlyBarValue}>{month.assessment_count}</Text>
-                      <View 
-                        style={[
-                          styles.monthlyBarFill,
-                          { 
-                            height: actualHeight,
-                            backgroundColor: month.assessment_count > 0 ? '#3b82f6' : '#e5e7eb'
-                          }
-                        ]} 
-                      />
-                      <Text style={styles.monthlyBarLabel}>{month.month}</Text>
-                      <Text style={styles.monthlyEntrustment}>
-                        {month.avg_entrustment ? month.avg_entrustment.toFixed(1) : '-'}
-                      </Text>
+                    <View key={index} style={styles.monthlyBarRow}>
+                      <View style={styles.monthlyBarLabel}>
+                        <Text style={styles.monthlyBarLabelText}>{month.month}</Text>
+                        <Text style={styles.monthlyEntrustment}>
+                          {month.avg_entrustment ? `${month.avg_entrustment.toFixed(1)} avg` : 'No data'}
+                        </Text>
+                      </View>
+                      
+                      <View style={styles.monthlyBarContainer}>
+                        <View 
+                          style={[
+                            styles.monthlyBarFill,
+                            { 
+                              width: `${actualWidth}%`,
+                              backgroundColor: month.assessment_count > 0 ? '#3b82f6' : '#e5e7eb'
+                            }
+                          ]} 
+                        />
+                        <Text style={styles.monthlyBarValue}>{month.assessment_count}</Text>
+                      </View>
                     </View>
                   );
                 })}
@@ -433,47 +438,57 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   monthlyChart: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-around',
-    height: 120,
+    flexDirection: 'column',
+    gap: 12,
     paddingHorizontal: 8,
     paddingVertical: 12,
     backgroundColor: '#f9fafb',
     borderRadius: 8,
   },
-  monthlyBar: {
+  monthlyBarRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    minWidth: 40,
-    height: '100%',
-    justifyContent: 'flex-end',
-  },
-  monthlyBarFill: {
-    width: 32,
-    minHeight: 8,
-    borderRadius: 4,
-    marginVertical: 4,
+    gap: 12,
+    minHeight: 40,
   },
   monthlyBarLabel: {
-    fontSize: 11,
-    color: '#6b7280',
-    textAlign: 'center',
-    fontWeight: '500',
-    marginTop: 4,
+    width: 80,
+    alignItems: 'flex-start',
+  },
+  monthlyBarLabelText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  monthlyBarContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#ffffff',
+    borderRadius: 6,
+    padding: 4,
+  },
+  monthlyBarFill: {
+    height: 24,
+    minWidth: 8,
+    borderRadius: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
   monthlyBarValue: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#374151',
+    color: '#ffffff',
+    paddingHorizontal: 6,
     textAlign: 'center',
-    marginBottom: 4,
+    minWidth: 24,
   },
   monthlyEntrustment: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#3b82f6',
-    textAlign: 'center',
     fontWeight: '500',
-    marginTop: 2,
   },
   insightsCard: {
     margin: 16,
