@@ -462,7 +462,7 @@ export function FacultyDashboard({ onViewFaculty }: FacultyDashboardProps = {}) 
                 <View style={styles.facultyActions}>
                   <Button
                     title="View Details"
-                    onPress={() => handleViewFaculty(faculty.id)}
+                    onPress={() => handleViewFaculty(faculty.faculty_id)}
                     variant="outline"
                     size="sm"
                     style={styles.viewButton}

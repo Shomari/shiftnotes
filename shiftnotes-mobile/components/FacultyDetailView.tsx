@@ -79,10 +79,10 @@ export function FacultyDetailView({ facultyId, onBack }: FacultyDetailViewProps)
     try {
       setLoading(true);
       // For now, we'll use the existing faculty dashboard API and filter for this faculty
-      const dashboardData = await apiClient.getFacultyDashboardData();
+      const dashboardData = await apiClient.getFacultyDashboard();
       
       // Find the specific faculty member
-      const faculty = dashboardData.faculty_stats.find((f: any) => f.id === facultyId);
+      const faculty = dashboardData.faculty_stats.find((f: any) => f.faculty_id === facultyId);
       
       if (!faculty) {
         throw new Error('Faculty member not found');
@@ -91,8 +91,8 @@ export function FacultyDetailView({ facultyId, onBack }: FacultyDetailViewProps)
       // Create detailed view data structure
       const detailData: FacultyDetailData = {
         faculty: {
-          id: faculty.id,
-          name: faculty.name,
+          id: faculty.faculty_id,
+          name: faculty.faculty_name,
           department: faculty.department || 'Emergency Medicine',
           total_assessments: faculty.total_assessments,
           avg_assessments_per_month: faculty.avg_assessments_per_month,
