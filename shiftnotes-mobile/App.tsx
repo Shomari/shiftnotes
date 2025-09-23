@@ -30,6 +30,7 @@ import { CategoryManagement } from './components/admin/CategoryManagement';
 import { CompetencyManagement } from './components/admin/CompetencyManagement';
 import { CompetencyGrid } from './components/admin/CompetencyGrid';
 import { FacultyDashboard } from './components/FacultyDashboard';
+import { FacultyDetailView } from './components/FacultyDetailView';
 import ProgramPerformanceDashboard from './components/analytics/ProgramPerformanceDashboard';
 import { SiteManagement } from './components/admin/SiteManagement';
 import { LoginScreen } from './components/LoginScreen';
@@ -47,6 +48,7 @@ function AppContent() {
   const [selectedAssessmentId, setSelectedAssessmentId] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedCohortId, setSelectedCohortId] = useState<string | null>(null);
+  const [selectedFacultyId, setSelectedFacultyId] = useState<string | null>(null);
   
   const { width } = Dimensions.get('window');
   const MOBILE_BREAKPOINT = 768;
@@ -87,6 +89,16 @@ function AppContent() {
     // The discard logic is handled in MyAssessments component
     // No navigation needed since the assessment is deleted
     console.log('Draft discarded:', assessmentId);
+  };
+
+  const handleViewFaculty = (facultyId: string) => {
+    setSelectedFacultyId(facultyId);
+    setCurrentRoute('faculty-detail');
+  };
+
+  const handleBackFromFacultyDetail = () => {
+    setSelectedFacultyId(null);
+    setCurrentRoute('faculty-dashboard');
   };
 
   const handleAddUser = () => {
@@ -153,6 +165,8 @@ function AppContent() {
         return 'Cohort Management';
       case 'faculty-dashboard':
         return 'Faculty Dashboard';
+      case 'faculty-detail':
+        return 'Faculty Details';
       case 'add-cohort':
         return 'Add New Cohort';
       case 'edit-cohort':
@@ -216,7 +230,16 @@ function AppContent() {
       case 'cohort-management':
         return <CohortManagement onAddCohort={handleAddCohort} onEditCohort={handleEditCohort} />;
       case 'faculty-dashboard':
-        return <FacultyDashboard />;
+        return <FacultyDashboard onViewFaculty={handleViewFaculty} />;
+      case 'faculty-detail':
+        return selectedFacultyId ? (
+          <FacultyDetailView 
+            facultyId={selectedFacultyId} 
+            onBack={handleBackFromFacultyDetail} 
+          />
+        ) : (
+          <FacultyDashboard onViewFaculty={handleViewFaculty} />
+        );
       case 'add-cohort':
         return <AddCohort onBack={() => setCurrentRoute('cohort-management')} />;
       case 'edit-cohort':

@@ -82,7 +82,11 @@ interface FacultyDashboardData {
   total_assessments: number;
 }
 
-export function FacultyDashboard() {
+interface FacultyDashboardProps {
+  onViewFaculty?: (facultyId: string) => void;
+}
+
+export function FacultyDashboard({ onViewFaculty }: FacultyDashboardProps = {}) {
   const { user } = useAuth();
   const [dashboardData, setDashboardData] = useState<FacultyDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -122,6 +126,12 @@ export function FacultyDashboard() {
     setFacultyFilter('');
     setStartDate('');
     setEndDate('');
+  };
+
+  const handleViewFaculty = (facultyId: string) => {
+    if (onViewFaculty) {
+      onViewFaculty(facultyId);
+    }
   };
 
   const toggleFilters = () => {
@@ -444,36 +454,15 @@ export function FacultyDashboard() {
                   </View>
                 </View>
 
-                {/* Monthly Breakdown Chart */}
-                <View style={styles.monthlyChartContainer}>
-                  <Text style={styles.monthlyChartTitle}>Monthly Activity</Text>
-                  <View style={styles.monthlyChart}>
-                    {faculty.monthly_breakdown.length > 0 ? (
-                      faculty.monthly_breakdown.map((month, index) => {
-                        const maxAssessments = Math.max(...faculty.monthly_breakdown.map(m => m.assessment_count));
-                        const heightPercent = maxAssessments > 0 ? (month.assessment_count / maxAssessments) * 60 : 0;
-                        const actualHeight = Math.max(heightPercent, month.assessment_count > 0 ? 8 : 0);
-                        
-                        return (
-                          <View key={index} style={styles.monthlyBar}>
-                            <Text style={styles.monthlyBarValue}>{month.assessment_count}</Text>
-                            <View 
-                              style={[
-                                styles.monthlyBarFill,
-                                { 
-                                  height: actualHeight,
-                                  backgroundColor: month.assessment_count > 0 ? '#3b82f6' : '#e5e7eb'
-                                }
-                              ]} 
-                            />
-                            <Text style={styles.monthlyBarLabel}>{month.month}</Text>
-                          </View>
-                        );
-                      })
-                    ) : (
-                      <Text style={styles.noDataText}>No monthly data available</Text>
-                    )}
-                  </View>
+                {/* View Button */}
+                <View style={styles.facultyActions}>
+                  <Button
+                    title="View Details"
+                    onPress={() => handleViewFaculty(faculty.id)}
+                    variant="outline"
+                    size="sm"
+                    style={styles.viewButton}
+                  />
                 </View>
               </CardContent>
             </Card>
@@ -811,5 +800,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#64748b',
     textAlign: 'center',
+  },
+  facultyActions: {
+    marginTop: 12,
+    alignItems: 'flex-end',
+  },
+  viewButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
 });
