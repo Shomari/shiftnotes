@@ -500,6 +500,19 @@ export class ApiClient {
     return response.results || [];
   }
 
+  async getCohortUsers(cohortId: string): Promise<ApiResponse<ApiUser>> {
+    return this.request<ApiResponse<ApiUser>>(`/cohorts/${cohortId}/users/`);
+  }
+
+  async getCompetencyGridData(traineeId: string, startDate?: string, endDate?: string): Promise<any> {
+    const params = new URLSearchParams();
+    params.append('trainee_id', traineeId);
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    
+    return this.request<any>(`/analytics/competency-grid/?${params.toString()}`);
+  }
+
   async createCohort(cohortData: Partial<ApiCohort>): Promise<ApiCohort> {
     return this.request<ApiCohort>('/cohorts/', {
       method: 'POST',

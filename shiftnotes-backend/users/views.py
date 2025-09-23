@@ -107,3 +107,21 @@ class CohortViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['org', 'program']
     ordering = ['-start_date']
+    
+    @action(detail=True, methods=['get'])
+    def users(self, request, pk=None):
+        """Get all users (trainees) for a specific cohort"""
+        cohort = self.get_object()
+        
+        # Get users for this cohort, filtered by organization for security
+        users = User.objects.filter(
+            cohort=cohort,
+            organization=request.user.organization  # Security: only users from same org
+        ).order_by('name')
+        
+        serializer = UserSerializer(users, many=True)
+        return Response({
+            'results': serializer.data,
+            'count': users.count(),
+            'cohort': CohortSerializer(cohort).data
+        })

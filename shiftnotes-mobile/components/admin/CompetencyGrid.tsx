@@ -89,8 +89,19 @@ interface CompetencyGridProps {
   user: User | null;
 }
 
+interface Cohort {
+  id: string;
+  name: string;
+  year: number;
+  start_date: string;
+  is_active: boolean;
+  trainee_count: number;
+}
+
 export function CompetencyGrid({ user }: CompetencyGridProps) {
-  const [trainees, setTrainees] = useState<User[]>([]);
+  const [cohorts, setCohorts] = useState<Cohort[]>([]);
+  const [selectedCohort, setSelectedCohort] = useState<string>('');
+  const [filteredTrainees, setFilteredTrainees] = useState<User[]>([]);
   const [selectedTrainee, setSelectedTrainee] = useState<string>('');
   const [competencyData, setCompetencyData] = useState<CompetencyData[]>([]);
   const [loading, setLoading] = useState(false);
@@ -125,8 +136,18 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
   ];
 
   useEffect(() => {
-    loadTrainees();
+    loadCohorts();
   }, [user]);
+
+  useEffect(() => {
+    // Clear trainee selection and load trainees when cohort changes
+    setSelectedTrainee('');
+    if (selectedCohort) {
+      loadTraineesForCohort(selectedCohort);
+    } else {
+      setFilteredTrainees([]);
+    }
+  }, [selectedCohort]);
 
   useEffect(() => {
     console.log('Selected trainee changed:', selectedTrainee);
@@ -149,19 +170,44 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
   // Check if any filters are active
   const hasActiveFilters = startDate || endDate;
 
-  const loadTrainees = async () => {
+  const loadCohorts = async () => {
+    try {
+      const cohorts = await apiClient.getCohorts();
+      setCohorts(cohorts || []);
+    } catch (error) {
+      console.error('Failed to load cohorts:', error);
+      Alert.alert('Error', 'Failed to load cohorts');
+    }
+  };
+
+  const loadTraineesForCohort = async (cohortId: string) => {
     try {
       setLoading(true);
-      // Get all trainees in the admin's organization
-      const response = await apiClient.getUsers();
-      const traineeUsers = response.results.filter(
-        (u: User) => u.role === 'trainee' && u.organization === user?.organization
-      );
-      console.log('Found trainees:', traineeUsers.map(t => ({id: t.id, name: t.name})));
-      setTrainees(traineeUsers);
+      // Get trainees for the specific cohort - much more efficient!
+      const response = await apiClient.getCohortUsers(cohortId);
+      
+      // Filter to only trainees (the backend returns all users for the cohort)
+      const traineeUsers = response.results?.filter((u: User) => u.role === 'trainee') || [];
+      
+      // Sort alphabetically by last name
+      const sortedTrainees = traineeUsers.sort((a, b) => {
+        const getLastName = (name: string) => {
+          const parts = name.split(' ');
+          return parts[parts.length - 1].toLowerCase();
+        };
+        
+        const lastNameA = getLastName(a.name);
+        const lastNameB = getLastName(b.name);
+        
+        return lastNameA.localeCompare(lastNameB);
+      });
+      
+      console.log(`Found ${sortedTrainees.length} trainees for cohort:`, sortedTrainees.map(t => t.name));
+      setFilteredTrainees(sortedTrainees);
     } catch (error) {
-      console.error('Error loading trainees:', error);
-      Alert.alert('Error', 'Failed to load trainees');
+      console.error('Error loading trainees for cohort:', error);
+      Alert.alert('Error', 'Failed to load trainees for selected cohort');
+      setFilteredTrainees([]);
     } finally {
       setLoading(false);
     }
@@ -171,180 +217,29 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
     try {
       setLoading(true);
       console.log('Loading competency data for trainee ID:', traineeId);
-      console.log('Expected trainee ID from database: 12b32cad-94e8-4996-a123-0945629e1b58');
       
-      // Get all assessments for this trainee
-      console.log('About to fetch assessments...');
-      let assessments = [];
-      try {
-        // Format date parameters if they exist
-        const startDateStr = startDate || undefined;
-        const endDateStr = endDate || undefined;
-        
-        assessments = await apiClient.getAssessmentsForTrainee(traineeId, startDateStr, endDateStr);
-        console.log('Fetched assessments:', assessments.length, 'with date filter:', { startDateStr, endDateStr });
-        if (assessments.length > 0) {
-          console.log('First assessment structure:', assessments[0]);
-        } else {
-          console.log('No assessments returned from API');
-        }
-      } catch (assessmentError) {
-        console.error('Error fetching assessments:', assessmentError);
-        assessments = [];
-      }
+      // Use the new backend endpoint that does all calculations efficiently
+      const gridData = await apiClient.getCompetencyGridData(traineeId, startDate, endDate);
+      console.log('Received grid data:', gridData);
       
-      // Get the selected trainee and their program
-      const selectedTraineeData = trainees.find(t => t.id === traineeId);
-      if (!selectedTraineeData) {
-        console.error('Selected trainee not found');
-        return;
-      }
-      
-      // Determine trainee's program - each trainee belongs to one program
-      let traineeProgram = null;
-      if (selectedTraineeData.program) {
-        traineeProgram = selectedTraineeData.program;
-      } else {
-        // Fallback: infer program from department/specialty
-        const department = selectedTraineeData.department;
-        console.log('No program found, inferring from department:', department);
-        
-        // Get all programs to match by specialty
-        const programsResponse = await apiClient.getPrograms(user?.organization || '');
-        const allPrograms = programsResponse.results || [];
-        traineeProgram = allPrograms.find(p => 
-          department && (
-            department.toLowerCase().includes(p.specialty.toLowerCase()) ||
-            p.specialty.toLowerCase().includes(department.toLowerCase())
-          )
-        );
-      }
-      
-      if (!traineeProgram) {
-        Alert.alert('Error', 'Could not determine trainee program');
-        return;
-      }
-      
-      console.log('Trainee program:', traineeProgram.name, traineeProgram.id);
-      
-      // Get ALL sub-competencies for this specific program
-      const subCompetenciesResponse = await apiClient.getSubCompetencies(undefined, traineeProgram.id);
-      const subCompetencyEPAsResponse = await apiClient.getSubCompetencyEPAs();
-      
-      console.log('Sub-competencies response:', subCompetenciesResponse);
-      
-      const subCompetencies = subCompetenciesResponse.results || [];
-      const subCompetencyEPAs = subCompetencyEPAsResponse.results || [];
-      
-      console.log(`Found ${subCompetencies.length} sub-competencies for program: ${traineeProgram.name}`);
-      
-      // STEP 1: Initialize ALL sub-competencies with empty data (shows complete grid)
-      const competencyMap = new Map<string, {
-        ratings: number[];
-        subCompetency: any;
-        coreCompetency: string;
-      }>();
-
-      subCompetencies.forEach((subComp: any) => {
-        competencyMap.set(subComp.id, {
-          ratings: [],
-          subCompetency: subComp,
-          coreCompetency: subComp.core_competency_title || 'Unknown'
-        });
-      });
-
-      // STEP 2: Create EPA to SubCompetency mapping (for filling in assessment data)
-      const epaToSubCompetencies = new Map<string, string[]>();
-      subCompetencyEPAs.forEach((mapping: any) => {
-        if (!epaToSubCompetencies.has(mapping.epa)) {
-          epaToSubCompetencies.set(mapping.epa, []);
-        }
-        epaToSubCompetencies.get(mapping.epa)?.push(mapping.sub_competency);
-      });
-      
-      console.log('EPA to SubCompetency mappings created:', epaToSubCompetencies.size, 'unique EPAs');
-      console.log('Sample mapping EPA IDs:', Array.from(epaToSubCompetencies.keys()).slice(0, 3));
-
-      // STEP 3: Fill in assessment data where available
-      let totalRatingsCollected = 0;
-      let mappingsFound = 0;
-      let mappingsNotFound = 0;
-      
-      // Log sample assessment EPA IDs for debugging
-      console.log('About to process', assessments.length, 'assessments');
-      if (assessments.length > 0 && assessments[0].assessment_epas?.length > 0) {
-        console.log('Sample assessment EPA IDs:', assessments[0].assessment_epas.map((ae: any) => ae.epa).slice(0, 3));
-      } else {
-        console.log('No assessment EPAs found in first assessment');
-      }
-      
-      assessments.forEach((assessment: any, index: number) => {
-        if (index === 0) {
-          console.log('Processing first assessment:', assessment.id, 'EPAs:', assessment.assessment_epas?.length || 0);
-        }
-        assessment.assessment_epas?.forEach((assessmentEpa: any) => {
-          const subCompIds = epaToSubCompetencies.get(assessmentEpa.epa);
-          if (subCompIds) {
-            mappingsFound++;
-            subCompIds.forEach((subCompId: string) => {
-              const entry = competencyMap.get(subCompId);
-              if (entry) {
-                entry.ratings.push(assessmentEpa.entrustment_level);
-                totalRatingsCollected++;
-              }
-            });
-          } else {
-            mappingsNotFound++;
-            // Debug: log the EPA ID that wasn't found
-            if (mappingsNotFound <= 3) {
-              console.log(`Missing mapping for EPA: ${assessmentEpa.epa} (${assessmentEpa.epa_code})`);
-            }
-          }
-        });
-      });
-      
-      console.log(`EPA Mapping Results: ${mappingsFound} found, ${mappingsNotFound} not found`);
-      console.log('Total ratings collected:', totalRatingsCollected);
-
-      // STEP 4: Generate final data for ALL sub-competencies (complete grid)
+      // Transform backend data to match frontend interface
       const processedData: CompetencyData[] = [];
-      competencyMap.forEach((entry, subCompId) => {
-        if (entry.ratings.length > 0) {
-          // Has assessment data - calculate average milestone level (round up to nearest 0.5)
-          const average = entry.ratings.reduce((sum, rating) => sum + rating, 0) / entry.ratings.length;
-          const milestoneLevel = roundUpToNearestHalf(average);
-          
-          processedData.push({
-            subCompetencyId: subCompId,
-            subCompetencyTitle: entry.subCompetency.title,
-            coreCompetencyTitle: entry.coreCompetency,
-            averageRating: average,
-            totalAssessments: entry.ratings.length,
-            milestoneLevel: milestoneLevel
-          });
-        } else {
-          // No assessment data - show as "Not Yet Completed" (level 0)
-          processedData.push({
-            subCompetencyId: subCompId,
-            subCompetencyTitle: entry.subCompetency.title,
-            coreCompetencyTitle: entry.coreCompetency,
-            averageRating: 0,
-            totalAssessments: 0,
-            milestoneLevel: 0 // 0 = "Not Yet Completed"
-          });
-        }
-      });
       
-      console.log(`Final grid: ${processedData.length} total sub-competencies (showing complete program curriculum)`);
-
-      // Group by core competency and sort
-      processedData.sort((a, b) => {
-        if (a.coreCompetencyTitle !== b.coreCompetencyTitle) {
-          return a.coreCompetencyTitle.localeCompare(b.coreCompetencyTitle);
+      for (const competency of gridData.competencies) {
+        for (const subCompetency of competency.sub_competencies) {
+          processedData.push({
+            subCompetencyId: subCompetency.id,
+            subCompetencyTitle: subCompetency.title,
+            coreCompetencyTitle: competency.title,
+            averageRating: subCompetency.average_entrustment || 0,
+            totalAssessments: subCompetency.total_assessments,
+            milestoneLevel: subCompetency.milestone_level || 0
+          });
         }
-        return a.subCompetencyTitle.localeCompare(b.subCompetencyTitle);
-      });
-
+      }
+      
+      console.log('Processed competency data:', processedData.length, 'items');
+      console.log('Coverage:', gridData.summary.coverage_percentage + '%');
       setCompetencyData(processedData);
     } catch (error) {
       console.error('Error loading competency data:', error);
@@ -429,7 +324,7 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
     );
   };
 
-  const selectedTraineeData = trainees.find(t => t.id === selectedTrainee);
+  const selectedTraineeData = filteredTrainees.find(t => t.id === selectedTrainee);
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -445,23 +340,45 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
           <View style={styles.controls}>
             <View style={styles.controlRow}>
               <View style={styles.controlGroup}>
-                <Text style={styles.label}>Select Trainee:</Text>
+                <Text style={styles.label}>Select Cohort:</Text>
                 <Select
-                  key={`trainee-select-${user?.organization}-${trainees.length}`}
-                  value={selectedTrainee}
-                  onValueChange={setSelectedTrainee}
-                  placeholder={loading ? "Loading trainees..." : "Choose a trainee to view competency grid"}
+                  key={`cohort-select-${cohorts.length}`}
+                  value={selectedCohort}
+                  onValueChange={setSelectedCohort}
+                  placeholder="Choose a cohort"
                   options={[
-                    { value: '', label: 'Select a trainee' },
-                    ...trainees.map(trainee => ({
-                      value: trainee.id,
-                      label: `${trainee.name} (${trainee.department || 'No Department'})`
+                    { value: '', label: 'Select a cohort' },
+                    ...cohorts.map(cohort => ({
+                      value: cohort.id,
+                      label: cohort.name
                     }))
                   ]}
-                  disabled={loading || trainees.length === 0}
+                  disabled={loading || cohorts.length === 0}
                 />
               </View>
             </View>
+            
+            {selectedCohort && (
+              <View style={styles.controlRow}>
+                <View style={styles.controlGroup}>
+                  <Text style={styles.label}>Select Trainee:</Text>
+                  <Select
+                    key={`trainee-select-${selectedCohort}-${filteredTrainees.length}`}
+                    value={selectedTrainee}
+                    onValueChange={setSelectedTrainee}
+                    placeholder={filteredTrainees.length === 0 ? "No trainees in this cohort" : "Choose a trainee to view competency grid"}
+                    options={[
+                      { value: '', label: 'Select a trainee' },
+                      ...filteredTrainees.map(trainee => ({
+                        value: trainee.id,
+                        label: trainee.name
+                      }))
+                    ]}
+                    disabled={loading || filteredTrainees.length === 0}
+                  />
+                </View>
+              </View>
+            )}
           </View>
         </CardContent>
       </Card>
@@ -686,7 +603,7 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
               Milestone Summary: {selectedTraineeData.name}
             </CardTitle>
             <Text style={styles.programInfo}>
-              Program: {selectedTraineeData.department || 'Unknown Department'}
+              Program: {selectedTraineeData.program_name || 'Emergency Medicine'}
             </Text>
           </CardHeader>
 

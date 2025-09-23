@@ -159,8 +159,7 @@ export function Mailbox() {
                     <Text style={styles.sectionLabel}>EPA Assessed:</Text>
                     {assessment.assessment_epas.map((epa, index) => (
                       <View key={index} style={styles.epaItem}>
-                        <Text style={styles.epaCode}>{epa.epa_code}</Text>
-                        <Text style={styles.epaTitle}>{epa.epa_title}</Text>
+                        <Text style={styles.epaCode}>{epa.epa_code} - {epa.epa_title}</Text>
                         <Text style={styles.entrustmentLevel}>
                           {getEntrustmentLabel(epa.entrustment_level)}
                         </Text>

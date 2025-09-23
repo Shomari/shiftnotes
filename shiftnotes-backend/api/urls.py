@@ -5,7 +5,7 @@ from users.password_reset_views import request_password_reset, verify_reset_toke
 from organizations.views import OrganizationViewSet, ProgramViewSet, SiteViewSet
 from curriculum.views import EPACategoryViewSet, EPAViewSet, CoreCompetencyViewSet, SubCompetencyViewSet, SubCompetencyEPAViewSet
 from assessments.views import AssessmentViewSet
-from analytics.views import program_performance_data, faculty_dashboard_data, competency_progress_data
+from analytics.views import program_performance_data, faculty_dashboard_data, competency_progress_data, competency_grid_data
 
 router = DefaultRouter()
 
@@ -39,4 +39,5 @@ urlpatterns = [
     path('analytics/program-performance/', program_performance_data, name='program_performance_data'),
     path('analytics/faculty-dashboard/', faculty_dashboard_data, name='faculty_dashboard_data'),
     path('analytics/competency-progress/', competency_progress_data, name='competency_progress_data'),
+    path('analytics/competency-grid/', competency_grid_data, name='competency_grid_data'),
 ]

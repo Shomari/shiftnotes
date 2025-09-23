@@ -13,7 +13,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Button } from './ui/Button';
 import { Select } from './ui/Select';
-import { Assessment } from '../lib/types';
+import { ApiAssessment } from '../lib/api';
 import { apiClient } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -62,6 +62,14 @@ interface AllAssessmentsProps {
   onEditAssessment?: (assessmentId: string) => void;
 }
 
+interface Assessment extends ApiAssessment {
+  epas: Array<{
+    code: string;
+    title: string;
+    level: number;
+  }>;
+}
+
 export function AllAssessments({ onViewAssessment, onEditAssessment }: AllAssessmentsProps) {
   const { user } = useAuth();
   const [assessments, setAssessments] = useState<Assessment[]>([]);
@@ -91,10 +99,9 @@ export function AllAssessments({ onViewAssessment, onEditAssessment }: AllAssess
       // Transform API data to match our interface
       const transformedAssessments: Assessment[] = response.results?.map(assessment => ({
         ...assessment,
-        trainee_name: assessment.trainee_name || 'Unknown Trainee',
-        evaluator_name: assessment.evaluator_name || 'Unknown Evaluator',
         epas: assessment.assessment_epas?.map(epa => ({
           code: epa.epa_code || 'Unknown EPA',
+          title: epa.epa_title || 'Unknown Title',
           level: epa.entrustment_level || 1,
         })) || [],
       })) || [];
@@ -133,7 +140,8 @@ export function AllAssessments({ onViewAssessment, onEditAssessment }: AllAssess
     
     // Filter by EPA
     const matchesEPA = !epaFilter || assessment.epas.some(epa => 
-      epa.code?.toLowerCase().includes(epaFilter.toLowerCase())
+      epa.code?.toLowerCase().includes(epaFilter.toLowerCase()) ||
+      epa.title?.toLowerCase().includes(epaFilter.toLowerCase())
     );
     
     // Filter by status
@@ -150,17 +158,17 @@ export function AllAssessments({ onViewAssessment, onEditAssessment }: AllAssess
   // Extract unique options for dropdowns
   const traineeOptions = Array.from(new Set(
     assessments.map(assessment => assessment.trainee_name).filter(Boolean)
-  )).map(name => ({ label: name, value: name }));
+  )).map(name => ({ label: name || '', value: name || '' }));
 
   const facultyOptions = Array.from(new Set(
     assessments.map(assessment => assessment.evaluator_name).filter(Boolean)
-  )).map(name => ({ label: name, value: name }));
+  )).map(name => ({ label: name || '', value: name || '' }));
 
   const epaOptions = Array.from(new Set(
     assessments.flatMap(assessment => 
-      assessment.epas.map(epa => epa.code).filter(Boolean)
+      assessment.epas.map(epa => `${epa.code} - ${epa.title}`).filter(Boolean)
     )
-  )).map(code => ({ label: code, value: code }));
+  )).map(epaString => ({ label: epaString, value: epaString }));
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -478,7 +486,7 @@ export function AllAssessments({ onViewAssessment, onEditAssessment }: AllAssess
                     {assessment.epas.length > 0 ? (
                       <View style={styles.epaBadge}>
                         <Text style={styles.epaText}>
-                          {assessment.epas[0].code} - Level {assessment.epas[0].level}
+                          {assessment.epas[0].code} - {assessment.epas[0].title} (Level {assessment.epas[0].level})
                         </Text>
                       </View>
                     ) : (

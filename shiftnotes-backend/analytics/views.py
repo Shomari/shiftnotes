@@ -516,3 +516,136 @@ def competency_progress_data(request):
             'recent_avg_entrustment': round(recent_avg, 2) if recent_avg else None,
         }
     })
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def competency_grid_data(request):
+    """Get competency grid data for a specific trainee with all calculations done on backend"""
+    trainee_id = request.GET.get('trainee_id')
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
+    
+    if not trainee_id:
+        return JsonResponse({'error': 'trainee_id parameter is required'}, status=400)
+    
+    # Get the trainee
+    try:
+        trainee = User.objects.get(id=trainee_id, role='trainee')
+    except User.DoesNotExist:
+        return JsonResponse({'error': 'Trainee not found'}, status=404)
+    
+    # Security: ensure user can access this trainee's data
+    if request.user.organization != trainee.organization:
+        return JsonResponse({'error': 'Access denied'}, status=403)
+    
+    # Parse date filters
+    assessments_filter = Q(trainee=trainee, status='submitted')
+    
+    if start_date_str:
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            assessments_filter &= Q(shift_date__gte=start_date)
+        except ValueError:
+            return JsonResponse({'error': 'Invalid start_date format. Use YYYY-MM-DD'}, status=400)
+    
+    if end_date_str:
+        try:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            assessments_filter &= Q(shift_date__lte=end_date)
+        except ValueError:
+            return JsonResponse({'error': 'Invalid end_date format. Use YYYY-MM-DD'}, status=400)
+    
+    # Get all assessments for this trainee (with date filtering if provided)
+    trainee_assessments = Assessment.objects.filter(assessments_filter)
+    
+    # Get all competencies for this program
+    if not trainee.program:
+        return JsonResponse({'error': 'Trainee is not assigned to a program'}, status=400)
+    
+    competencies = CoreCompetency.objects.filter(program=trainee.program).prefetch_related(
+        'sub_competencies__sub_competency_epas__epa'
+    ).order_by('code')
+    
+    grid_data = []
+    
+    for competency in competencies:
+        subcompetency_data = []
+        
+        for subcompetency in competency.sub_competencies.all().order_by('code'):
+            # Get all EPAs mapped to this sub-competency
+            mapped_epas = EPA.objects.filter(
+                sub_competency_epas__sub_competency=subcompetency,
+                program=trainee.program
+            ).distinct()
+            
+            # Get assessments for EPAs mapped to this sub-competency
+            subcompetency_assessments = trainee_assessments.filter(
+                assessment_epas__epa__in=mapped_epas
+            ).distinct()
+            
+            # Calculate average entrustment level
+            avg_entrustment = subcompetency_assessments.aggregate(
+                avg=Avg('assessment_epas__entrustment_level')
+            )['avg']
+            
+            # Count total assessment EPAs (not just assessments, since one assessment can have multiple EPAs)
+            total_epa_assessments = trainee_assessments.filter(
+                assessment_epas__epa__in=mapped_epas
+            ).aggregate(
+                count=Count('assessment_epas__id')
+            )['count'] or 0
+            
+            # Round up to nearest 0.5 for milestone level (matching frontend logic)
+            milestone_level = None
+            if avg_entrustment:
+                milestone_level = min(5.0, max(1.0, round(avg_entrustment * 2) / 2))
+            
+            subcompetency_data.append({
+                'id': str(subcompetency.id),
+                'code': subcompetency.code,
+                'title': subcompetency.title,
+                'core_competency_code': competency.code,
+                'average_entrustment': round(avg_entrustment, 2) if avg_entrustment else None,
+                'milestone_level': milestone_level,
+                'total_assessments': total_epa_assessments,
+                'mapped_epas_count': mapped_epas.count(),
+                'has_data': avg_entrustment is not None
+            })
+        
+        grid_data.append({
+            'id': str(competency.id),
+            'code': competency.code,
+            'title': competency.title,
+            'sub_competencies': subcompetency_data
+        })
+    
+    # Calculate summary statistics
+    all_subcompetencies = [sub for comp in grid_data for sub in comp['sub_competencies']]
+    subcompetencies_with_data = [sub for sub in all_subcompetencies if sub['has_data']]
+    
+    overall_avg = None
+    if subcompetencies_with_data:
+        total_avg = sum(sub['average_entrustment'] for sub in subcompetencies_with_data)
+        overall_avg = round(total_avg / len(subcompetencies_with_data), 2)
+    
+    return JsonResponse({
+        'trainee': {
+            'id': str(trainee.id),
+            'name': trainee.name,
+            'program_name': trainee.program.name,
+            'program_abbreviation': trainee.program.abbreviation,
+            'cohort_name': trainee.cohort.name if trainee.cohort else None,
+        },
+        'competencies': grid_data,
+        'summary': {
+            'total_subcompetencies': len(all_subcompetencies),
+            'subcompetencies_with_data': len(subcompetencies_with_data),
+            'coverage_percentage': round((len(subcompetencies_with_data) / len(all_subcompetencies)) * 100, 1) if all_subcompetencies else 0,
+            'overall_average_entrustment': overall_avg,
+            'total_assessments': trainee_assessments.count(),
+            'date_range': {
+                'start_date': start_date_str,
+                'end_date': end_date_str
+            }
+        }
+    })

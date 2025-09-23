@@ -27,10 +27,9 @@ interface AssessmentDetailProps {
 }
 
 interface Assessment extends ApiAssessment {
-  trainee_name: string;
-  evaluator_name: string;
   epas: Array<{
     code: string;
+    title: string;
     level: number;
     what_went_well: string;
     what_could_improve: string;
@@ -59,10 +58,9 @@ export function AssessmentDetail({ assessmentId, onBack }: AssessmentDetailProps
         // Transform API data to match our interface
         const transformedAssessment: Assessment = {
           ...foundAssessment,
-          trainee_name: foundAssessment.trainee_name || 'Unknown Trainee',
-          evaluator_name: foundAssessment.evaluator_name || 'Unknown Evaluator',
           epas: foundAssessment.assessment_epas?.map(epa => ({
             code: epa.epa_code || 'Unknown EPA',
+            title: epa.epa_title || 'Unknown Title',
             level: epa.entrustment_level || 1,
             what_went_well: epa.what_went_well || '',
             what_could_improve: epa.what_could_improve || '',
@@ -171,8 +169,8 @@ export function AssessmentDetail({ assessmentId, onBack }: AssessmentDetailProps
         </View>
         <Text style={styles.pageSubtitle}>
           {user?.role === 'trainee' 
-            ? `Assessment by ${assessment.evaluator_name}`
-            : `Assessment for ${assessment.trainee_name}`
+            ? `Assessment by ${assessment.evaluator_name || 'Unknown Evaluator'}`
+            : `Assessment for ${assessment.trainee_name || 'Unknown Trainee'}`
           }
         </Text>
       </View>
@@ -219,12 +217,12 @@ export function AssessmentDetail({ assessmentId, onBack }: AssessmentDetailProps
               
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Evaluator:</Text>
-                <Text style={styles.detailValue}>{assessment.evaluator_name}</Text>
+                <Text style={styles.detailValue}>{assessment.evaluator_name || 'Unknown Evaluator'}</Text>
               </View>
               
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Trainee:</Text>
-                <Text style={styles.detailValue}>{assessment.trainee_name}</Text>
+                <Text style={styles.detailValue}>{assessment.trainee_name || 'Unknown Trainee'}</Text>
               </View>
             </View>
           </CardContent>
@@ -248,7 +246,7 @@ export function AssessmentDetail({ assessmentId, onBack }: AssessmentDetailProps
               {assessment.epas.map((epa, index) => (
                 <View key={index} style={styles.epaCard}>
                   <View style={styles.epaHeader}>
-                    <Text style={styles.epaCode}>{epa.code}</Text>
+                    <Text style={styles.epaCode}>{epa.code} - {epa.title}</Text>
                     <View style={styles.entrustmentBadge}>
                       <Text style={styles.entrustmentLevel}>Level {epa.level}</Text>
                     </View>

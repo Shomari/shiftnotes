@@ -41,17 +41,13 @@ class Command(BaseCommand):
             # Create cohorts (3 cohorts)
             cohorts = self.create_realistic_cohorts(organization, program)
             
-            # Create users
-            trainees = self.create_realistic_trainees(organization, program, cohorts)
-            faculty = self.create_realistic_faculty(organization, program)
-            leadership = self.create_realistic_leadership(organization, program)
-            coordinator = self.create_coordinator(organization, program)
-            
-            # Create demo login accounts
-            self.create_demo_login_accounts(organization, program, cohorts)
+            # Create users (including demo users as regular users)
+            trainees, faculty, leadership, coordinator = self.create_all_users(organization, program, cohorts)
             
             # Create realistic assessments with progression
-            self.create_realistic_assessments(trainees, faculty + leadership, sites, epas, program)
+            all_evaluators = faculty + leadership
+            all_trainees = trainees
+            self.create_realistic_assessments(all_trainees, all_evaluators, sites, epas, program)
             
             self.stdout.write(self.style.SUCCESS('✅ Realistic demo data created successfully!'))
             self.stdout.write(f'📊 Created {len(trainees)} trainees, {len(faculty)} faculty, {len(leadership)} leadership')
@@ -86,7 +82,7 @@ class Command(BaseCommand):
         """Create Emergency Medicine program"""
         program = Program.objects.create(
             org=organization,
-            name='Emergency Medicine Residency',
+            name='Emergency Medicine',
             abbreviation='EM',
             specialty='Emergency Medicine'
         )
@@ -259,8 +255,8 @@ class Command(BaseCommand):
             'EPA4': ['PC2', 'PC4', 'MK1', 'MK2'],
             'EPA5': ['PC2', 'PC3', 'PC4', 'MK1', 'MK2'],
             'EPA6': ['PC3', 'PC4', 'MK1', 'MK2', 'PBLI1'],
-            'EPA7': ['MK1', 'MK2', 'SBP1', 'PBLI1'],
-            'EPA8': ['PC3', 'PC4', 'PC5', 'PC6', 'MK1', 'MK2', 'PBLI1', 'ICS1'],
+            'EPA7': ['MK1', 'MK2', 'SBP1', 'SBP2', 'PBLI1', 'PBLI2'],  # Added SBP2, PBLI2
+            'EPA8': ['PC3', 'PC4', 'PC5', 'PC6', 'MK1', 'MK2', 'PBLI1', 'PBLI2', 'ICS1'],  # Added PBLI2
             'EPA9': ['PC2', 'PC6', 'MK2'],
             'EPA10': ['PC6', 'MK2', 'SBP3', 'SBP4', 'ICS1', 'ICS3'],
             'EPA11': ['PC8', 'MK2', 'ICS1', 'ICS2'],
@@ -268,13 +264,13 @@ class Command(BaseCommand):
             'EPA13': ['PC3', 'PC8'],
             'EPA14': ['PC5', 'PC6', 'PC8', 'MK1', 'MK2', 'ICS1', 'ICS2'],
             'EPA15': ['PC5', 'MK1', 'MK2'],
-            'EPA16': ['PC5', 'PC6', 'MK2', 'SBP1', 'P1', 'P2', 'ICS1', 'ICS2'],
+            'EPA16': ['PC5', 'PC6', 'MK2', 'SBP1', 'P1', 'P2', 'P3', 'ICS1', 'ICS2'],  # Added P3
             'EPA17': ['SBP1', 'SBP4', 'P1', 'P2', 'ICS3'],
             'EPA18': ['SBP1', 'SBP3', 'SBP4', 'P1', 'P2', 'ICS2', 'ICS3'],
-            'EPA19': ['P1', 'P2', 'ICS1'],
+            'EPA19': ['P1', 'P2', 'P3', 'ICS1'],  # Added P3
             'EPA20': ['MK2', 'SBP1', 'SBP4', 'ICS2', 'ICS3'],
-            'EPA21': ['PC6', 'PC7', 'SBP1', 'SBP3', 'P2', 'ICS2', 'ICS3'],
-            'EPA22': ['P1', 'P2'],
+            'EPA21': ['PC6', 'PC7', 'SBP1', 'SBP2', 'SBP3', 'P2', 'ICS2', 'ICS3'],  # Added SBP2
+            'EPA22': ['P1', 'P2', 'P3'],  # Added P3
         }
         
         for epa_code, subcomp_codes in mapping_data.items():
@@ -325,6 +321,26 @@ class Command(BaseCommand):
         
         return cohorts
 
+    def create_all_users(self, organization, program, cohorts):
+        """Create all users including demo users integrated as regular users"""
+        
+        # Create regular users
+        trainees = self.create_realistic_trainees(organization, program, cohorts)
+        faculty = self.create_realistic_faculty(organization, program)
+        leadership = self.create_realistic_leadership(organization, program)
+        coordinator = self.create_coordinator(organization, program)
+        
+        # Create demo users and integrate them into the regular user lists
+        demo_accounts = self.create_demo_login_accounts(organization, program, cohorts)
+        
+        # Add demo users to their respective lists so they participate like regular users
+        trainees.append(demo_accounts['trainee'])
+        faculty.append(demo_accounts['faculty'])
+        leadership.append(demo_accounts['leadership'])
+        # coordinator and system_admin are handled separately as they don't participate in assessments
+        
+        return trainees, faculty, leadership, coordinator
+
     def create_realistic_trainees(self, organization, program, cohorts):
         """Create 14 trainees per cohort (42 total)"""
         trainee_names = [
@@ -347,8 +363,6 @@ class Command(BaseCommand):
             'Dr. Chloe Collins', 'Dr. Owen Stewart'
         ]
         
-        departments = ['Emergency Medicine', 'Emergency Medicine - Pediatrics', 'Emergency Medicine - Research']
-        
         trainees = []
         trainee_index = 0
         
@@ -364,7 +378,6 @@ class Command(BaseCommand):
                         password='password123',
                         name=name,
                         role='trainee',
-                        department=random.choice(departments),
                         organization=organization,
                         program=program,
                         cohort=cohort
@@ -458,9 +471,8 @@ class Command(BaseCommand):
         demo_trainee = User.objects.create_user(
             email='trainee@demo.com',
             password='password123',
-            name='Dr. Alex Martinez (Demo Trainee)',
+            name='Dr. Alex Martinez',
             role='trainee',
-            department='Emergency Medicine',
             organization=organization,
             program=program,
             cohort=pgy2_cohort
@@ -471,7 +483,7 @@ class Command(BaseCommand):
         demo_faculty = User.objects.create_user(
             email='faculty@demo.com',
             password='password123',
-            name='Dr. Jennifer Smith (Demo Faculty)',
+            name='Dr. Jennifer Smith',
             role='faculty',
             department='Emergency Medicine',
             organization=organization,
@@ -483,7 +495,7 @@ class Command(BaseCommand):
         demo_leadership = User.objects.create_user(
             email='leadership@demo.com',
             password='password123',
-            name='Dr. Michael Johnson (Demo Leadership)',
+            name='Dr. Michael Johnson',
             role='leadership',
             department='Emergency Medicine Leadership',
             organization=organization,
@@ -495,7 +507,7 @@ class Command(BaseCommand):
         demo_admin = User.objects.create_user(
             email='admin@demo.com',
             password='password123',
-            name='Dr. Sarah Wilson (Demo Coordinator)',
+            name='Dr. Sarah Wilson',
             role='admin',
             department='Emergency Medicine Administration',
             organization=organization,
@@ -507,7 +519,7 @@ class Command(BaseCommand):
         demo_system_admin = User.objects.create_user(
             email='system-admin@demo.com',
             password='password123',
-            name='Dr. Robert Chen (Demo System Admin)',
+            name='Dr. Robert Chen',
             role='system-admin',
             department='IT Administration',
             organization=organization,
@@ -559,15 +571,15 @@ class Command(BaseCommand):
             months_in_program = max(1, days_in_program // 30)  # At least 1 month
             
             if '2026' in cohort_name:  # PGY-3, started July 2022
-                avg_assessments_per_month = 10
+                avg_assessments_per_month = 12  # Increased for better coverage
                 base_entrustment = 3.5  # Higher scores for senior residents
                 progression_factor = 0.8  # Strong progression over time
             elif '2027' in cohort_name:  # PGY-2, started July 2023
-                avg_assessments_per_month = 10
+                avg_assessments_per_month = 12  # Increased for better coverage
                 base_entrustment = 2.8  # Medium scores
                 progression_factor = 0.6
             else:  # PGY-1, started July 2025 (recent interns)
-                avg_assessments_per_month = 8  # Slightly fewer for interns
+                avg_assessments_per_month = 10  # Increased from 8 to ensure good coverage
                 base_entrustment = 2.0  # Lower scores for interns
                 progression_factor = 0.4
             
@@ -589,9 +601,10 @@ class Command(BaseCommand):
                     time_factor = random_days_from_start / max(1, days_since_start)
                     entrustment_level = min(5, max(1, int(base_entrustment + (progression_factor * time_factor) + random.uniform(-0.5, 0.5))))
                     
-                    # Select random evaluator and EPA
+                    # Select random evaluator and EPA (with better distribution)
                     evaluator = random.choice(evaluators)
-                    epa = random.choice(epa_list)
+                    # Use weighted selection to ensure better EPA distribution
+                    epa = self.select_balanced_epa(epa_list, assessment_num, total_assessments)
                     site = random.choice(sites)
                     
                     # Create private comments for 5% of assessments
@@ -636,16 +649,8 @@ class Command(BaseCommand):
                     # Update created_at to our realistic date (bypassing auto_now_add)
                     Assessment.objects.filter(id=assessment.id).update(created_at=creation_datetime)
                     
-                    # Create assessment EPA with realistic feedback
-                    feedback_options = {
-                        1: ("Needs significant guidance", "Focus on basic skills and knowledge building"),
-                        2: ("Needs some guidance", "Continue practicing with supervision"),
-                        3: ("Performs adequately", "Ready for more independence in similar cases"),
-                        4: ("Performs well", "Excellent clinical skills, minimal supervision needed"),
-                        5: ("Excellent performance", "Ready to teach others, exemplary skills")
-                    }
-                    
-                    what_went_well, what_could_improve = feedback_options[entrustment_level]
+                    # Create assessment EPA with realistic, varied feedback
+                    what_went_well, what_could_improve = self.generate_realistic_feedback(epa, entrustment_level)
                     
                     AssessmentEPA.objects.create(
                         assessment=assessment,
@@ -677,3 +682,316 @@ class Command(BaseCommand):
             self.stdout.write(f'📖 Marked {len(assessments_to_mark_read)} as read, leaving 3 unread for demo')
         
         self.stdout.write(f'🎯 Total assessments created: {total_assessments_created}')
+
+    def generate_realistic_feedback(self, epa, entrustment_level):
+        """Generate realistic, varied feedback based on EPA type and entrustment level"""
+        
+        # EPA-specific feedback templates organized by category
+        epa_feedback_templates = {
+            # Clinical Assessment and Management EPAs
+            'clinical': {
+                'what_went_well': {
+                    1: [
+                        "Demonstrated basic understanding of patient presentation.",
+                        "Showed willingness to learn and ask questions.",
+                        "Recognized the need for help appropriately.",
+                        "Maintained professional demeanor throughout the case."
+                    ],
+                    2: [
+                        "Gathered relevant history with some prompting.",
+                        "Identified key clinical findings with guidance.",
+                        "Demonstrated improving clinical reasoning skills.",
+                        "Showed good communication with the patient."
+                    ],
+                    3: [
+                        "Conducted thorough assessment independently.",
+                        "Developed appropriate differential diagnosis.",
+                        "Demonstrated solid clinical knowledge base.",
+                        "Managed time effectively during evaluation."
+                    ],
+                    4: [
+                        "Excellent clinical assessment and decision-making.",
+                        "Efficiently prioritized multiple patient needs.",
+                        "Demonstrated strong diagnostic reasoning.",
+                        "Effectively communicated findings to team."
+                    ],
+                    5: [
+                        "Exemplary clinical performance and leadership.",
+                        "Seamlessly managed complex patient presentation.",
+                        "Demonstrated advanced clinical reasoning skills.",
+                        "Served as excellent role model for junior learners."
+                    ]
+                },
+                'what_could_improve': {
+                    1: [
+                        "Focus on developing systematic approach to patient assessment. Practice basic history-taking skills with supervision.",
+                        "Work on recognizing abnormal vital signs and their significance. Review fundamental clinical knowledge.",
+                        "Practice organizing clinical information more clearly. Seek feedback on diagnostic reasoning process.",
+                        "Develop confidence in basic patient interactions. Review approach to physical examination techniques."
+                    ],
+                    2: [
+                        "Continue developing independence in clinical assessment. Practice differential diagnosis formation.",
+                        "Work on time management during patient evaluations. Focus on prioritizing key clinical questions.",
+                        "Strengthen knowledge of common emergency presentations. Practice presenting cases more concisely.",
+                        "Develop more systematic approach to physical examination. Work on clinical documentation skills."
+                    ],
+                    3: [
+                        "Consider broader differential diagnoses in complex cases. Continue building confidence in decision-making.",
+                        "Work on efficiency when managing multiple patients. Practice communication with consultants.",
+                        "Focus on developing teaching skills with junior learners. Consider advanced diagnostic approaches.",
+                        "Strengthen knowledge of less common presentations. Practice leadership during busy shifts."
+                    ],
+                    4: [
+                        "Continue developing expertise in complex cases. Consider pursuing advanced training opportunities.",
+                        "Focus on mentoring junior residents more actively. Work on quality improvement initiatives.",
+                        "Develop skills in handling difficult family discussions. Consider research or scholarly activities.",
+                        "Continue building leadership skills during high-acuity situations. Focus on system-based improvements."
+                    ],
+                    5: [
+                        "Consider taking on more teaching responsibilities. Explore opportunities for curriculum development.",
+                        "Focus on mentoring faculty development activities. Consider research or quality improvement leadership.",
+                        "Continue advancing expertise in subspecialty areas. Take on more administrative responsibilities.",
+                        "Develop skills in program leadership and assessment. Consider academic medicine career development."
+                    ]
+                }
+            },
+            
+            # Procedures and Technical Skills EPAs
+            'procedures': {
+                'what_went_well': {
+                    1: [
+                        "Understood basic procedural indications and anatomy.",
+                        "Maintained sterile technique throughout procedure.",
+                        "Demonstrated careful attention to patient safety.",
+                        "Asked appropriate questions before proceeding."
+                    ],
+                    2: [
+                        "Successfully completed procedure with guidance.",
+                        "Showed improving technical skills and confidence.",
+                        "Appropriately obtained informed consent.",
+                        "Demonstrated good hand-eye coordination."
+                    ],
+                    3: [
+                        "Performed procedure independently with good technique.",
+                        "Effectively managed minor complications.",
+                        "Demonstrated solid understanding of anatomy.",
+                        "Provided clear explanations to patient and family."
+                    ],
+                    4: [
+                        "Excellent procedural skills and efficiency.",
+                        "Smoothly handled unexpected challenges.",
+                        "Demonstrated advanced technical expertise.",
+                        "Effectively taught procedure to junior learner."
+                    ],
+                    5: [
+                        "Exceptional procedural performance and innovation.",
+                        "Masterfully managed complex procedural case.",
+                        "Demonstrated teaching excellence during procedure.",
+                        "Showed expertise in difficult anatomical conditions."
+                    ]
+                },
+                'what_could_improve': {
+                    1: [
+                        "Practice basic procedural skills in simulation lab. Review anatomical landmarks and technique.",
+                        "Focus on developing confidence with routine procedures. Study indications and contraindications.",
+                        "Work on patient positioning and preparation. Practice explaining procedures to patients.",
+                        "Develop systematic approach to procedural safety. Review complications and management strategies."
+                    ],
+                    2: [
+                        "Continue practicing to build technical proficiency. Focus on developing procedural speed safely.",
+                        "Work on recognizing complications earlier. Practice troubleshooting common technical difficulties.",
+                        "Strengthen knowledge of alternative techniques. Focus on improving patient communication during procedures.",
+                        "Develop confidence in more complex cases. Practice teaching basic procedures to medical students."
+                    ],
+                    3: [
+                        "Focus on advanced procedural techniques. Work on efficiency during high-pressure situations.",
+                        "Develop expertise in ultrasound-guided procedures. Practice managing procedural complications.",
+                        "Strengthen teaching skills during procedures. Consider pursuing additional procedural training.",
+                        "Work on innovation and quality improvement in procedural care. Focus on patient comfort techniques."
+                    ],
+                    4: [
+                        "Consider subspecialty procedural training. Focus on developing expertise in rare procedures.",
+                        "Work on teaching advanced techniques to residents. Develop quality metrics for procedural outcomes.",
+                        "Focus on research in procedural innovation. Consider leadership in procedural education.",
+                        "Develop skills in procedural simulation training. Work on departmental procedure protocols."
+                    ],
+                    5: [
+                        "Focus on developing new procedural techniques. Consider research in procedural innovation.",
+                        "Take leadership in departmental procedural training. Develop expertise in procedural simulation.",
+                        "Consider national speaking on procedural topics. Focus on mentoring procedural faculty.",
+                        "Develop advanced procedural research programs. Lead institutional procedural quality initiatives."
+                    ]
+                }
+            },
+            
+            # Communication and Professionalism EPAs  
+            'communication': {
+                'what_went_well': {
+                    1: [
+                        "Maintained professional demeanor with patients and families.",
+                        "Demonstrated empathy and compassion appropriately.",
+                        "Showed respect for patient privacy and dignity.",
+                        "Communicated clearly and used appropriate language."
+                    ],
+                    2: [
+                        "Built good rapport with patients and families.",
+                        "Effectively delivered routine medical information.",
+                        "Demonstrated active listening skills.",
+                        "Showed cultural sensitivity in patient interactions."
+                    ],
+                    3: [
+                        "Skillfully navigated difficult patient conversations.",
+                        "Effectively communicated with interdisciplinary team.",
+                        "Demonstrated strong emotional intelligence.",
+                        "Provided clear discharge instructions and follow-up."
+                    ],
+                    4: [
+                        "Exceptional communication in challenging situations.",
+                        "Effectively led difficult family meetings.",
+                        "Demonstrated advanced conflict resolution skills.",
+                        "Served as communication role model for team."
+                    ],
+                    5: [
+                        "Masterful communication across all situations.",
+                        "Expertly handled complex ethical discussions.",
+                        "Demonstrated leadership in communication training.",
+                        "Showed exceptional skill in crisis communication."
+                    ]
+                },
+                'what_could_improve': {
+                    1: [
+                        "Practice delivering bad news with appropriate supervision. Work on developing empathetic responses.",
+                        "Focus on active listening skills development. Practice explaining medical concepts in lay terms.",
+                        "Work on managing emotional responses professionally. Study cultural competency in healthcare.",
+                        "Develop confidence in difficult conversations. Practice therapeutic communication techniques."
+                    ],
+                    2: [
+                        "Continue building skills in challenging conversations. Practice shared decision-making approaches.",
+                        "Work on reading nonverbal communication cues. Focus on family dynamics understanding.",
+                        "Develop expertise in breaking bad news. Practice managing angry or upset patients.",
+                        "Strengthen interdisciplinary communication skills. Work on conflict resolution techniques."
+                    ],
+                    3: [
+                        "Focus on advanced communication in crisis situations. Develop skills in ethical consultation.",
+                        "Work on leading family meetings effectively. Practice communication with difficult personalities.",
+                        "Strengthen skills in end-of-life discussions. Focus on cultural competency advancement.",
+                        "Develop teaching skills for communication training. Practice media communication if relevant."
+                    ],
+                    4: [
+                        "Consider advanced training in communication skills. Focus on developing communication curricula.",
+                        "Work on research in patient communication outcomes. Develop expertise in conflict mediation.",
+                        "Focus on teaching communication to medical students. Consider communication consultation services.",
+                        "Develop skills in organizational communication. Work on public speaking and presentation skills."
+                    ],
+                    5: [
+                        "Focus on developing communication research programs. Consider national leadership in communication training.",
+                        "Work on innovative communication technologies. Develop expertise in communication assessment.",
+                        "Consider writing or speaking on communication topics. Focus on mentoring communication faculty.",
+                        "Develop advanced communication simulation programs. Lead institutional communication initiatives."
+                    ]
+                }
+            },
+            
+            # Systems-Based Practice EPAs
+            'systems': {
+                'what_went_well': {
+                    1: [
+                        "Recognized importance of care coordination.",
+                        "Demonstrated understanding of basic hospital systems.",
+                        "Showed awareness of resource utilization.",
+                        "Followed established protocols appropriately."
+                    ],
+                    2: [
+                        "Effectively coordinated care with multiple services.",
+                        "Demonstrated improving understanding of healthcare systems.",
+                        "Showed good judgment in resource utilization.",
+                        "Participated actively in quality improvement discussions."
+                    ],
+                    3: [
+                        "Efficiently managed patient flow and disposition.",
+                        "Demonstrated solid understanding of healthcare economics.",
+                        "Effectively worked within system constraints.",
+                        "Contributed meaningfully to quality improvement efforts."
+                    ],
+                    4: [
+                        "Excellent systems thinking and process improvement.",
+                        "Effectively led initiatives to improve patient care.",
+                        "Demonstrated advanced understanding of healthcare policy.",
+                        "Served as systems advocate for patients and families."
+                    ],
+                    5: [
+                        "Exceptional leadership in systems improvement.",
+                        "Innovatively addressed complex systems challenges.",
+                        "Demonstrated expertise in healthcare transformation.",
+                        "Showed mastery of population health approaches."
+                    ]
+                },
+                'what_could_improve': {
+                    1: [
+                        "Study healthcare systems and care coordination basics. Learn about quality improvement methodologies.",
+                        "Focus on understanding resource utilization impact. Practice working with case management services.",
+                        "Develop awareness of healthcare economics. Study patient safety and quality metrics.",
+                        "Learn about healthcare policy and regulations. Practice systems thinking in patient care."
+                    ],
+                    2: [
+                        "Continue developing systems thinking skills. Practice leading quality improvement projects.",
+                        "Work on understanding healthcare disparities. Focus on population health approaches.",
+                        "Develop expertise in care transitions. Practice working with complex social situations.",
+                        "Strengthen knowledge of healthcare financing. Work on advocacy skills for patients."
+                    ],
+                    3: [
+                        "Focus on advanced quality improvement techniques. Develop skills in healthcare innovation.",
+                        "Work on understanding policy implications. Practice leading systems change initiatives.",
+                        "Develop expertise in healthcare informatics. Focus on population health management.",
+                        "Strengthen skills in healthcare economics. Work on interdisciplinary collaboration."
+                    ],
+                    4: [
+                        "Consider advanced training in healthcare administration. Focus on developing policy expertise.",
+                        "Work on research in healthcare delivery. Develop skills in organizational leadership.",
+                        "Focus on innovation in healthcare systems. Consider healthcare entrepreneurship opportunities.",
+                        "Develop expertise in healthcare quality measurement. Work on national quality initiatives."
+                    ],
+                    5: [
+                        "Focus on healthcare transformation leadership. Consider policy development and advocacy roles.",
+                        "Work on developing innovative care models. Focus on national healthcare improvement initiatives.",
+                        "Consider academic leadership in healthcare systems. Develop expertise in healthcare research.",
+                        "Focus on mentoring healthcare systems leaders. Work on healthcare policy and regulation."
+                    ]
+                }
+            }
+        }
+        
+        # Determine EPA category based on EPA code/title
+        epa_category = 'clinical'  # default
+        if any(keyword in epa.title.lower() for keyword in ['procedure', 'airway', 'ultrasound', 'sedation']):
+            epa_category = 'procedures'
+        elif any(keyword in epa.title.lower() for keyword in ['communicate', 'document', 'palliative', 'end-of-life']):
+            epa_category = 'communication'
+        elif any(keyword in epa.title.lower() for keyword in ['flow', 'system', 'supervision', 'professional']):
+            epa_category = 'systems'
+        
+        # Get feedback templates for this category
+        templates = epa_feedback_templates[epa_category]
+        
+        # Randomly select feedback for the given entrustment level
+        what_went_well = random.choice(templates['what_went_well'][entrustment_level])
+        what_could_improve = random.choice(templates['what_could_improve'][entrustment_level])
+        
+        return what_went_well, what_could_improve
+
+    def select_balanced_epa(self, epa_list, assessment_num, total_assessments):
+        """Select EPA with better distribution to ensure all EPAs get coverage"""
+        # For the first part of assessments, use round-robin to ensure coverage
+        if assessment_num < len(epa_list):
+            # Round-robin selection for first pass
+            return epa_list[assessment_num % len(epa_list)]
+        else:
+            # After ensuring each EPA gets at least one assessment, use weighted random
+            # Give slightly higher weight to EPAs that map to fewer sub-competencies
+            # to balance out the overall sub-competency coverage
+            
+            # Simple approach: 70% random, 30% round-robin for continued balance
+            if random.random() < 0.7:
+                return random.choice(epa_list)
+            else:
+                return epa_list[assessment_num % len(epa_list)]
