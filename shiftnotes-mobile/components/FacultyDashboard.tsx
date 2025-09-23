@@ -129,8 +129,12 @@ export function FacultyDashboard({ onViewFaculty }: FacultyDashboardProps = {}) 
   };
 
   const handleViewFaculty = (facultyId: string) => {
+    console.log('handleViewFaculty called with:', facultyId);
+    console.log('onViewFaculty prop:', onViewFaculty);
     if (onViewFaculty) {
       onViewFaculty(facultyId);
+    } else {
+      console.log('onViewFaculty prop is not provided');
     }
   };
 

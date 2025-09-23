@@ -92,8 +92,10 @@ function AppContent() {
   };
 
   const handleViewFaculty = (facultyId: string) => {
+    console.log('App.tsx handleViewFaculty called with:', facultyId);
     setSelectedFacultyId(facultyId);
     setCurrentRoute('faculty-detail');
+    console.log('Set route to faculty-detail, facultyId:', facultyId);
   };
 
   const handleBackFromFacultyDetail = () => {
