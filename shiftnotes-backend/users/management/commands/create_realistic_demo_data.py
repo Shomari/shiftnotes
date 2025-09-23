@@ -609,13 +609,19 @@ class Command(BaseCommand):
                         ]
                         private_comment = random.choice(private_comments_options)
                     
-                    # Create assessment with realistic creation date (1-3 days after shift)
-                    creation_delay = random.randint(1, 3)
+                    # Create assessment with realistic creation date (1-4 days after shift)
+                    creation_delay = random.randint(1, 4)  # 1-4 days as requested
                     creation_date = shift_date + timedelta(days=creation_delay)
                     
                     # Ensure creation date doesn't exceed current date
                     if creation_date > current_date:
                         creation_date = current_date
+                    
+                    # Create realistic creation datetime (distributed over time, not just recent)
+                    creation_datetime = datetime.combine(
+                        creation_date, 
+                        datetime.min.time().replace(hour=random.randint(8, 18), minute=random.randint(0, 59))
+                    )
                     
                     assessment = Assessment.objects.create(
                         trainee=trainee,
@@ -624,7 +630,7 @@ class Command(BaseCommand):
                         location=site.name,
                         status='submitted',
                         private_comments=private_comment,
-                        created_at=datetime.combine(creation_date, datetime.min.time().replace(hour=random.randint(8, 18)))
+                        created_at=creation_datetime
                     )
                     
                     # Create assessment EPA with realistic feedback
