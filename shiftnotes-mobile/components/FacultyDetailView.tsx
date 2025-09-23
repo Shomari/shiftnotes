@@ -276,71 +276,6 @@ export function FacultyDetailView({ facultyId, onBack }: FacultyDetailViewProps)
           </Card>
         )}
 
-        {/* Performance Insights */}
-        <Card style={styles.insightsCard}>
-          <CardHeader>
-            <CardTitle>Performance Insights</CardTitle>
-          </CardHeader>
-          
-          <CardContent>
-            <View style={styles.insightsList}>
-              <View style={styles.insightItem}>
-                <Text style={styles.insightIcon}>📊</Text>
-                <View style={styles.insightContent}>
-                  <Text style={styles.insightTitle}>Assessment Volume</Text>
-                  <Text style={styles.insightText}>
-                    {facultyData.faculty.avg_assessments_per_month >= 10 
-                      ? 'High assessment volume - active evaluator'
-                      : facultyData.faculty.avg_assessments_per_month >= 5
-                      ? 'Moderate assessment volume'
-                      : 'Lower assessment volume - consider engagement strategies'
-                    }
-                  </Text>
-                </View>
-              </View>
-              
-              <View style={styles.insightItem}>
-                <Text style={styles.insightIcon}>⏱️</Text>
-                <View style={styles.insightContent}>
-                  <Text style={styles.insightTitle}>Turnaround Time</Text>
-                  <Text style={styles.insightText}>
-                    {facultyData.faculty.avg_turnaround_days <= 2 
-                      ? 'Excellent - completes assessments promptly'
-                      : facultyData.faculty.avg_turnaround_days <= 4
-                      ? 'Good - reasonable completion time'
-                      : 'Consider reminder system for timely completion'
-                    }
-                  </Text>
-                </View>
-              </View>
-              
-              <View style={styles.insightItem}>
-                <Text style={styles.insightIcon}>🎯</Text>
-                <View style={styles.insightContent}>
-                  <Text style={styles.insightTitle}>Entrustment Levels</Text>
-                  <Text style={styles.insightText}>
-                    {facultyData.faculty.avg_entrustment_level >= 3.5 
-                      ? 'High standards - promotes advanced competency'
-                      : facultyData.faculty.avg_entrustment_level >= 2.5
-                      ? 'Balanced approach to resident evaluation'
-                      : 'Conservative evaluator - ensures thorough training'
-                    }
-                  </Text>
-                </View>
-              </View>
-              
-              <View style={styles.insightItem}>
-                <Text style={styles.insightIcon}>📈</Text>
-                <View style={styles.insightContent}>
-                  <Text style={styles.insightTitle}>Engagement</Text>
-                  <Text style={styles.insightText}>
-                    Active for {facultyData.faculty.active_months} months with consistent evaluation patterns
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </CardContent>
-        </Card>
       </ScrollView>
     </View>
   );
@@ -489,36 +424,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#3b82f6',
     fontWeight: '500',
-  },
-  insightsCard: {
-    margin: 16,
-    marginBottom: 32,
-  },
-  insightsList: {
-    gap: 16,
-  },
-  insightItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  insightIcon: {
-    fontSize: 24,
-    width: 32,
-    textAlign: 'center',
-  },
-  insightContent: {
-    flex: 1,
-  },
-  insightTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1e293b',
-    marginBottom: 4,
-  },
-  insightText: {
-    fontSize: 14,
-    color: '#64748b',
-    lineHeight: 20,
   },
 });

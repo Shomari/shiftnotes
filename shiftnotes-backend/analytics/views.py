@@ -1,5 +1,5 @@
 from django.http import JsonResponse
-from django.db.models import Count, Avg, Q, Max, F, ExpressionWrapper, DurationField
+from django.db.models import Count, Avg, Q, Max, Min, F, ExpressionWrapper, DurationField
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from datetime import timedelta, datetime
@@ -292,10 +292,19 @@ def faculty_dashboard_data(request):
         months_in_range = max(days_in_range / 30.44, 1)  # Average days per month
         avg_assessments_per_month = total_assessments / months_in_range
         
-        # Get last assessment date
-        last_assessment = faculty_assessments.aggregate(
+        # Get first and last assessment dates
+        assessment_dates = faculty_assessments.aggregate(
+            first_date=Min('created_at'),
             last_date=Max('created_at')
-        )['last_date']
+        )
+        first_assessment = assessment_dates['first_date']
+        last_assessment = assessment_dates['last_date']
+        
+        # Calculate active months
+        active_months = 0
+        if first_assessment and last_assessment:
+            days_active = (last_assessment.date() - first_assessment.date()).days
+            active_months = max(1, days_active // 30)
         
         # Calculate average turnaround time (shift date to creation date)
         avg_turnaround_days = 0
@@ -335,18 +344,25 @@ def faculty_dashboard_data(request):
             
             # Only process if the month is within our date range
             if month_start <= end_date:
-                # Count assessments in this month
-                month_assessments = faculty_assessments.filter(
+                # Get assessments in this month
+                month_assessments_queryset = faculty_assessments.filter(
                     shift_date__gte=month_start,
                     shift_date__lte=month_end
-                ).count()
+                )
+                month_assessments_count = month_assessments_queryset.count()
+                
+                # Calculate average entrustment for this month
+                month_avg_entrustment = month_assessments_queryset.aggregate(
+                    avg_entrustment=Avg('assessment_epas__entrustment_level')
+                )['avg_entrustment']
                 
                 # Format month label (e.g., "Jan", "Feb")
                 month_label = month_start.strftime('%b')
                 
                 monthly_breakdown.insert(0, {  # Insert at beginning to maintain chronological order
                     'month': month_label,
-                    'assessment_count': month_assessments,
+                    'assessment_count': month_assessments_count,
+                    'avg_entrustment': round(month_avg_entrustment, 2) if month_avg_entrustment else None,
                 })
             
             # Move to previous month
@@ -362,7 +378,9 @@ def faculty_dashboard_data(request):
             'avg_assessments_per_month': round(avg_assessments_per_month, 2),
             'avg_turnaround_days': round(avg_turnaround_days, 1),
             'avg_entrustment_level': round(avg_entrustment_level, 2) if avg_entrustment_level else 0,
+            'first_assessment_date': first_assessment.isoformat() if first_assessment else None,
             'last_assessment_date': last_assessment.isoformat() if last_assessment else None,
+            'active_months': active_months,
             'monthly_breakdown': monthly_breakdown,
         })
     
