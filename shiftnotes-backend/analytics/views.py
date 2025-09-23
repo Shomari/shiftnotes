@@ -240,7 +240,8 @@ def faculty_dashboard_data(request):
     program = request.user.program
     
     # Parse filters
-    faculty_filter = request.GET.get('faculty')
+    faculty_filter = request.GET.get('faculty')  # For exact ID filtering (legacy)
+    faculty_search = request.GET.get('search')   # For name-based search
     start_date_str = request.GET.get('start_date')
     end_date_str = request.GET.get('end_date')
     
@@ -261,16 +262,23 @@ def faculty_dashboard_data(request):
         except ValueError:
             return JsonResponse({'error': 'Invalid end_date format. Use YYYY-MM-DD'}, status=400)
     
-    # Build faculty queryset
+    # Build faculty queryset with proper ordering
     faculty_queryset = User.objects.filter(
         program=program,
         role__in=['faculty', 'leadership'],
         deactivated_at__isnull=True
-    )
+    ).order_by('name')  # Alphabetical order by full name (which includes last name)
     
-    # Apply faculty filter if specified
+    # Apply faculty filter if specified (legacy exact ID match)
     if faculty_filter:
         faculty_queryset = faculty_queryset.filter(id=faculty_filter)
+    
+    # Apply name-based search if specified
+    if faculty_search:
+        # Search by first name OR last name (case-insensitive)
+        faculty_queryset = faculty_queryset.filter(
+            Q(name__icontains=faculty_search)
+        )
     
     # Build assessment queryset for the date range
     assessment_queryset = Assessment.objects.filter(

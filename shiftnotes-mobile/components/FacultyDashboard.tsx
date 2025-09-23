@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Pressable,
   Platform,
 } from 'react-native';
+import debounce from 'lodash.debounce';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Button } from './ui/Button';
 import { Select } from './ui/Select';
@@ -22,6 +23,7 @@ if (Platform.OS === 'web') {
   try {
     DatePicker = require('react-datepicker').default;
     require('react-datepicker/dist/react-datepicker.css');
+    console.log('DatePicker loaded successfully:', !!DatePicker);
     
     // Add custom styles for z-index fix
     const style = document.createElement('style');
@@ -52,7 +54,8 @@ if (Platform.OS === 'web') {
     `;
     document.head.appendChild(style);
   } catch (e) {
-    console.warn('Failed to load react-datepicker:', e);
+    console.error('Failed to load react-datepicker:', e);
+    DatePicker = null;
   }
 }
 
@@ -91,20 +94,21 @@ export function FacultyDashboard({ onViewFaculty }: FacultyDashboardProps = {}) 
   const [dashboardData, setDashboardData] = useState<FacultyDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
-  const [facultyFilter, setFacultyFilter] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
   // Fetch dashboard data on component mount
   useEffect(() => {
+    console.log('DatePicker available:', !!DatePicker, Platform.OS);
     loadDashboardData();
   }, []);
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = async (search?: string) => {
     try {
       setLoading(true);
       
-      const data = await apiClient.getFacultyDashboard(facultyFilter, startDate, endDate);
+      const data = await apiClient.getFacultyDashboard(undefined, startDate, endDate, search || searchQuery);
       console.log('Faculty dashboard data:', data);
       setDashboardData(data);
     } catch (error) {
@@ -115,17 +119,32 @@ export function FacultyDashboard({ onViewFaculty }: FacultyDashboardProps = {}) 
     }
   };
 
-  // Reload data when filters change
+  // Debounced search function for performance
+  const debouncedSearch = useCallback(
+    debounce((searchTerm: string) => {
+      loadDashboardData(searchTerm);
+    }, 300),
+    [startDate, endDate]
+  );
+
+  // Reload data when date filters change
   useEffect(() => {
     if (!loading) {
       loadDashboardData();
     }
-  }, [facultyFilter, startDate, endDate]);
+  }, [startDate, endDate]);
+
+  // Handle search input changes with debouncing
+  const handleSearchChange = (text: string) => {
+    setSearchQuery(text);
+    debouncedSearch(text);
+  };
 
   const clearFilters = () => {
-    setFacultyFilter('');
+    setSearchQuery('');
     setStartDate('');
     setEndDate('');
+    loadDashboardData(''); // Reload with empty search
   };
 
   const handleViewFaculty = (facultyId: string) => {
@@ -143,13 +162,7 @@ export function FacultyDashboard({ onViewFaculty }: FacultyDashboardProps = {}) 
   };
 
   // Check if any filters are active
-  const hasActiveFilters = facultyFilter || startDate || endDate;
-
-  // Get faculty options for filter
-  const facultyOptions = dashboardData?.faculty_stats.map(faculty => ({
-    label: faculty.faculty_name,
-    value: faculty.faculty_id,
-  })) || [];
+  const hasActiveFilters = searchQuery || startDate || endDate;
 
 
   const formatDate = (dateString: string | null) => {
@@ -207,14 +220,17 @@ export function FacultyDashboard({ onViewFaculty }: FacultyDashboardProps = {}) 
           {filtersExpanded && (
             <CardContent>
               <View style={styles.filtersContainer}>
-                {/* Faculty Filter */}
+                {/* Faculty Search */}
                 <View style={styles.filterField}>
-                  <Text style={styles.filterLabel}>Faculty Member</Text>
-                  <Select
-                    value={facultyFilter}
-                    onValueChange={setFacultyFilter}
-                    placeholder="All Faculty"
-                    options={facultyOptions}
+                  <Text style={styles.filterLabel}>Search Faculty</Text>
+                  <TextInput
+                    style={styles.searchInput}
+                    value={searchQuery}
+                    onChangeText={handleSearchChange}
+                    placeholder="Search by first or last name..."
+                    clearButtonMode="while-editing"
+                    autoCapitalize="words"
+                    autoCorrect={false}
                   />
                 </View>
 
@@ -245,13 +261,13 @@ export function FacultyDashboard({ onViewFaculty }: FacultyDashboardProps = {}) 
                             <input
                               style={{
                                 width: '100%',
-                                padding: '12px 16px',
+                                padding: '8px 12px',
                                 border: '1px solid #d1d5db',
-                                borderRadius: '8px',
-                                fontSize: '16px',
+                                borderRadius: '6px',
+                                fontSize: '14px',
                                 backgroundColor: '#ffffff',
                                 color: '#374151',
-                                height: '48px',
+                                height: '36px',
                                 cursor: 'pointer',
                                 boxSizing: 'border-box',
                               }}
@@ -305,13 +321,13 @@ export function FacultyDashboard({ onViewFaculty }: FacultyDashboardProps = {}) 
                             <input
                               style={{
                                 width: '100%',
-                                padding: '12px 16px',
+                                padding: '8px 12px',
                                 border: '1px solid #d1d5db',
-                                borderRadius: '8px',
-                                fontSize: '16px',
+                                borderRadius: '6px',
+                                fontSize: '14px',
                                 backgroundColor: '#ffffff',
                                 color: '#374151',
-                                height: '48px',
+                                height: '36px',
                                 cursor: 'pointer',
                                 boxSizing: 'border-box',
                               }}
@@ -428,6 +444,17 @@ export function FacultyDashboard({ onViewFaculty }: FacultyDashboardProps = {}) 
                       </View>
                     </View>
                   </View>
+                  
+                  {/* View Button in Header */}
+                  <View style={styles.facultyHeaderActions}>
+                    <Button
+                      title="View Details"
+                      onPress={() => handleViewFaculty(faculty.faculty_id)}
+                      variant="outline"
+                      size="sm"
+                      style={styles.viewButton}
+                    />
+                  </View>
                 </View>
 
                 {/* Faculty Details */}
@@ -458,16 +485,6 @@ export function FacultyDashboard({ onViewFaculty }: FacultyDashboardProps = {}) 
                   </View>
                 </View>
 
-                {/* View Button */}
-                <View style={styles.facultyActions}>
-                  <Button
-                    title="View Details"
-                    onPress={() => handleViewFaculty(faculty.faculty_id)}
-                    variant="outline"
-                    size="sm"
-                    style={styles.viewButton}
-                  />
-                </View>
               </CardContent>
             </Card>
           ))}
@@ -627,6 +644,16 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     marginLeft: 2,
   },
+  searchInput: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    backgroundColor: '#ffffff',
+    color: '#374151',
+  },
   dateInput: {
     borderWidth: 1,
     borderColor: '#d1d5db',
@@ -694,6 +721,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 12,
+  },
+  facultyHeaderActions: {
+    marginLeft: 12,
   },
   facultyInfo: {
     flex: 1,
@@ -804,10 +834,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#64748b',
     textAlign: 'center',
-  },
-  facultyActions: {
-    marginTop: 12,
-    alignItems: 'flex-end',
   },
   viewButton: {
     paddingHorizontal: 16,

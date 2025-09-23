@@ -607,11 +607,12 @@ export class ApiClient {
   }
 
   // Analytics endpoints
-  async getFacultyDashboard(facultyId?: string, startDate?: string, endDate?: string): Promise<any> {
+  async getFacultyDashboard(facultyId?: string, startDate?: string, endDate?: string, search?: string): Promise<any> {
     const params = new URLSearchParams();
     if (facultyId) params.append('faculty', facultyId);
     if (startDate) params.append('start_date', startDate);
     if (endDate) params.append('end_date', endDate);
+    if (search) params.append('search', search);
     
     const url = `/analytics/faculty-dashboard/${params.toString() ? '?' + params.toString() : ''}`;
     return this.request<any>(url);
