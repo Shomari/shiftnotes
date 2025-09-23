@@ -550,19 +550,23 @@ class Command(BaseCommand):
         private_comment_assessments = []
         
         for cohort_name, cohort_trainees in trainees_by_cohort.items():
-            # Determine years in program and assessment counts
-            if '2026' in cohort_name:  # PGY-3, 3 years in program
-                months_in_program = 36
+            # Determine years in program and assessment counts based on cohort start dates
+            cohort = cohort_trainees[0].cohort  # Get cohort from first trainee
+            cohort_start_date = cohort.start_date
+            
+            # Calculate how long this cohort has been in the program
+            days_in_program = (current_date - cohort_start_date).days
+            months_in_program = max(1, days_in_program // 30)  # At least 1 month
+            
+            if '2026' in cohort_name:  # PGY-3, started July 2022
                 avg_assessments_per_month = 10
                 base_entrustment = 3.5  # Higher scores for senior residents
                 progression_factor = 0.8  # Strong progression over time
-            elif '2027' in cohort_name:  # PGY-2, 2 years in program  
-                months_in_program = 24
+            elif '2027' in cohort_name:  # PGY-2, started July 2023
                 avg_assessments_per_month = 10
                 base_entrustment = 2.8  # Medium scores
                 progression_factor = 0.6
-            else:  # PGY-1, ~3 months in program (started July)
-                months_in_program = 3
+            else:  # PGY-1, started July 2025 (recent interns)
                 avg_assessments_per_month = 8  # Slightly fewer for interns
                 base_entrustment = 2.0  # Lower scores for interns
                 progression_factor = 0.4
@@ -574,12 +578,15 @@ class Command(BaseCommand):
                 total_assessments = int(months_in_program * avg_assessments_per_month * random.uniform(0.8, 1.2))
                 
                 for assessment_num in range(total_assessments):
-                    # Distribute assessments over the time period
-                    days_back = random.randint(1, months_in_program * 30)
-                    shift_date = current_date - timedelta(days=days_back)
+                    # Distribute assessments from cohort start date to now
+                    # Generate random date between cohort start and current date
+                    days_since_start = (current_date - cohort_start_date).days
+                    random_days_from_start = random.randint(0, max(1, days_since_start - 7))  # Leave recent week for realistic "recent" data
+                    shift_date = cohort_start_date + timedelta(days=random_days_from_start)
                     
                     # Calculate progression-based entrustment level
-                    time_factor = (months_in_program * 30 - days_back) / (months_in_program * 30)  # 0 to 1
+                    # time_factor: 0 (start of program) to 1 (current time)
+                    time_factor = random_days_from_start / max(1, days_since_start)
                     entrustment_level = min(5, max(1, int(base_entrustment + (progression_factor * time_factor) + random.uniform(-0.5, 0.5))))
                     
                     # Select random evaluator and EPA
@@ -602,7 +609,14 @@ class Command(BaseCommand):
                         ]
                         private_comment = random.choice(private_comments_options)
                     
-                    # Create assessment
+                    # Create assessment with realistic creation date (1-3 days after shift)
+                    creation_delay = random.randint(1, 3)
+                    creation_date = shift_date + timedelta(days=creation_delay)
+                    
+                    # Ensure creation date doesn't exceed current date
+                    if creation_date > current_date:
+                        creation_date = current_date
+                    
                     assessment = Assessment.objects.create(
                         trainee=trainee,
                         evaluator=evaluator,
@@ -610,7 +624,7 @@ class Command(BaseCommand):
                         location=site.name,
                         status='submitted',
                         private_comments=private_comment,
-                        created_at=datetime.combine(shift_date + timedelta(days=random.randint(0, 2)), datetime.min.time())
+                        created_at=datetime.combine(creation_date, datetime.min.time().replace(hour=random.randint(8, 18)))
                     )
                     
                     # Create assessment EPA with realistic feedback
