@@ -47,6 +47,9 @@ class Command(BaseCommand):
             leadership = self.create_realistic_leadership(organization, program)
             coordinator = self.create_coordinator(organization, program)
             
+            # Create demo login accounts
+            self.create_demo_login_accounts(organization, program, cohorts)
+            
             # Create realistic assessments with progression
             self.create_realistic_assessments(trainees, faculty + leadership, sites, epas, program)
             
@@ -445,6 +448,87 @@ class Command(BaseCommand):
         
         self.stdout.write(f'👩‍💼 Created coordinator: {coordinator.name}')
         return coordinator
+
+    def create_demo_login_accounts(self, organization, program, cohorts):
+        """Create specific demo login accounts for each user type"""
+        self.stdout.write('🔑 Creating demo login accounts...')
+        
+        # Demo Trainee (PGY-2)
+        pgy2_cohort = next((c for c in cohorts if '2027' in c.name), cohorts[1])
+        demo_trainee = User.objects.create_user(
+            email='trainee@demo.com',
+            password='password123',
+            name='Dr. Alex Martinez (Demo Trainee)',
+            role='trainee',
+            department='Emergency Medicine',
+            organization=organization,
+            program=program,
+            cohort=pgy2_cohort
+        )
+        self.stdout.write(f'👨‍⚕️ Created demo trainee: {demo_trainee.email} / password123')
+        
+        # Demo Faculty
+        demo_faculty = User.objects.create_user(
+            email='faculty@demo.com',
+            password='password123',
+            name='Dr. Jennifer Smith (Demo Faculty)',
+            role='faculty',
+            department='Emergency Medicine',
+            organization=organization,
+            program=program
+        )
+        self.stdout.write(f'👨‍🏫 Created demo faculty: {demo_faculty.email} / password123')
+        
+        # Demo Leadership
+        demo_leadership = User.objects.create_user(
+            email='leadership@demo.com',
+            password='password123',
+            name='Dr. Michael Johnson (Demo Leadership)',
+            role='leadership',
+            department='Emergency Medicine Leadership',
+            organization=organization,
+            program=program
+        )
+        self.stdout.write(f'👑 Created demo leadership: {demo_leadership.email} / password123')
+        
+        # Demo Coordinator (Admin)
+        demo_admin = User.objects.create_user(
+            email='admin@demo.com',
+            password='password123',
+            name='Dr. Sarah Wilson (Demo Coordinator)',
+            role='admin',
+            department='Emergency Medicine Administration',
+            organization=organization,
+            program=program
+        )
+        self.stdout.write(f'👩‍💼 Created demo coordinator: {demo_admin.email} / password123')
+        
+        # Demo System Admin
+        demo_system_admin = User.objects.create_user(
+            email='system-admin@demo.com',
+            password='password123',
+            name='Dr. Robert Chen (Demo System Admin)',
+            role='system-admin',
+            department='IT Administration',
+            organization=organization,
+            program=program
+        )
+        self.stdout.write(f'🔧 Created demo system admin: {demo_system_admin.email} / password123')
+        
+        self.stdout.write('📋 Demo Login Summary:')
+        self.stdout.write('  trainee@demo.com / password123 (PGY-2 resident)')
+        self.stdout.write('  faculty@demo.com / password123 (attending physician)')
+        self.stdout.write('  leadership@demo.com / password123 (program director)')
+        self.stdout.write('  admin@demo.com / password123 (program coordinator)')
+        self.stdout.write('  system-admin@demo.com / password123 (system administrator)')
+        
+        return {
+            'trainee': demo_trainee,
+            'faculty': demo_faculty,
+            'leadership': demo_leadership,
+            'admin': demo_admin,
+            'system_admin': demo_system_admin
+        }
 
     def create_realistic_assessments(self, trainees, evaluators, sites, epas, program):
         """Create realistic assessments with progression over time"""
