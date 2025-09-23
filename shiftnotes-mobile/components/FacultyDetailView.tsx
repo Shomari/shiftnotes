@@ -252,7 +252,7 @@ export function FacultyDetailView({ facultyId, onBack }: FacultyDetailViewProps)
                       <View style={styles.monthlyBarLabel}>
                         <Text style={styles.monthlyBarLabelText}>{month.month}</Text>
                         <Text style={styles.monthlyEntrustment}>
-                          {month.avg_entrustment ? `${month.avg_entrustment.toFixed(1)} avg` : 'No data'}
+                          {month.avg_entrustment ? `${month.avg_entrustment.toFixed(1)} avg entrustment` : 'No entrustment data'}
                         </Text>
                       </View>
                       
@@ -265,8 +265,12 @@ export function FacultyDetailView({ facultyId, onBack }: FacultyDetailViewProps)
                               backgroundColor: month.assessment_count > 0 ? '#3b82f6' : '#e5e7eb'
                             }
                           ]} 
-                        />
-                        <Text style={styles.monthlyBarValue}>{month.assessment_count}</Text>
+                        >
+                          <Text style={styles.monthlyBarValue}>{month.assessment_count}</Text>
+                        </View>
+                        <Text style={styles.monthlyBarCount}>
+                          {month.assessment_count} assessment{month.assessment_count !== 1 ? 's' : ''}
+                        </Text>
                       </View>
                     </View>
                   );
@@ -419,6 +423,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     textAlign: 'center',
     minWidth: 24,
+  },
+  monthlyBarCount: {
+    fontSize: 12,
+    color: '#374151',
+    fontWeight: '500',
+    marginLeft: 8,
   },
   monthlyEntrustment: {
     fontSize: 11,
