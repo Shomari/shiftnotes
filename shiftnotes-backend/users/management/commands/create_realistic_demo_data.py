@@ -5,6 +5,7 @@ Based on actual EM competencies and EPA mapping from CSV files
 
 import random
 import csv
+import os
 from datetime import datetime, timedelta, date
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
@@ -18,6 +19,10 @@ User = get_user_model()
 
 class Command(BaseCommand):
     help = 'Create realistic demo data based on actual EM competency structure'
+    
+    def __init__(self):
+        super().__init__()
+        self.epa_competency_descriptions = self.load_epa_competency_descriptions()
 
     def handle(self, *args, **options):
         with transaction.atomic():
@@ -221,7 +226,7 @@ class Command(BaseCommand):
             ('EPA14', 'Perform procedural sedation.', 'Procedures and Technical Skills'),
             ('EPA15', 'Implement pharmacologic and therapeutic management plans.', 'Clinical Assessment and Management'),
             ('EPA16', 'Provide palliative and end‐of‐life care for patients and their families.', 'Communication and Professionalism'),
-            ('EPA17', 'Document the EE encounter.', 'Communication and Professionalism'),
+            ('EPA17', 'Document the patient encounter.', 'Communication and Professionalism'),
             ('EPA18', 'Communicate with other health care professionals about patient care.', 'Communication and Professionalism'),
             ('EPA19', 'Communicate with the patient, family, and caregivers.', 'Communication and Professionalism'),
             ('EPA20', 'Provide supervision or consultation for other health care professionals.', 'Systems-Based Practice'),
@@ -571,15 +576,15 @@ class Command(BaseCommand):
             months_in_program = max(1, days_in_program // 30)  # At least 1 month
             
             if '2026' in cohort_name:  # PGY-3, started July 2022
-                avg_assessments_per_month = 12  # Increased for better coverage
+                avg_assessments_per_month = 18  # Increased significantly for better variance coverage
                 base_entrustment = 4.0  # Higher scores for senior residents (+0.5)
                 progression_factor = 0.8  # Strong progression over time
             elif '2027' in cohort_name:  # PGY-2, started July 2023
-                avg_assessments_per_month = 12  # Increased for better coverage
+                avg_assessments_per_month = 16  # Increased significantly for better variance coverage
                 base_entrustment = 3.3  # Medium scores (+0.5)
                 progression_factor = 0.6
             else:  # PGY-1, started July 2025 (recent interns)
-                avg_assessments_per_month = 10  # Increased from 8 to ensure good coverage
+                avg_assessments_per_month = 14  # Increased significantly for better variance coverage
                 base_entrustment = 2.5  # Lower scores for interns (+0.5)
                 progression_factor = 0.4
             
@@ -596,16 +601,17 @@ class Command(BaseCommand):
                     random_days_from_start = random.randint(0, max(1, days_since_start - 7))  # Leave recent week for realistic "recent" data
                     shift_date = cohort_start_date + timedelta(days=random_days_from_start)
                     
-                    # Calculate progression-based entrustment level
+                    # Calculate base progression level for this time point
                     # time_factor: 0 (start of program) to 1 (current time)
                     time_factor = random_days_from_start / max(1, days_since_start)
-                    entrustment_level = min(5, max(1, int(base_entrustment + (progression_factor * time_factor) + random.uniform(-0.5, 0.5))))
+                    base_level_for_time = base_entrustment + (progression_factor * time_factor)
                     
-                    # Select random evaluator and EPA (with better distribution)
+                    # Select random evaluator and site
                     evaluator = random.choice(evaluators)
-                    # Use weighted selection to ensure better EPA distribution
-                    epa = self.select_balanced_epa(epa_list, assessment_num, total_assessments)
                     site = random.choice(sites)
+                    
+                    # Determine how many EPAs to assess (1-3 EPAs per assessment for better coverage)
+                    num_epas = random.choices([1, 2, 3], weights=[60, 30, 10])[0]  # Most assessments have 1 EPA, some have 2-3
                     
                     # Create private comments for 5% of assessments
                     private_comment = ""
@@ -649,16 +655,77 @@ class Command(BaseCommand):
                     # Update created_at to our realistic date (bypassing auto_now_add)
                     Assessment.objects.filter(id=assessment.id).update(created_at=creation_datetime)
                     
-                    # Create assessment EPA with realistic, varied feedback
-                    what_went_well, what_could_improve = self.generate_realistic_feedback(epa, entrustment_level)
+                    # Create multiple EPAs with individual variance for realistic competency distribution
+                    selected_epas = random.sample(epa_list, min(num_epas, len(epa_list)))
                     
-                    AssessmentEPA.objects.create(
-                        assessment=assessment,
-                        epa=epa,
-                        entrustment_level=entrustment_level,
-                        what_went_well=what_went_well,
-                        what_could_improve=what_could_improve
-                    )
+                    for epa in selected_epas:
+                        # Create much more realistic variance patterns
+                        # Each trainee has individual strengths and weaknesses across competencies
+                        
+                        # Create trainee-specific competency bias (some trainees are better at certain areas)
+                        trainee_seed = hash(f"{trainee.id}_{epa.code}") % 1000
+                        random.seed(trainee_seed)
+                        
+                        # Competency-specific variance - some EPAs are naturally harder/easier
+                        epa_difficulty_modifier = {
+                            # Clinical EPAs tend to have higher scores
+                            'EPA1': 0.2, 'EPA2': 0.1, 'EPA3': 0.0, 'EPA4': 0.1,
+                            # Procedure EPAs more variable
+                            'EPA10': -0.3, 'EPA11': -0.2, 'EPA12': -0.1, 'EPA13': -0.2,
+                            # Communication generally good
+                            'EPA18': 0.3, 'EPA19': 0.2,
+                            # Systems-based practice often lower
+                            'EPA17': -0.4, 'EPA20': -0.3, 'EPA21': -0.5, 'EPA22': -0.2
+                        }.get(epa.code, 0.0)
+                        
+                        # Individual trainee variance (much more aggressive)
+                        # 40% normal variance (±0.8)
+                        # 35% moderate outliers (±1.2 to ±1.8) 
+                        # 20% strong outliers (±2.0 to ±2.8)
+                        # 5% extreme outliers (±3.0+)
+                        
+                        variance_type = random.choices(
+                            ['normal', 'moderate', 'strong', 'extreme'], 
+                            weights=[40, 35, 20, 5]
+                        )[0]
+                        
+                        if variance_type == 'normal':
+                            variance = random.uniform(-0.8, 0.8)
+                        elif variance_type == 'moderate':
+                            variance = random.choice([
+                                random.uniform(-1.8, -1.2),  # Moderate low
+                                random.uniform(1.2, 1.8)     # Moderate high
+                            ])
+                        elif variance_type == 'strong':
+                            variance = random.choice([
+                                random.uniform(-2.8, -2.0),  # Strong low
+                                random.uniform(2.0, 2.8)     # Strong high
+                            ])
+                        else:  # extreme
+                            variance = random.choice([
+                                random.uniform(-3.5, -3.0),  # Extreme low
+                                random.uniform(3.0, 3.5)     # Extreme high
+                            ])
+                        
+                        # Reset random seed to global state
+                        random.seed()
+                        
+                        # Apply all variance factors
+                        final_level = base_level_for_time + variance + epa_difficulty_modifier + random.uniform(-0.3, 0.3)
+                        
+                        # Clamp to valid range but allow more extreme values
+                        epa_entrustment_level = min(5, max(1, round(final_level)))
+                        
+                        # Generate realistic feedback for this specific EPA and level
+                        what_went_well, what_could_improve = self.generate_realistic_feedback(epa, epa_entrustment_level)
+                        
+                        AssessmentEPA.objects.create(
+                            assessment=assessment,
+                            epa=epa,
+                            entrustment_level=epa_entrustment_level,
+                            what_went_well=what_went_well,
+                            what_could_improve=what_could_improve
+                        )
                     
                     if private_comment:
                         private_comment_assessments.append(assessment)
@@ -978,6 +1045,81 @@ class Command(BaseCommand):
         what_could_improve = random.choice(templates['what_could_improve'][entrustment_level])
         
         return what_went_well, what_could_improve
+
+    def load_epa_competency_descriptions(self):
+        """Load EPA-specific competency descriptions from CSV file"""
+        descriptions = {}
+        
+        # Path to the CSV file (relative to project root)
+        csv_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
+            'EM Competencies with EPA Mapping - EM Competencies with EPA Mapping.csv'
+        )
+        
+        try:
+            with open(csv_path, 'r', encoding='utf-8') as csvfile:
+                reader = csv.DictReader(csvfile)
+                
+                for row in reader:
+                    code = row['Code']
+                    sub_competency = row['Sub-Competency']
+                    
+                    # Store level descriptions for each competency
+                    descriptions[code] = {
+                        'sub_competency': sub_competency,
+                        'levels': {
+                            1: row['Level 1'],
+                            2: row['Level 2'], 
+                            3: row['Level 3'],
+                            4: row['Level 4'],
+                            5: row['Level 5']
+                        }
+                    }
+                    
+                    # Map which EPAs use this competency (1 = mapped, 0 = not mapped)
+                    for epa_num in range(1, 23):  # EPA1 through EPA22
+                        epa_col = f'EPA{epa_num}'
+                        if epa_col in row and row[epa_col] == '1':
+                            if f'EPA{epa_num}' not in descriptions:
+                                descriptions[f'EPA{epa_num}'] = {}
+                            descriptions[f'EPA{epa_num}'][code] = descriptions[code]
+                            
+            self.stdout.write(f'📋 Loaded entrustment level descriptions for {len([k for k in descriptions.keys() if k.startswith("EPA")])} EPAs')
+            return descriptions
+            
+        except FileNotFoundError:
+            self.stdout.write(self.style.WARNING(f'⚠️  CSV file not found at {csv_path}. Using generic descriptions.'))
+            return {}
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f'❌ Error loading CSV: {e}. Using generic descriptions.'))
+            return {}
+
+    def get_epa_entrustment_description(self, epa_code, entrustment_level):
+        """Get the appropriate entrustment level description for a specific EPA"""
+        if not self.epa_competency_descriptions or epa_code not in self.epa_competency_descriptions:
+            # Fallback to generic descriptions
+            generic_descriptions = {
+                1: "I had to do it (Requires constant direct supervision)",
+                2: "I helped a lot (Requires considerable direct supervision)", 
+                3: "I helped a little (Requires minimal direct supervision)",
+                4: "I needed to be there but did not help (Requires indirect supervision)",
+                5: "I didn't need to be there at all (No supervision required)"
+            }
+            return generic_descriptions.get(entrustment_level, "Unknown level")
+        
+        # Get all competencies mapped to this EPA
+        epa_competencies = self.epa_competency_descriptions[epa_code]
+        
+        # For now, use the first competency's description
+        # In a more sophisticated implementation, you might want to:
+        # 1. Use the most relevant competency based on assessment context
+        # 2. Combine multiple competency descriptions
+        # 3. Let evaluators choose which competency they're assessing
+        
+        first_competency_code = list(epa_competencies.keys())[0]
+        competency_data = epa_competencies[first_competency_code]
+        
+        return competency_data['levels'].get(entrustment_level, "Unknown level")
 
     def select_balanced_epa(self, epa_list, assessment_num, total_assessments):
         """Select EPA with better distribution to ensure all EPAs get coverage"""

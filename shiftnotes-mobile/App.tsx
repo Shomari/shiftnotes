@@ -5,11 +5,50 @@
 
 import React, { useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { SafeAreaView, StatusBar, StyleSheet, View, Text, Dimensions } from 'react-native';
+import { SafeAreaView, StatusBar, StyleSheet, View, Text, Dimensions, Platform } from 'react-native';
 import { TamaguiProvider } from '@tamagui/core';
 import { PortalProvider } from '@tamagui/portal';
 import config from './tamagui.config';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+
+// Material-UI providers for web
+let ThemeProvider: any = null;
+let createTheme: any = null;
+let LocalizationProvider: any = null;
+let AdapterDayjs: any = null;
+
+if (Platform.OS === 'web') {
+  try {
+    const muiMaterial = require('@mui/material/styles');
+    const muiDatePickers = require('@mui/x-date-pickers');
+    const muiAdapters = require('@mui/x-date-pickers/AdapterDayjs');
+    
+    ThemeProvider = muiMaterial.ThemeProvider;
+    createTheme = muiMaterial.createTheme;
+    LocalizationProvider = muiDatePickers.LocalizationProvider;
+    AdapterDayjs = muiAdapters.AdapterDayjs;
+  } catch (e) {
+    console.warn('Failed to load Material-UI providers:', e);
+  }
+}
+
+// Create Material-UI theme
+const muiTheme = createTheme ? createTheme({
+  palette: {
+    primary: {
+      main: '#3b82f6',
+    },
+  },
+  components: {
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          borderRadius: '8px',
+        },
+      },
+    },
+  },
+}) : null;
 import { NewAssessmentForm } from './components/assessments/NewAssessmentForm';
 import { Overview } from './components/Overview';
 import { MyAssessments } from './components/MyAssessments';
@@ -18,7 +57,6 @@ import { AssessmentDetail } from './components/AssessmentDetail';
 import { Mailbox } from './components/Mailbox';
 import { CompetencyProgress } from './components/CompetencyProgress';
 import { SupportRequestForm } from './components/SupportRequestForm';
-import { HelpButton } from './components/ui/HelpButton';
 import { UserManagement } from './components/admin/UserManagement';
 import { CohortManagement } from './components/admin/CohortManagement';
 import AddUser from './components/admin/AddUser';
@@ -335,8 +373,6 @@ function AppContent() {
               </View>
             </View>
 
-            {/* Help Button - appears on all authenticated screens */}
-            <HelpButton onPress={() => setCurrentRoute('support-request')} />
 
             {/* Mobile Sidebar Modal */}
             {isMobile && (

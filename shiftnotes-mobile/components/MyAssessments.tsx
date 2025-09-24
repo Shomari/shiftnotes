@@ -18,6 +18,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Button } from './ui/Button';
 import { Select } from './ui/Select';
+import { CustomDatePicker } from './ui/DatePicker';
 import { apiClient, ApiAssessment } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -56,27 +57,126 @@ export function MyAssessments({ onViewAssessment, onEditAssessment, onDiscardDra
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [hasNext, setHasNext] = useState(false);
+  const [hasPrevious, setHasPrevious] = useState(false);
+  const pageSize = 10;
   const [traineeFilter, setTraineeFilter] = useState('');
   const [epaFilter, setEpaFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  
+  // Filter options loaded separately (value = ID, label = name for display)
+  const [traineeOptions, setTraineeOptions] = useState<Array<{label: string, value: string}>>([]);
+  const [facultyOptions, setFacultyOptions] = useState<Array<{label: string, value: string}>>([]);
+  const [epaOptions, setEpaOptions] = useState<Array<{label: string, value: string}>>([]);
 
-  // Fetch assessments on component mount
+  // Load filter options on component mount
+  useEffect(() => {
+    loadFilterOptions();
+  }, []);
+  
+  // Fetch assessments on component mount and when pagination changes
   useEffect(() => {
     loadAssessments();
-  }, []);
+  }, [currentPage]);
+  
+  // Reset to first page when filters change
+  useEffect(() => {
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    } else {
+      loadAssessments();
+    }
+  }, [traineeFilter, epaFilter, statusFilter, startDate, endDate]);
 
+  const loadFilterOptions = async () => {
+    try {
+      // Load all trainees and faculty for filter dropdowns
+      const [traineesResponse, facultyResponse, epasResponse] = await Promise.all([
+        apiClient.getTrainees(),
+        apiClient.getFaculty(),
+        apiClient.getEPAs()
+      ]);
+      
+      // Set trainee options
+      const traineeOpts = traineesResponse.results?.map(trainee => ({
+        label: trainee.name || 'Unknown Trainee',
+        value: trainee.id || ''
+      })) || [];
+      setTraineeOptions(traineeOpts);
+      
+      // Set faculty options
+      const facultyOpts = facultyResponse.results?.map(faculty => ({
+        label: faculty.name || 'Unknown Faculty',
+        value: faculty.id || ''
+      })) || [];
+      setFacultyOptions(facultyOpts);
+      
+      // Set EPA options with proper formatting and numerical sorting
+      const epaOpts = epasResponse.results?.map(epa => ({
+        label: `${epa.code?.replace(/EPA(\d+)/, 'EPA $1')} - ${epa.title}`,
+        value: epa.id || ''
+      })) || [];
+      
+      // Sort EPAs numerically by their number
+      epaOpts.sort((a, b) => {
+        const aNum = parseInt(a.label.match(/EPA (\d+)/)?.[1] || '0');
+        const bNum = parseInt(b.label.match(/EPA (\d+)/)?.[1] || '0');
+        return aNum - bNum;
+      });
+      
+      setEpaOptions(epaOpts);
+    } catch (error) {
+      console.error('Error loading filter options:', error);
+    }
+  };
+  
   const loadAssessments = async () => {
     try {
       setLoading(true);
       
+      // Build filter parameters with IDs
+      const filterParams: any = {
+        page: currentPage,
+        limit: pageSize,
+      };
+      
+      // Add ID-based filters
+      if (traineeFilter) {
+        if (user?.role === 'trainee') {
+          filterParams.evaluator_id = traineeFilter; // For trainees, this filters by evaluator
+        } else {
+          filterParams.trainee_id = traineeFilter; // For faculty, this filters by trainee
+        }
+      }
+      if (epaFilter) {
+        filterParams.epa_id = epaFilter;
+      }
+      
+      // Add date filters if set
+      if (startDate) {
+        filterParams.start_date = startDate;
+      }
+      if (endDate) {
+        filterParams.end_date = endDate;
+      }
+      
       // Use different API endpoint based on user role
       const response = user?.role === 'trainee' 
-        ? await apiClient.getReceivedAssessments()
-        : await apiClient.getMyAssessments();
+        ? await apiClient.getReceivedAssessments(filterParams)
+        : await apiClient.getMyAssessments(filterParams);
       
       console.log('Fetched assessments:', response);
+      
+      // Update pagination state
+      setTotalCount(response.count || 0);
+      setHasNext(!!response.next);
+      setHasPrevious(!!response.previous);
       
       // Transform API data to match our interface
       const transformedAssessments: Assessment[] = response.results?.map(assessment => ({
@@ -103,6 +203,19 @@ export function MyAssessments({ onViewAssessment, onEditAssessment, onDiscardDra
     setStatusFilter('');
     setStartDate('');
     setEndDate('');
+    setCurrentPage(1);
+  };
+  
+  const goToPreviousPage = () => {
+    if (hasPrevious && currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+  
+  const goToNextPage = () => {
+    if (hasNext) {
+      setCurrentPage(currentPage + 1);
+    }
   };
 
   const handleDiscardDraft = async (assessmentId: string) => {
@@ -153,40 +266,34 @@ export function MyAssessments({ onViewAssessment, onEditAssessment, onDiscardDra
   // Check if any filters are active
   const hasActiveFilters = traineeFilter || epaFilter || statusFilter || startDate || endDate;
 
+  // Apply client-side filters only for status (since backend handles ID-based filtering)
   const filteredAssessments = assessments.filter((assessment) => {
-    // Filter by trainee (for faculty view) or evaluator (for trainee view)
-    const nameField = user?.role === 'trainee' ? assessment.evaluator_name : assessment.trainee_name;
-    const matchesTrainee = !traineeFilter || nameField?.toLowerCase().includes(traineeFilter.toLowerCase());
-    
-    // Filter by EPA
-    const matchesEPA = !epaFilter || assessment.epas.some(epa => 
-      epa.code?.toLowerCase().includes(epaFilter.toLowerCase()) ||
-      epa.title?.toLowerCase().includes(epaFilter.toLowerCase())
-    );
-    
-    // Filter by status
+    // Filter by status (client-side since it's not complex)
     const matchesStatus = !statusFilter || assessment.status === statusFilter;
     
-    // Filter by date range
-    const assessmentDate = new Date(assessment.shift_date);
-    const matchesStartDate = !startDate || assessmentDate >= new Date(startDate);
-    const matchesEndDate = !endDate || assessmentDate <= new Date(endDate);
-    
-    return matchesTrainee && matchesEPA && matchesStatus && matchesStartDate && matchesEndDate;
+    return matchesStatus;
   });
+  
+  // Get appropriate options based on user role
+  const getPersonOptions = () => {
+    return user?.role === 'trainee' ? facultyOptions : traineeOptions;
+  };
 
-  // Extract unique options for dropdowns
-  const traineeOptions = Array.from(new Set(
-    assessments.map(assessment => 
-      user?.role === 'trainee' ? assessment.evaluator_name : assessment.trainee_name
-    ).filter(Boolean)
-  )).map(name => ({ label: name || '', value: name || '' }));
-
-  const epaOptions = Array.from(new Set(
-    assessments.flatMap(assessment => 
-      assessment.epas.map(epa => `${epa.code} - ${epa.title}`).filter(Boolean)
-    )
-  )).map(epaString => ({ label: epaString, value: epaString }));
+  // Color coding for entrustment levels (same as other components)
+  const getMetricColor = (value: number | null, type: 'level' | 'percentage') => {
+    if (!value) return '#9ca3af';
+    if (type === 'level') {
+      if (value >= 4) return '#059669'; // Green
+      if (value >= 3) return '#0d9488'; // Teal
+      if (value >= 2) return '#0891b2'; // Blue
+      return '#dc2626'; // Red
+    } else {
+      if (value >= 80) return '#059669'; // Green
+      if (value >= 60) return '#0d9488'; // Teal
+      if (value >= 40) return '#0891b2'; // Blue
+      return '#dc2626'; // Red
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -251,7 +358,7 @@ export function MyAssessments({ onViewAssessment, onEditAssessment, onDiscardDra
                 <View style={styles.filtersHeaderSpacer} />
                 <Text style={styles.clickHint}>Click to {filtersExpanded ? 'collapse' : 'expand'}</Text>
                 <Text style={styles.resultsCountInHeader}>
-                  {filteredAssessments.length} results
+                  {totalCount} total, {filteredAssessments.length} on page
                 </Text>
                 <View style={styles.expandArrowContainer}>
                   <Text style={[styles.expandIcon, { transform: [{ rotate: filtersExpanded ? '180deg' : '0deg' }] }]}>
@@ -273,7 +380,7 @@ export function MyAssessments({ onViewAssessment, onEditAssessment, onDiscardDra
                   value={traineeFilter}
                   onValueChange={setTraineeFilter}
                   placeholder={`All ${user?.role === 'trainee' ? 'Evaluators' : 'Trainees'}`}
-                  options={traineeOptions}
+                  options={getPersonOptions()}
                 />
               </View>
 
@@ -303,125 +410,19 @@ export function MyAssessments({ onViewAssessment, onEditAssessment, onDiscardDra
               </View>
 
               {/* Date Filters */}
-              <View style={styles.filterField}>
-                <Text style={styles.filterLabel}>Start Date</Text>
-                {Platform.OS === 'web' ? (
-                  // Web: Use react-datepicker
-                  DatePicker ? (
-                    <View style={styles.datePickerContainer}>
-                      <DatePicker
-                        selected={startDate ? new Date(startDate) : null}
-                        onChange={(date: Date | null) => {
-                          if (date) {
-                            setStartDate(date.toISOString().split('T')[0]);
-                          } else {
-                            setStartDate('');
-                          }
-                        }}
-                        dateFormat="MM/dd/yyyy"
-                        placeholderText="Select start date"
-                        popperClassName="date-picker-popper"
-                        wrapperClassName="date-picker-wrapper"
-                        withPortal={true}
-                        portalId="react-datepicker-portal"
-                        isClearable
-                        customInput={
-                          <input
-                            style={{
-                              width: '100%',
-                              padding: '8px 12px',
-                              border: '1px solid #d1d5db',
-                              borderRadius: '6px',
-                              fontSize: '14px',
-                              backgroundColor: '#ffffff',
-                              color: '#374151',
-                              height: '36px',
-                              cursor: 'pointer',
-                              boxSizing: 'border-box',
-                            }}
-                          />
-                        }
-                      />
-                    </View>
-                  ) : (
-                    // Fallback to simple input if DatePicker fails to load
-                    <TextInput
-                      style={styles.dateInput}
-                      placeholder="mm/dd/yyyy"
-                      value={startDate}
-                      onChangeText={setStartDate}
-                    />
-                  )
-                ) : (
-                  // Mobile: Use regular TextInput
-                  <TextInput
-                    style={styles.dateInput}
-                    placeholder="mm/dd/yyyy"
-                    value={startDate}
-                    onChangeText={setStartDate}
-                  />
-                )}
-              </View>
+              <CustomDatePicker
+                label="Start Date"
+                value={startDate}
+                onChange={setStartDate}
+                placeholder="Select start date"
+              />
 
-              <View style={styles.filterField}>
-                <Text style={styles.filterLabel}>End Date</Text>
-                {Platform.OS === 'web' ? (
-                  // Web: Use react-datepicker
-                  DatePicker ? (
-                    <View style={styles.datePickerContainer}>
-                      <DatePicker
-                        selected={endDate ? new Date(endDate) : null}
-                        onChange={(date: Date | null) => {
-                          if (date) {
-                            setEndDate(date.toISOString().split('T')[0]);
-                          } else {
-                            setEndDate('');
-                          }
-                        }}
-                        dateFormat="MM/dd/yyyy"
-                        placeholderText="Select end date"
-                        popperClassName="date-picker-popper"
-                        wrapperClassName="date-picker-wrapper"
-                        withPortal={true}
-                        portalId="react-datepicker-portal"
-                        isClearable
-                        customInput={
-                          <input
-                            style={{
-                              width: '100%',
-                              padding: '8px 12px',
-                              border: '1px solid #d1d5db',
-                              borderRadius: '6px',
-                              fontSize: '14px',
-                              backgroundColor: '#ffffff',
-                              color: '#374151',
-                              height: '36px',
-                              cursor: 'pointer',
-                              boxSizing: 'border-box',
-                            }}
-                          />
-                        }
-                      />
-                    </View>
-                  ) : (
-                    // Fallback to simple input if DatePicker fails to load
-                    <TextInput
-                      style={styles.dateInput}
-                      placeholder="mm/dd/yyyy"
-                      value={endDate}
-                      onChangeText={setEndDate}
-                    />
-                  )
-                ) : (
-                  // Mobile: Use regular TextInput
-                  <TextInput
-                    style={styles.dateInput}
-                    placeholder="mm/dd/yyyy"
-                    value={endDate}
-                    onChangeText={setEndDate}
-                  />
-                )}
-              </View>
+              <CustomDatePicker
+                label="End Date"
+                value={endDate}
+                onChange={setEndDate}
+                placeholder="Select end date"
+              />
 
               {/* Clear Filters Button */}
               <View style={styles.filterField}>
@@ -502,7 +503,11 @@ export function MyAssessments({ onViewAssessment, onEditAssessment, onDiscardDra
                     {assessment.epas.length > 0 ? (
                       <View style={styles.epaBadge}>
                         <Text style={styles.epaText}>
-                          {assessment.epas[0].code.replace(/EPA(\d+)/, 'EPA $1')} - {assessment.epas[0].title} (Level {assessment.epas[0].level})
+                          {assessment.epas[0].code.replace(/EPA(\d+)/, 'EPA $1')} - {assessment.epas[0].title} (
+                          <Text style={{ color: getMetricColor(assessment.epas[0].level, 'level') }}>
+                            Level {assessment.epas[0].level}
+                          </Text>
+                          )
                         </Text>
                       </View>
                     ) : (
@@ -514,7 +519,10 @@ export function MyAssessments({ onViewAssessment, onEditAssessment, onDiscardDra
                 {/* Entrustment Level */}
                 <View style={styles.entrustmentSection}>
                   <Text style={styles.entrustmentLabel}>Entrustment Level:</Text>
-                  <Text style={styles.entrustmentValue}>
+                  <Text style={[
+                    styles.entrustmentValue,
+                    { color: getMetricColor(assessment.average_entrustment || null, 'level') }
+                  ]}>
                     {assessment.average_entrustment ? assessment.average_entrustment.toFixed(1) : 'N/A'}
                   </Text>
                 </View>
@@ -523,11 +531,47 @@ export function MyAssessments({ onViewAssessment, onEditAssessment, onDiscardDra
           ))}
         </View>
 
+        {/* Pagination Controls */}
+        {totalCount > pageSize && (
+          <Card style={styles.paginationCard}>
+            <CardContent>
+              <View style={styles.paginationContainer}>
+                <View style={styles.paginationInfo}>
+                  <Text style={styles.paginationText}>
+                    Page {currentPage} of {Math.ceil(totalCount / pageSize)}
+                  </Text>
+                  <Text style={styles.paginationText}>
+                    Showing {((currentPage - 1) * pageSize) + 1}-{Math.min(currentPage * pageSize, totalCount)} of {totalCount} assessments
+                  </Text>
+                </View>
+                <View style={styles.paginationButtons}>
+                  <Button
+                    title="Previous"
+                    onPress={goToPreviousPage}
+                    variant="outline"
+                    size="sm"
+                    disabled={!hasPrevious}
+                    style={!hasPrevious ? {...styles.paginationButton, ...styles.disabledButton} : styles.paginationButton}
+                  />
+                  <Button
+                    title="Next"
+                    onPress={goToNextPage}
+                    variant="outline"
+                    size="sm"
+                    disabled={!hasNext}
+                    style={!hasNext ? {...styles.paginationButton, ...styles.disabledButton} : styles.paginationButton}
+                  />
+                </View>
+              </View>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Empty State */}
-        {filteredAssessments.length === 0 && (
+        {filteredAssessments.length === 0 && !loading && (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateText}>
-              No assessments found matching your filters
+              {totalCount === 0 ? 'No assessments found' : 'No assessments found matching your filters'}
             </Text>
           </View>
         )}
@@ -823,6 +867,36 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'center',
     paddingVertical: 20,
+  },
+  
+  // Pagination
+  paginationCard: {
+    margin: 16,
+    marginTop: 8,
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 16,
+  },
+  paginationInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  paginationText: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  paginationButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  paginationButton: {
+    minWidth: 80,
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
 });
 

@@ -540,16 +540,36 @@ export class ApiClient {
   }
 
 
-  async getMyAssessments(): Promise<ApiResponse<ApiAssessment>> {
-    return this.request<ApiResponse<ApiAssessment>>('/assessments/my_assessments/');
+  async getMyAssessments(params?: { page?: number; limit?: number; start_date?: string; end_date?: string; trainee_id?: string; evaluator_id?: string; epa_id?: string }): Promise<ApiResponse<ApiAssessment>> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.start_date) queryParams.append('start_date', params.start_date);
+    if (params?.end_date) queryParams.append('end_date', params.end_date);
+    if (params?.trainee_id) queryParams.append('trainee_id', params.trainee_id);
+    if (params?.evaluator_id) queryParams.append('evaluator_id', params.evaluator_id);
+    if (params?.epa_id) queryParams.append('epa_id', params.epa_id);
+    
+    const url = `/assessments/my_assessments/${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    return this.request<ApiResponse<ApiAssessment>>(url);
   }
 
   async getMyEvaluations(): Promise<ApiResponse<ApiAssessment>> {
     return this.request<ApiResponse<ApiAssessment>>('/assessments/my_evaluations/');
   }
 
-  async getReceivedAssessments(): Promise<ApiResponse<ApiAssessment>> {
-    return this.request<ApiResponse<ApiAssessment>>('/assessments/received_assessments/');
+  async getReceivedAssessments(params?: { page?: number; limit?: number; start_date?: string; end_date?: string; trainee_id?: string; evaluator_id?: string; epa_id?: string }): Promise<ApiResponse<ApiAssessment>> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.start_date) queryParams.append('start_date', params.start_date);
+    if (params?.end_date) queryParams.append('end_date', params.end_date);
+    if (params?.trainee_id) queryParams.append('trainee_id', params.trainee_id);
+    if (params?.evaluator_id) queryParams.append('evaluator_id', params.evaluator_id);
+    if (params?.epa_id) queryParams.append('epa_id', params.epa_id);
+    
+    const url = `/assessments/received_assessments/${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    return this.request<ApiResponse<ApiAssessment>>(url);
   }
 
   async getAssessment(assessmentId: string): Promise<ApiAssessment> {
@@ -635,8 +655,8 @@ export class ApiClient {
     if (params?.evaluator_id) searchParams.append('evaluator_id', params.evaluator_id);
     if (params?.epa_id) searchParams.append('epa_id', params.epa_id);
     if (params?.status) searchParams.append('status', params.status);
-    if (params?.start_date) searchParams.append('shift_date__gte', params.start_date);
-    if (params?.end_date) searchParams.append('shift_date__lte', params.end_date);
+    if (params?.start_date) searchParams.append('start_date', params.start_date);
+    if (params?.end_date) searchParams.append('end_date', params.end_date);
     
     if (searchParams.toString()) url += `?${searchParams.toString()}`;
     return this.request<ApiResponse<ApiAssessment>>(url);

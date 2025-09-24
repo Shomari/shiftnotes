@@ -59,6 +59,7 @@ export function AssessmentDetail({ assessmentId, onBack }: AssessmentDetailProps
           code: epa.epa_code || 'Unknown EPA',
           title: epa.epa_title || 'Unknown Title',
           level: epa.entrustment_level || 1,
+          entrustment_level_description: epa.entrustment_level_description || '',
           what_went_well: epa.what_went_well || '',
           what_could_improve: epa.what_could_improve || '',
         })) || [],
@@ -100,15 +101,10 @@ export function AssessmentDetail({ assessmentId, onBack }: AssessmentDetailProps
     }
   };
 
-  const getEntrustmentLevelText = (level: number) => {
-    const levels = {
-      1: 'I had to do it (Requires constant direct supervision)',
-      2: 'I helped a lot (Requires considerable direct supervision)',
-      3: 'I helped a little (Requires minimal direct supervision)',
-      4: 'I needed to be there but did not help (Requires indirect supervision)',
-      5: 'I didn\'t need to be there at all (No supervision required)',
-    };
-    return levels[level as keyof typeof levels] || 'Unknown level';
+  const getEntrustmentLevelText = (epa: any) => {
+    // Use the EPA-specific entrustment level description from the backend
+    // This comes from the SubCompetency milestone level descriptions
+    return epa.entrustment_level_description || 'Unknown level';
   };
 
   if (loading) {
@@ -248,7 +244,7 @@ export function AssessmentDetail({ assessmentId, onBack }: AssessmentDetailProps
                   </View>
                   
                   <Text style={styles.entrustmentDescription}>
-                    {getEntrustmentLevelText(epa.level)}
+                    {getEntrustmentLevelText(epa)}
                   </Text>
                   
                   <View style={styles.feedbackSection}>

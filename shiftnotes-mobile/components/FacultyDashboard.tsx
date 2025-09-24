@@ -95,8 +95,6 @@ export function FacultyDashboard({ onViewFaculty }: FacultyDashboardProps = {}) 
   const [loading, setLoading] = useState(true);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
 
   // Fetch dashboard data on component mount
   useEffect(() => {
@@ -108,7 +106,7 @@ export function FacultyDashboard({ onViewFaculty }: FacultyDashboardProps = {}) 
     try {
       setLoading(true);
       
-      const data = await apiClient.getFacultyDashboard(undefined, startDate, endDate, search || searchQuery);
+      const data = await apiClient.getFacultyDashboard(undefined, undefined, undefined, search || searchQuery);
       console.log('Faculty dashboard data:', data);
       setDashboardData(data);
     } catch (error) {
@@ -124,15 +122,8 @@ export function FacultyDashboard({ onViewFaculty }: FacultyDashboardProps = {}) 
     debounce((searchTerm: string) => {
       loadDashboardData(searchTerm);
     }, 300),
-    [startDate, endDate]
+    []
   );
-
-  // Reload data when date filters change
-  useEffect(() => {
-    if (!loading) {
-      loadDashboardData();
-    }
-  }, [startDate, endDate]);
 
   // Handle search input changes with debouncing
   const handleSearchChange = (text: string) => {
@@ -142,8 +133,6 @@ export function FacultyDashboard({ onViewFaculty }: FacultyDashboardProps = {}) 
 
   const clearFilters = () => {
     setSearchQuery('');
-    setStartDate('');
-    setEndDate('');
     loadDashboardData(''); // Reload with empty search
   };
 
@@ -162,7 +151,7 @@ export function FacultyDashboard({ onViewFaculty }: FacultyDashboardProps = {}) 
   };
 
   // Check if any filters are active
-  const hasActiveFilters = searchQuery || startDate || endDate;
+  const hasActiveFilters = searchQuery;
 
 
   const formatDate = (dateString: string | null) => {
@@ -234,126 +223,6 @@ export function FacultyDashboard({ onViewFaculty }: FacultyDashboardProps = {}) 
                   />
                 </View>
 
-                {/* Date Filters */}
-                <View style={styles.filterField}>
-                  <Text style={styles.filterLabel}>Start Date</Text>
-                  {Platform.OS === 'web' ? (
-                    // Web: Use react-datepicker
-                    DatePicker ? (
-                      <View style={styles.datePickerContainer}>
-                        <DatePicker
-                          selected={startDate ? new Date(startDate) : null}
-                          onChange={(date: Date | null) => {
-                            if (date) {
-                              setStartDate(date.toISOString().split('T')[0]);
-                            } else {
-                              setStartDate('');
-                            }
-                          }}
-                          dateFormat="MM/dd/yyyy"
-                          placeholderText="Select start date"
-                          popperClassName="date-picker-popper"
-                          wrapperClassName="date-picker-wrapper"
-                          withPortal={true}
-                          portalId="react-datepicker-portal"
-                          isClearable
-                          customInput={
-                            <input
-                              style={{
-                                width: '100%',
-                                padding: '8px 12px',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '6px',
-                                fontSize: '14px',
-                                backgroundColor: '#ffffff',
-                                color: '#374151',
-                                height: '36px',
-                                cursor: 'pointer',
-                                boxSizing: 'border-box',
-                              }}
-                            />
-                          }
-                        />
-                      </View>
-                    ) : (
-                      // Fallback to simple input if DatePicker fails to load
-                      <TextInput
-                        style={styles.dateInput}
-                        placeholder="yyyy-mm-dd"
-                        value={startDate}
-                        onChangeText={setStartDate}
-                      />
-                    )
-                  ) : (
-                    // Mobile: Use regular TextInput
-                    <TextInput
-                      style={styles.dateInput}
-                      placeholder="mm/dd/yyyy"
-                      value={startDate}
-                      onChangeText={setStartDate}
-                    />
-                  )}
-                </View>
-
-                <View style={styles.filterField}>
-                  <Text style={styles.filterLabel}>End Date</Text>
-                  {Platform.OS === 'web' ? (
-                    // Web: Use react-datepicker
-                    DatePicker ? (
-                      <View style={styles.datePickerContainer}>
-                        <DatePicker
-                          selected={endDate ? new Date(endDate) : null}
-                          onChange={(date: Date | null) => {
-                            if (date) {
-                              setEndDate(date.toISOString().split('T')[0]);
-                            } else {
-                              setEndDate('');
-                            }
-                          }}
-                          dateFormat="MM/dd/yyyy"
-                          placeholderText="Select end date"
-                          popperClassName="date-picker-popper"
-                          wrapperClassName="date-picker-wrapper"
-                          withPortal={true}
-                          portalId="react-datepicker-portal"
-                          isClearable
-                          customInput={
-                            <input
-                              style={{
-                                width: '100%',
-                                padding: '8px 12px',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '6px',
-                                fontSize: '14px',
-                                backgroundColor: '#ffffff',
-                                color: '#374151',
-                                height: '36px',
-                                cursor: 'pointer',
-                                boxSizing: 'border-box',
-                              }}
-                            />
-                          }
-                        />
-                      </View>
-                    ) : (
-                      // Fallback to simple input if DatePicker fails to load
-                      <TextInput
-                        style={styles.dateInput}
-                        placeholder="yyyy-mm-dd"
-                        value={endDate}
-                        onChangeText={setEndDate}
-                      />
-                    )
-                  ) : (
-                    // Mobile: Use regular TextInput
-                    <TextInput
-                      style={styles.dateInput}
-                      placeholder="mm/dd/yyyy"
-                      value={endDate}
-                      onChangeText={setEndDate}
-                    />
-                  )}
-                </View>
 
                 {/* Clear Filters Button */}
                 <View style={styles.filterField}>

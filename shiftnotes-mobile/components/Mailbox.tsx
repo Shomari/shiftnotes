@@ -156,15 +156,10 @@ export function Mailbox({ onViewAssessment }: MailboxProps = {}) {
     }
   };
 
-  const getEntrustmentLabel = (level: number) => {
-    const labels = {
-      1: 'Level 1 - Requires constant supervision',
-      2: 'Level 2 - Requires considerable supervision',
-      3: 'Level 3 - Requires minimal supervision',
-      4: 'Level 4 - Requires indirect supervision',
-      5: 'Level 5 - No supervision required',
-    };
-    return labels[level as keyof typeof labels] || `Level ${level}`;
+  const getEntrustmentLabel = (epa: any) => {
+    // Use the EPA-specific entrustment level description from the backend
+    // This comes from the SubCompetency milestone level descriptions
+    return epa.entrustment_level_description || `Level ${epa.entrustment_level} - Unknown description`;
   };
 
   if (loading) {
@@ -246,7 +241,7 @@ export function Mailbox({ onViewAssessment }: MailboxProps = {}) {
               <CardHeader>
                 <View style={styles.cardHeader}>
                   <View style={styles.headerLeft}>
-                    <CardTitle style={styles.cardTitle}>
+                    <CardTitle>
                       Assessment: {assessment.trainee_name}
                     </CardTitle>
                     <Text style={styles.evaluatorText}>
@@ -270,7 +265,7 @@ export function Mailbox({ onViewAssessment }: MailboxProps = {}) {
                           {epa.epa_code.replace(/EPA(\d+)/, 'EPA $1')} - {epa.epa_title}
                         </Text>
                         <Text style={styles.entrustmentLevel}>
-                          {getEntrustmentLabel(epa.entrustment_level)}
+                          {getEntrustmentLabel(epa)}
                         </Text>
                       </View>
                     ))}
@@ -340,7 +335,7 @@ export function Mailbox({ onViewAssessment }: MailboxProps = {}) {
                       variant="outline"
                       size="sm"
                       disabled={currentPage <= 1}
-                      style={[styles.paginationButton, currentPage <= 1 && styles.disabledButton]}
+                      style={currentPage <= 1 ? {...styles.paginationButton, ...styles.disabledButton} : styles.paginationButton}
                     />
                     
                     <View style={styles.pageInfo}>
@@ -355,7 +350,7 @@ export function Mailbox({ onViewAssessment }: MailboxProps = {}) {
                       variant="outline"
                       size="sm"
                       disabled={!currentData?.next}
-                      style={[styles.paginationButton, !currentData?.next && styles.disabledButton]}
+                      style={!currentData?.next ? {...styles.paginationButton, ...styles.disabledButton} : styles.paginationButton}
                     />
                   </View>
                 )}

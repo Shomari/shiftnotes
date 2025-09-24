@@ -13,6 +13,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Button } from './ui/Button';
 import { Select } from './ui/Select';
+import { CustomDatePicker } from './ui/DatePicker';
 import { ApiAssessment } from '../lib/api';
 import { apiClient } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -86,7 +87,7 @@ export function AllAssessments({ onViewAssessment, onEditAssessment }: AllAssess
   const [totalCount, setTotalCount] = useState(0);
   const [hasNext, setHasNext] = useState(false);
   const [hasPrevious, setHasPrevious] = useState(false);
-  const pageSize = 20;
+  const pageSize = 10;
   
   // Filter options loaded separately (value = ID, label = name for display)
   const [traineeOptions, setTraineeOptions] = useState<Array<{label: string, value: string}>>([]);
@@ -337,125 +338,19 @@ export function AllAssessments({ onViewAssessment, onEditAssessment }: AllAssess
 
 
               {/* Date Filters */}
-              <View style={styles.filterField}>
-                <Text style={styles.filterLabel}>Start Date</Text>
-                {Platform.OS === 'web' ? (
-                  // Web: Use react-datepicker
-                  DatePicker ? (
-                    <View style={styles.datePickerContainer}>
-                      <DatePicker
-                        selected={startDate ? new Date(startDate) : null}
-                        onChange={(date: Date | null) => {
-                          if (date) {
-                            setStartDate(date.toISOString().split('T')[0]);
-                          } else {
-                            setStartDate('');
-                          }
-                        }}
-                        dateFormat="MM/dd/yyyy"
-                        placeholderText="Select start date"
-                        popperClassName="date-picker-popper"
-                        wrapperClassName="date-picker-wrapper"
-                        withPortal={true}
-                        portalId="react-datepicker-portal"
-                        isClearable
-                        customInput={
-                          <input
-                            style={{
-                              width: '100%',
-                              padding: '12px 16px',
-                              border: '1px solid #d1d5db',
-                              borderRadius: '8px',
-                              fontSize: '16px',
-                              backgroundColor: '#ffffff',
-                              color: '#374151',
-                              height: '48px',
-                              cursor: 'pointer',
-                              boxSizing: 'border-box',
-                            }}
-                          />
-                        }
-                      />
-                    </View>
-                  ) : (
-                    // Fallback to simple input if DatePicker fails to load
-                    <TextInput
-                      style={styles.dateInput}
-                      placeholder="yyyy-mm-dd"
-                      value={startDate}
-                      onChangeText={setStartDate}
-                    />
-                  )
-                ) : (
-                  // Mobile: Use regular TextInput
-                  <TextInput
-                    style={styles.dateInput}
-                    placeholder="mm/dd/yyyy"
-                    value={startDate}
-                    onChangeText={setStartDate}
-                  />
-                )}
-              </View>
+              <CustomDatePicker
+                label="Start Date"
+                value={startDate}
+                onChange={setStartDate}
+                placeholder="Select start date"
+              />
 
-              <View style={styles.filterField}>
-                <Text style={styles.filterLabel}>End Date</Text>
-                {Platform.OS === 'web' ? (
-                  // Web: Use react-datepicker
-                  DatePicker ? (
-                    <View style={styles.datePickerContainer}>
-                      <DatePicker
-                        selected={endDate ? new Date(endDate) : null}
-                        onChange={(date: Date | null) => {
-                          if (date) {
-                            setEndDate(date.toISOString().split('T')[0]);
-                          } else {
-                            setEndDate('');
-                          }
-                        }}
-                        dateFormat="MM/dd/yyyy"
-                        placeholderText="Select end date"
-                        popperClassName="date-picker-popper"
-                        wrapperClassName="date-picker-wrapper"
-                        withPortal={true}
-                        portalId="react-datepicker-portal"
-                        isClearable
-                        customInput={
-                          <input
-                            style={{
-                              width: '100%',
-                              padding: '12px 16px',
-                              border: '1px solid #d1d5db',
-                              borderRadius: '8px',
-                              fontSize: '16px',
-                              backgroundColor: '#ffffff',
-                              color: '#374151',
-                              height: '48px',
-                              cursor: 'pointer',
-                              boxSizing: 'border-box',
-                            }}
-                          />
-                        }
-                      />
-                    </View>
-                  ) : (
-                    // Fallback to simple input if DatePicker fails to load
-                    <TextInput
-                      style={styles.dateInput}
-                      placeholder="yyyy-mm-dd"
-                      value={endDate}
-                      onChangeText={setEndDate}
-                    />
-                  )
-                ) : (
-                  // Mobile: Use regular TextInput
-                  <TextInput
-                    style={styles.dateInput}
-                    placeholder="mm/dd/yyyy"
-                    value={endDate}
-                    onChangeText={setEndDate}
-                  />
-                )}
-              </View>
+              <CustomDatePicker
+                label="End Date"
+                value={endDate}
+                onChange={setEndDate}
+                placeholder="Select end date"
+              />
 
               {/* Clear Filters Button */}
               <View style={styles.filterField}>
@@ -541,7 +436,7 @@ export function AllAssessments({ onViewAssessment, onEditAssessment }: AllAssess
                   <Text style={styles.entrustmentLabel}>Entrustment Level:</Text>
                   <Text style={[
                     styles.entrustmentValue,
-                    { color: getMetricColor(assessment.average_entrustment, 'level') }
+                    { color: getMetricColor(assessment.average_entrustment || null, 'level') }
                   ]}>
                     {assessment.average_entrustment ? assessment.average_entrustment.toFixed(1) : 'N/A'}
                   </Text>
@@ -562,7 +457,7 @@ export function AllAssessments({ onViewAssessment, onEditAssessment }: AllAssess
                   variant="outline"
                   size="sm"
                   disabled={!hasPrevious}
-                  style={[styles.paginationButton, !hasPrevious && styles.disabledButton]}
+                  style={!hasPrevious ? {...styles.paginationButton, ...styles.disabledButton} : styles.paginationButton}
                 />
                 
                 <View style={styles.pageInfo}>
@@ -577,7 +472,7 @@ export function AllAssessments({ onViewAssessment, onEditAssessment }: AllAssess
                   variant="outline"
                   size="sm"
                   disabled={!hasNext}
-                  style={[styles.paginationButton, !hasNext && styles.disabledButton]}
+                  style={!hasNext ? {...styles.paginationButton, ...styles.disabledButton} : styles.paginationButton}
                 />
               </View>
             </CardContent>

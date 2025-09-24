@@ -63,6 +63,7 @@ import { Button } from '../ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
+import { CustomDatePicker } from '../ui/DatePicker';
 import {
   Assessment,
   EPA,
@@ -91,6 +92,7 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
   const [selectedEPA, setSelectedEPA] = useState<string>('');
   const [epaAssessment, setEpaAssessment] = useState<Partial<AssessmentEPA>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [epaEntrustmentDescriptions, setEpaEntrustmentDescriptions] = useState<{[key: number]: string}>({});
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDraftNotification, setShowDraftNotification] = useState(false);
@@ -188,6 +190,54 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
   };
 
 
+  // Load EPA-specific entrustment level descriptions
+  const loadEPAEntrustmentDescriptions = async (epaId: string) => {
+    try {
+      // Get SubCompetencies mapped to this EPA
+      const subCompetenciesResponse = await apiClient.getSubCompetencies();
+      
+      // Find SubCompetencies that are mapped to this EPA
+      const epaSubCompetencies = subCompetenciesResponse.results?.filter(subComp => 
+        subComp.epas?.some((epa: any) => epa.id === epaId)
+      ) || [];
+      
+      if (epaSubCompetencies.length > 0) {
+        // Use the first SubCompetency for descriptions
+        // In a more sophisticated implementation, you might let evaluators choose
+        const subComp = epaSubCompetencies[0];
+        
+        const descriptions = {
+          1: subComp.milestone_level_1,
+          2: subComp.milestone_level_2,
+          3: subComp.milestone_level_3,
+          4: subComp.milestone_level_4,
+          5: subComp.milestone_level_5,
+        };
+        
+        setEpaEntrustmentDescriptions(descriptions);
+      } else {
+        // Fallback to generic descriptions if no SubCompetency mapping found
+        setEpaEntrustmentDescriptions({
+          1: "I had to do it (Requires constant direct supervision)",
+          2: "I helped a lot (Requires considerable direct supervision)",
+          3: "I helped a little (Requires minimal direct supervision)",
+          4: "I needed to be there but did not help (Requires indirect supervision)",
+          5: "I didn't need to be there at all (No supervision required)"
+        });
+      }
+    } catch (error) {
+      console.error('Error loading EPA entrustment descriptions:', error);
+      // Fallback to generic descriptions
+      setEpaEntrustmentDescriptions({
+        1: "I had to do it (Requires constant direct supervision)",
+        2: "I helped a lot (Requires considerable direct supervision)",
+        3: "I helped a little (Requires minimal direct supervision)",
+        4: "I needed to be there but did not help (Requires indirect supervision)",
+        5: "I didn't need to be there at all (No supervision required)"
+      });
+    }
+  };
+
   // EPA selection handling (single EPA only)
   const handleEPASelect = (epaId: string) => {
     setSelectedEPA(epaId);
@@ -197,6 +247,10 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
       whatWentWell: '',
       whatCouldImprove: '',
     });
+    setValidationErrors({});
+    
+    // Load EPA-specific entrustment descriptions
+    loadEPAEntrustmentDescriptions(epaId);
   };
 
   const updateEPAAssessment = (field: string, value: any) => {
@@ -231,6 +285,9 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
             whatWentWell: firstEpaAssessment.what_went_well || '',
             whatCouldImprove: firstEpaAssessment.what_could_improve || '',
           });
+          
+          // Load EPA-specific entrustment descriptions for editing
+          loadEPAEntrustmentDescriptions(firstEpaAssessment.epa);
         }
       }
       
@@ -681,8 +738,8 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
                             updateEPAAssessment('entrustmentLevel', parseInt(value))
                           }
                           placeholder="Select entrustment level"
-                          options={Object.entries(ENTRUSTMENT_LEVELS).map(([level, description]) => ({
-                            label: `Level ${level}: ${description.split('(')[0].trim()}`,
+                          options={Object.entries(epaEntrustmentDescriptions).map(([level, description]) => ({
+                            label: `Level ${level}: ${description}`,
                             value: level,
                           }))}
                         />
@@ -736,26 +793,31 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
 
           {/* Private Comments */}
             <Card style={styles.commentsCard}>
-            <CardHeader>
-              <CardTitle>Private Comments for Leadership</CardTitle>
-              <Text style={styles.cardSubtitle}>Optional comments visible only to leadership (not the trainee)</Text>
+            <CardHeader style={styles.commentsCardHeader}>
+              <CardTitle style={styles.commentsCardTitle}>🔒 Private Comments for Leadership</CardTitle>
+              <Text style={styles.commentsCardSubtitle}>Optional comments visible only to leadership (not the trainee)</Text>
             </CardHeader>
-            <CardContent>
-              <Controller
-                control={control}
-                name="privateComments"
-                render={({ field: { onChange, value } }) => (
-                  <Input
-                    value={value}
-                    onChangeText={onChange}
-                    placeholder="Any concerns or additional context for leadership review..."
-                    multiline
-                    numberOfLines={4}
-                    style={styles.textArea}
-                    containerStyle={styles.inputNoMargin}
-                  />
-                )}
-              />
+            <CardContent style={styles.commentsCardContent}>
+              <View style={styles.commentsHighlightBox}>
+                <Text style={styles.commentsNotice}>
+                  💡 Use this section to share concerns, exceptional performance, or context that leadership should know about this assessment.
+                </Text>
+                <Controller
+                  control={control}
+                  name="privateComments"
+                  render={({ field: { onChange, value } }) => (
+                    <Input
+                      value={value}
+                      onChangeText={onChange}
+                      placeholder="Any concerns or additional context for leadership review..."
+                      multiline
+                      numberOfLines={4}
+                      style={styles.commentsTextArea}
+                      containerStyle={styles.inputNoMargin}
+                    />
+                  )}
+                />
+              </View>
             </CardContent>
           </Card>
         </ScrollView>
@@ -912,6 +974,57 @@ const styles = StyleSheet.create({
   },
   commentsCard: {
     marginBottom: 20,
+    borderWidth: 2,
+    borderColor: '#fbbf24',
+    backgroundColor: '#fefce8',
+    shadowColor: '#fbbf24',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  commentsCardHeader: {
+    backgroundColor: '#fefce8',
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    marginBottom: 0,
+    paddingBottom: 16,
+  },
+  commentsCardTitle: {
+    color: '#a16207',
+    fontWeight: '700',
+    fontSize: 18,
+  },
+  commentsCardSubtitle: {
+    fontSize: 14,
+    color: '#a16207',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  commentsCardContent: {
+    backgroundColor: '#fefce8',
+    paddingTop: 0,
+  },
+  commentsHighlightBox: {
+    backgroundColor: '#fefce8',
+    borderWidth: 1,
+    borderColor: '#fbbf24',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 0,
+  },
+  commentsNotice: {
+    fontSize: 14,
+    color: '#a16207',
+    lineHeight: 20,
+    marginBottom: 12,
+    fontWeight: '500',
+  },
+  commentsTextArea: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#fbbf24',
+    borderRadius: 6,
   },
   summaryCard: {
     marginBottom: 20,

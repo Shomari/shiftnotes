@@ -1,6 +1,6 @@
 /**
- * Select component using React Native's built-in components
- * Reliable dropdown with proper state management
+ * Select component with platform-specific implementations
+ * Uses Material-UI for web and custom component for mobile
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -8,11 +8,29 @@ import {
   View,
   Text,
   Pressable,
-  Modal,
   ScrollView,
   StyleSheet,
   Dimensions,
+  Platform,
 } from 'react-native';
+
+// Web-only Material-UI imports
+let FormControl: any = null;
+let InputLabel: any = null;
+let MuiSelect: any = null;
+let MenuItem: any = null;
+
+if (Platform.OS === 'web') {
+  try {
+    const mui = require('@mui/material');
+    FormControl = mui.FormControl;
+    InputLabel = mui.InputLabel;
+    MuiSelect = mui.Select;
+    MenuItem = mui.MenuItem;
+  } catch (e) {
+    console.warn('Failed to load Material-UI:', e);
+  }
+}
 
 const { width } = Dimensions.get('window');
 
@@ -40,52 +58,142 @@ export function Select({
   style,
 }: SelectProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const triggerRef = useRef<View>(null);
-  const componentId = useRef(Math.random().toString(36).substr(2, 9)).current;
+  const triggerRef = useRef<Pressable>(null);
+  const dropdownRef = useRef<View>(null);
 
-  // Reset modal state when component unmounts or when critical props change
+  // Close dropdown when clicking outside
   useEffect(() => {
-    return () => {
-      // Cleanup when component unmounts
-      setIsOpen(false);
-    };
-  }, []);
+    if (Platform.OS === 'web' && isOpen) {
+      const handleClickOutside = (event: any) => {
+        // Check if click is outside the dropdown
+        if (dropdownRef.current && !dropdownRef.current.contains?.(event.target)) {
+          setIsOpen(false);
+        }
+      };
 
-  // Reset modal state when options change (indicates navigation to new screen)
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [isOpen]);
+
+  // Reset dropdown state when options change (navigation)
   useEffect(() => {
-    console.log(`Select ${componentId}: Options changed, resetting state`);
     setIsOpen(false);
-  }, [options.length, componentId]);
+  }, [options.length]);
 
   const handleValueChange = (newValue: string) => {
-    console.log(`Select ${componentId}: Value changed to:`, newValue);
     onValueChange(newValue);
     setIsOpen(false);
   };
 
   const handleTriggerPress = () => {
     if (disabled) return;
-    console.log(`Select ${componentId}: Trigger pressed, current isOpen:`, isOpen);
-    setIsOpen(true);
-  };
-
-  const handleModalClose = () => {
-    console.log(`Select ${componentId}: Modal closing`);
-    setIsOpen(false);
+    setIsOpen(!isOpen);
   };
 
   const selectedOption = options.find(option => option.value === value);
   const displayText = selectedOption ? selectedOption.label : placeholder;
 
+  // For web, use Material-UI Select for the best UX
+  if (Platform.OS === 'web' && FormControl && MuiSelect && MenuItem) {
+    return (
+      <FormControl fullWidth variant="outlined" size="small" style={style}>
+        <MuiSelect
+          value={value}
+          onChange={(e: any) => onValueChange(e.target.value)}
+          disabled={disabled}
+          displayEmpty
+          MenuProps={{
+            PaperProps: {
+              sx: {
+                maxHeight: 300,
+                marginTop: '4px',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+              }
+            },
+            anchorOrigin: {
+              vertical: 'bottom',
+              horizontal: 'left',
+            },
+            transformOrigin: {
+              vertical: 'top',
+              horizontal: 'left',
+            },
+          }}
+          sx={{
+            minHeight: '44px',
+            backgroundColor: disabled ? '#f3f4f6' : '#ffffff',
+            '& .MuiOutlinedInput-notchedOutline': {
+              borderColor: '#d1d5db',
+              borderRadius: '8px',
+            },
+            '&:hover .MuiOutlinedInput-notchedOutline': {
+              borderColor: '#9ca3af',
+            },
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+              borderColor: '#3b82f6',
+              borderWidth: '1px',
+            },
+            '& .MuiSelect-select': {
+              padding: '12px',
+              fontSize: '16px',
+              color: value ? '#374151' : '#9ca3af',
+              minHeight: 'unset',
+            },
+            '& .MuiSelect-icon': {
+              color: '#6b7280',
+            },
+          }}
+        >
+          <MenuItem value="" disabled>
+            <em style={{ color: '#9ca3af', fontStyle: 'italic' }}>{placeholder}</em>
+          </MenuItem>
+          {options.map((option) => (
+            <MenuItem 
+              key={option.value} 
+              value={option.value}
+              sx={{
+                fontSize: '16px',
+                padding: '8px 16px',
+                '&:hover': {
+                  backgroundColor: '#f3f4f6',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: '#eff6ff',
+                  '&:hover': {
+                    backgroundColor: '#dbeafe',
+                  },
+                },
+              }}
+            >
+              <div>
+                <div style={{ color: '#374151', fontWeight: '500' }}>
+                  {option.label}
+                </div>
+                {option.subtitle && (
+                  <div style={{ fontSize: '14px', color: '#6b7280', marginTop: '2px' }}>
+                    {option.subtitle}
+                  </div>
+                )}
+              </div>
+            </MenuItem>
+          ))}
+        </MuiSelect>
+      </FormControl>
+    );
+  }
+
+  // For mobile, use custom dropdown with better positioning
   return (
-    <>
+    <View style={[styles.container, style]}>
       <Pressable
         ref={triggerRef}
         style={[
           styles.trigger,
           disabled && styles.triggerDisabled,
           isOpen && styles.triggerActive,
-          style,
         ]}
         onPress={handleTriggerPress}
         disabled={disabled}
@@ -99,57 +207,52 @@ export function Select({
         >
           {displayText}
         </Text>
-        <Text style={styles.chevron}>▼</Text>
+        <Text style={[styles.chevron, isOpen && styles.chevronOpen]}>▼</Text>
       </Pressable>
 
-      <Modal
-        visible={isOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={handleModalClose}
-      >
-        <Pressable
-          style={styles.overlay}
-          onPress={handleModalClose}
-        >
-          <View style={styles.dropdown}>
-            <ScrollView style={styles.dropdownScroll} showsVerticalScrollIndicator={false}>
-              {options.map((option) => (
-                <Pressable
-                  key={option.value}
-                  style={[
-                    styles.option,
-                    option.value === value && styles.selectedOption,
-                  ]}
-                  onPress={() => handleValueChange(option.value)}
-                >
-                  <View style={styles.optionContent}>
-                    <Text 
-                      style={[
-                        styles.optionText,
-                        option.value === value && styles.selectedOptionText,
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                    {option.subtitle && (
-                      <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
-                    )}
-                  </View>
-                  {option.value === value && (
-                    <Text style={styles.checkmark}>✓</Text>
+      {isOpen && (
+        <View style={styles.dropdown} ref={dropdownRef}>
+          <ScrollView style={styles.dropdownScroll} showsVerticalScrollIndicator={false}>
+            {options.map((option) => (
+              <Pressable
+                key={option.value}
+                style={[
+                  styles.option,
+                  option.value === value && styles.selectedOption,
+                ]}
+                onPress={() => handleValueChange(option.value)}
+              >
+                <View style={styles.optionContent}>
+                  <Text 
+                    style={[
+                      styles.optionText,
+                      option.value === value && styles.selectedOptionText,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                  {option.subtitle && (
+                    <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
                   )}
-                </Pressable>
-              ))}
-            </ScrollView>
-          </View>
-        </Pressable>
-      </Modal>
-    </>
+                </View>
+                {option.value === value && (
+                  <Text style={styles.checkmark}>✓</Text>
+                )}
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    position: 'relative',
+  },
+  
+  // Mobile-only styles (web uses native HTML select)
   trigger: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -168,11 +271,8 @@ const styles = StyleSheet.create({
   },
   triggerActive: {
     borderColor: '#3b82f6',
-    shadowColor: '#3b82f6',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 2,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
   },
   triggerText: {
     fontSize: 16,
@@ -187,26 +287,31 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     marginLeft: 8,
   },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+  chevronOpen: {
+    transform: [{ rotate: '180deg' }],
   },
+  
   dropdown: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
     backgroundColor: '#ffffff',
-    borderRadius: 12,
-    maxHeight: 300,
-    width: Math.min(width - 40, 400),
+    borderWidth: 1,
+    borderColor: '#3b82f6',
+    borderTopWidth: 0,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+    maxHeight: 200,
+    zIndex: 1000,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 8,
   },
   dropdownScroll: {
-    maxHeight: 300,
+    maxHeight: 200,
   },
   option: {
     flexDirection: 'row',

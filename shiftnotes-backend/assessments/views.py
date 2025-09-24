@@ -5,6 +5,8 @@ from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q
 from django.http import JsonResponse
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
+from datetime import datetime
 from .models import Assessment, AssessmentEPA
 from .serializers import AssessmentSerializer, AssessmentCreateSerializer
 
@@ -57,6 +59,23 @@ class AssessmentViewSet(viewsets.ModelViewSet):
         if epa_id:
             queryset = queryset.filter(assessment_epas__epa_id=epa_id).distinct()
         
+        # Handle date filtering
+        start_date_str = self.request.query_params.get('start_date')
+        if start_date_str:
+            try:
+                start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+                queryset = queryset.filter(shift_date__gte=start_date)
+            except ValueError:
+                pass  # Ignore invalid date format
+        
+        end_date_str = self.request.query_params.get('end_date')
+        if end_date_str:
+            try:
+                end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+                queryset = queryset.filter(shift_date__lte=end_date)
+            except ValueError:
+                pass  # Ignore invalid date format
+        
         return queryset
 
     def get_serializer_class(self):
@@ -67,18 +86,80 @@ class AssessmentViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def my_assessments(self, request):
-        """Get assessments for the current user"""
+        """Get assessments for the current user with pagination support"""
         user = request.user
         
         # Get assessments where user is either trainee or evaluator
-        assessments = Assessment.objects.filter(
+        assessments_queryset = Assessment.objects.filter(
             Q(trainee=user) | Q(evaluator=user)
-        ).order_by('-created_at')
+        )
         
-        serializer = self.get_serializer(assessments, many=True)
+        # Apply ID-based filters
+        trainee_id = request.GET.get('trainee_id')
+        evaluator_id = request.GET.get('evaluator_id')
+        epa_id = request.GET.get('epa_id')
+        
+        if trainee_id:
+            assessments_queryset = assessments_queryset.filter(trainee_id=trainee_id)
+        
+        if evaluator_id:
+            assessments_queryset = assessments_queryset.filter(evaluator_id=evaluator_id)
+            
+        if epa_id:
+            assessments_queryset = assessments_queryset.filter(assessment_epas__epa_id=epa_id)
+        
+        # Apply date filters if provided
+        start_date_str = request.GET.get('start_date')
+        end_date_str = request.GET.get('end_date')
+        
+        if start_date_str:
+            try:
+                start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+                assessments_queryset = assessments_queryset.filter(shift_date__gte=start_date)
+            except ValueError:
+                pass
+                
+        if end_date_str:
+            try:
+                end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+                assessments_queryset = assessments_queryset.filter(shift_date__lte=end_date)
+            except ValueError:
+                pass
+        
+        assessments_queryset = assessments_queryset.order_by('-created_at')
+        
+        # Manual pagination
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('limit', 20))
+        
+        paginator = Paginator(assessments_queryset, page_size)
+        try:
+            assessments_page = paginator.page(page)
+        except PageNotAnInteger:
+            assessments_page = paginator.page(1)
+        except EmptyPage:
+            assessments_page = paginator.page(paginator.num_pages)
+        
+        # Build URLs for pagination
+        request_url = request.build_absolute_uri().split('?')[0]
+        query_params = request.GET.copy()
+        
+        next_url = None
+        if assessments_page.has_next():
+            query_params['page'] = assessments_page.next_page_number()
+            next_url = f"{request_url}?{query_params.urlencode()}"
+            
+        previous_url = None
+        if assessments_page.has_previous():
+            query_params['page'] = assessments_page.previous_page_number()
+            previous_url = f"{request_url}?{query_params.urlencode()}"
+        
+        serializer = self.get_serializer(assessments_page.object_list, many=True)
         return Response({
             'results': serializer.data,
-            'count': assessments.count()
+            'count': paginator.count,
+            'next': next_url,
+            'previous': previous_url,
         })
 
     @action(detail=False, methods=['get'])
@@ -94,13 +175,77 @@ class AssessmentViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def received_assessments(self, request):
-        """Get assessments received by the current user"""
+        """Get assessments received by the current user with pagination support"""
         user = request.user
-        assessments = Assessment.objects.filter(trainee=user).order_by('-created_at')
-        serializer = self.get_serializer(assessments, many=True)
+        
+        assessments_queryset = Assessment.objects.filter(trainee=user)
+        
+        # Apply ID-based filters
+        trainee_id = request.GET.get('trainee_id')
+        evaluator_id = request.GET.get('evaluator_id')
+        epa_id = request.GET.get('epa_id')
+        
+        if trainee_id:
+            assessments_queryset = assessments_queryset.filter(trainee_id=trainee_id)
+        
+        if evaluator_id:
+            assessments_queryset = assessments_queryset.filter(evaluator_id=evaluator_id)
+            
+        if epa_id:
+            assessments_queryset = assessments_queryset.filter(assessment_epas__epa_id=epa_id)
+        
+        # Apply date filters if provided
+        start_date_str = request.GET.get('start_date')
+        end_date_str = request.GET.get('end_date')
+        
+        if start_date_str:
+            try:
+                start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+                assessments_queryset = assessments_queryset.filter(shift_date__gte=start_date)
+            except ValueError:
+                pass
+                
+        if end_date_str:
+            try:
+                end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+                assessments_queryset = assessments_queryset.filter(shift_date__lte=end_date)
+            except ValueError:
+                pass
+        
+        assessments_queryset = assessments_queryset.order_by('-created_at')
+        
+        # Manual pagination
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('limit', 20))
+        
+        paginator = Paginator(assessments_queryset, page_size)
+        try:
+            assessments_page = paginator.page(page)
+        except PageNotAnInteger:
+            assessments_page = paginator.page(1)
+        except EmptyPage:
+            assessments_page = paginator.page(paginator.num_pages)
+        
+        # Build URLs for pagination
+        request_url = request.build_absolute_uri().split('?')[0]
+        query_params = request.GET.copy()
+        
+        next_url = None
+        if assessments_page.has_next():
+            query_params['page'] = assessments_page.next_page_number()
+            next_url = f"{request_url}?{query_params.urlencode()}"
+            
+        previous_url = None
+        if assessments_page.has_previous():
+            query_params['page'] = assessments_page.previous_page_number()
+            previous_url = f"{request_url}?{query_params.urlencode()}"
+        
+        serializer = self.get_serializer(assessments_page.object_list, many=True)
         return Response({
             'results': serializer.data,
-            'count': assessments.count()
+            'count': paginator.count,
+            'next': next_url,
+            'previous': previous_url,
         })
 
     @action(detail=True, methods=['post'])

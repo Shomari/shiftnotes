@@ -7,14 +7,39 @@ class AssessmentEPASerializer(serializers.ModelSerializer):
     epa_code = serializers.CharField(source='epa.code', read_only=True)
     epa_title = serializers.CharField(source='epa.title', read_only=True)
     epa_category = serializers.CharField(source='epa.category.title', read_only=True)
+    entrustment_level_description = serializers.SerializerMethodField()
 
     class Meta:
         model = AssessmentEPA
         fields = [
             'id', 'epa', 'epa_code', 'epa_title', 'epa_category',
-            'entrustment_level', 'what_went_well', 'what_could_improve', 'created_at'
+            'entrustment_level', 'entrustment_level_description', 'what_went_well', 'what_could_improve', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
+    
+    def get_entrustment_level_description(self, obj):
+        """Get the appropriate milestone level description from SubCompetency"""
+        # Get the first SubCompetency mapped to this EPA
+        # In a more sophisticated implementation, you might want to:
+        # 1. Let evaluators choose which specific competency they're assessing
+        # 2. Use the most relevant competency based on assessment context
+        # 3. Combine multiple competency descriptions
+        
+        sub_competency = obj.epa.sub_competencies.first()
+        if not sub_competency:
+            # Fallback to generic descriptions if no SubCompetency is mapped
+            generic_descriptions = {
+                1: "I had to do it (Requires constant direct supervision)",
+                2: "I helped a lot (Requires considerable direct supervision)",
+                3: "I helped a little (Requires minimal direct supervision)",
+                4: "I needed to be there but did not help (Requires indirect supervision)",
+                5: "I didn't need to be there at all (No supervision required)"
+            }
+            return generic_descriptions.get(obj.entrustment_level, "Unknown level")
+        
+        # Get the appropriate milestone level description
+        level_field = f'milestone_level_{obj.entrustment_level}'
+        return getattr(sub_competency, level_field, "Unknown level")
 
 class AssessmentSerializer(serializers.ModelSerializer):
     trainee_name = serializers.CharField(source='trainee.name', read_only=True)

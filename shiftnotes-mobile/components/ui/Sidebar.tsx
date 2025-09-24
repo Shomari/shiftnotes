@@ -64,11 +64,6 @@ const getNavigationItems = (userRole?: string): NavigationItem[] => {
         icon: '🎯',
       },
       {
-        id: 'trainee-performance',
-        title: 'Trainee Performance',
-        icon: '🎓',
-      },
-      {
         id: 'competency-grid',
         title: 'Competency Grid',
         icon: '📃',
@@ -254,6 +249,27 @@ export function Sidebar({ isOpen, onClose, onNavigate, currentRoute, userRole, i
         })}
       </View>
 
+      {/* Support Section */}
+      <View style={styles.supportSection}>
+        <Pressable
+          style={[
+            styles.supportItem,
+            currentRoute === 'support-request' && styles.supportItemActive,
+          ]}
+          onPress={() => {
+            onNavigate('support-request');
+            if (!shouldShowPermanent) {
+              onClose();
+            }
+          }}
+        >
+          <View style={styles.supportIconContainer}>
+            <Text style={styles.supportIcon}>💬</Text>
+          </View>
+          <Text style={styles.supportText}>Support</Text>
+        </Pressable>
+      </View>
+
       {/* Footer */}
       <View style={styles.sidebarFooter}>
         <Text style={styles.footerText}>EPAnotes v1.0</Text>
@@ -397,5 +413,41 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6b7280',
     textAlign: 'center',
+  },
+  
+  // Support section styles
+  supportSection: {
+    paddingHorizontal: 12,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+    marginTop: 'auto', // Push to bottom
+  },
+  supportItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: 'transparent',
+  },
+  supportItemActive: {
+    backgroundColor: '#e0f2fe',
+  },
+  supportIconContainer: {
+    width: 24,
+    height: 24,
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  supportIcon: {
+    fontSize: 18,
+  },
+  supportText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#0891b2', // Light teal color - friendly and professional
+    flex: 1,
   },
 });
