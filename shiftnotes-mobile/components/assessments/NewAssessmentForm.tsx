@@ -134,14 +134,24 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
   const loadEPAsForProgram = async (programId: string) => {
     try {
       const epasResponse = await apiClient.getEPAs(programId);
-      setEPAs(epasResponse.results?.map(epa => ({
-        id: epa.id,
-        code: epa.code,
-        title: epa.title,
-        description: epa.description || '',
-        category: epa.category_title || epa.category,
-        isActive: epa.is_active !== false,
-      })) || []);
+      const sortedEPAs = (epasResponse.results || [])
+        .sort((a, b) => {
+          // Extract numbers from EPA codes for proper numerical sorting
+          const getEpaNumber = (code: string) => {
+            const match = code.match(/EPA(\d+)/);
+            return match ? parseInt(match[1]) : 0;
+          };
+          return getEpaNumber(a.code) - getEpaNumber(b.code);
+        })
+        .map(epa => ({
+          id: epa.id,
+          code: epa.code,
+          title: epa.title,
+          description: epa.description || '',
+          category: epa.category_title || epa.category,
+          isActive: epa.is_active !== false,
+        }));
+      setEPAs(sortedEPAs);
     } catch (error) {
       console.error('Error loading EPAs:', error);
       setEPAs([]);
@@ -630,7 +640,7 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
                     onValueChange={(value) => value && handleEPASelect(value)}
                     placeholder="Choose an EPA to assess"
                     options={epas.map(epa => ({
-                      label: `${epa.code}: ${epa.title}`,
+                      label: `${epa.code.replace(/EPA(\d+)/, 'EPA $1')}: ${epa.title}`,
                       value: epa.id,
                       subtitle: epa.category,
                     }))}
@@ -647,7 +657,9 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
                   <View key={selectedEPA} style={styles.selectedEpa}>
                     <View style={styles.epaHeader}>
                       <View style={styles.epaInfo}>
-                        <Text style={styles.epaCode}>{epa.code}</Text>
+                        <Text style={styles.epaCode}>
+                          {epa.code.replace(/EPA(\d+)/, 'EPA $1')}
+                        </Text>
                         <Text style={styles.epaTitle}>{epa.title}</Text>
                       </View>
                       <Pressable

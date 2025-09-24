@@ -572,15 +572,15 @@ class Command(BaseCommand):
             
             if '2026' in cohort_name:  # PGY-3, started July 2022
                 avg_assessments_per_month = 12  # Increased for better coverage
-                base_entrustment = 3.5  # Higher scores for senior residents
+                base_entrustment = 4.0  # Higher scores for senior residents (+0.5)
                 progression_factor = 0.8  # Strong progression over time
             elif '2027' in cohort_name:  # PGY-2, started July 2023
                 avg_assessments_per_month = 12  # Increased for better coverage
-                base_entrustment = 2.8  # Medium scores
+                base_entrustment = 3.3  # Medium scores (+0.5)
                 progression_factor = 0.6
             else:  # PGY-1, started July 2025 (recent interns)
                 avg_assessments_per_month = 10  # Increased from 8 to ensure good coverage
-                base_entrustment = 2.0  # Lower scores for interns
+                base_entrustment = 2.5  # Lower scores for interns (+0.5)
                 progression_factor = 0.4
             
             self.stdout.write(f'📈 Creating assessments for {cohort_name}: {months_in_program} months, avg {avg_assessments_per_month}/month')

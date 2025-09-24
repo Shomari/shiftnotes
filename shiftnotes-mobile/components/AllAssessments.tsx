@@ -78,23 +78,56 @@ export function AllAssessments({ onViewAssessment, onEditAssessment }: AllAssess
   const [traineeFilter, setTraineeFilter] = useState('');
   const [facultyFilter, setFacultyFilter] = useState('');
   const [epaFilter, setEpaFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [hasNext, setHasNext] = useState(false);
+  const [hasPrevious, setHasPrevious] = useState(false);
+  const pageSize = 20;
+  
+  // Filter options loaded separately (value = ID, label = name for display)
+  const [traineeOptions, setTraineeOptions] = useState<Array<{label: string, value: string}>>([]);
+  const [facultyOptions, setFacultyOptions] = useState<Array<{label: string, value: string}>>([]);
+  const [epaOptions, setEpaOptions] = useState<Array<{label: string, value: string}>>([]);
 
-  // Fetch all assessments on component mount
+  // Fetch assessments when page or filters change
   useEffect(() => {
     loadAssessments();
+  }, [currentPage, traineeFilter, facultyFilter, epaFilter, startDate, endDate]);
+
+  // Load filter options once on mount
+  useEffect(() => {
+    loadFilterOptions();
   }, []);
 
   const loadAssessments = async () => {
     try {
       setLoading(true);
       
-      // For leadership, get all assessments in the program
-      const response = await apiClient.getAssessments();
+      // Get assessments with pagination and ID-based filtering
+      const response = await apiClient.getAssessments({
+        limit: pageSize,
+        page: currentPage,
+        trainee_id: traineeFilter || undefined,
+        evaluator_id: facultyFilter || undefined,
+        epa_id: epaFilter || undefined,
+        start_date: startDate || undefined,
+        end_date: endDate || undefined,
+      });
       
-      console.log('Fetched all assessments:', response);
+      console.log('Fetched assessments page:', currentPage, 'with ID-based filters:', {
+        trainee_id: traineeFilter,
+        evaluator_id: facultyFilter,
+        epa_id: epaFilter
+      });
+      
+      // Update pagination state
+      setTotalCount(response.count || 0);
+      setHasNext(!!response.next);
+      setHasPrevious(!!response.previous);
       
       // Transform API data to match our interface
       const transformedAssessments: Assessment[] = response.results?.map(assessment => ({
@@ -115,82 +148,109 @@ export function AllAssessments({ onViewAssessment, onEditAssessment }: AllAssess
     }
   };
 
+  const loadFilterOptions = async () => {
+    try {
+      // Load all trainees using dedicated endpoint (value = ID, label = name)
+      const traineesResponse = await apiClient.getTrainees();
+      const allTrainees = traineesResponse.results || [];
+      const traineeOpts = allTrainees
+        .sort((a, b) => a.name.split(' ').pop()!.localeCompare(b.name.split(' ').pop()!)) // Sort by last name
+        .map(trainee => ({ label: trainee.name, value: trainee.id })); // Store ID as value
+      setTraineeOptions(traineeOpts);
+
+      // Load all faculty using dedicated endpoint (value = ID, label = name)
+      const facultyResponse = await apiClient.getFaculty();
+      const allFaculty = facultyResponse.results || [];
+      const facultyOpts = allFaculty
+        .sort((a, b) => a.name.split(' ').pop()!.localeCompare(b.name.split(' ').pop()!)) // Sort by last name
+        .map(faculty => ({ label: faculty.name, value: faculty.id })); // Store ID as value
+      setFacultyOptions(facultyOpts);
+
+      // Load all EPAs for filter (value = ID, label = formatted code + title)
+      const epasResponse = await apiClient.getEPAs();
+      const allEPAs = epasResponse.results || [];
+      const epaOpts = allEPAs
+        .sort((a, b) => {
+          // Extract numbers from EPA codes for proper numerical sorting
+          const getEpaNumber = (code: string) => {
+            const match = code.match(/EPA(\d+)/);
+            return match ? parseInt(match[1]) : 0;
+          };
+          return getEpaNumber(a.code) - getEpaNumber(b.code);
+        })
+        .map(epa => {
+          // Format EPA code with space (EPA1 → EPA 1)
+          const formattedCode = epa.code.replace(/EPA(\d+)/, 'EPA $1');
+          return { label: `${formattedCode} - ${epa.title}`, value: epa.id };
+        });
+      setEpaOptions(epaOpts);
+    } catch (error) {
+      console.error('Error loading filter options:', error);
+      // Don't show alert for filter options - just log the error
+    }
+  };
+
   const clearFilters = () => {
     setTraineeFilter('');
     setFacultyFilter('');
     setEpaFilter('');
-    setStatusFilter('');
     setStartDate('');
     setEndDate('');
+    setCurrentPage(1); // Reset to first page when clearing filters
+  };
+
+  const handleFilterChange = (filterSetter: (value: string) => void, value: string) => {
+    filterSetter(value);
+    setCurrentPage(1); // Reset to first page when filter changes
+  };
+
+  const goToPage = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const goToPreviousPage = () => {
+    if (hasPrevious) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const goToNextPage = () => {
+    if (hasNext) {
+      setCurrentPage(currentPage + 1);
+    }
   };
 
   const toggleFilters = () => {
     setFiltersExpanded(!filtersExpanded);
   };
 
+  // Color coding for entrustment levels (same as other components)
+  const getMetricColor = (value: number | null, type: 'level' | 'percentage') => {
+    if (!value) return '#9ca3af';
+    if (type === 'level') {
+      if (value >= 4) return '#059669'; // Green
+      if (value >= 3) return '#0d9488'; // Teal
+      if (value >= 2) return '#0891b2'; // Blue
+      return '#dc2626'; // Red
+    } else {
+      if (value >= 80) return '#059669'; // Green
+      if (value >= 60) return '#0d9488'; // Teal
+      if (value >= 40) return '#0891b2'; // Blue
+      return '#dc2626'; // Red
+    }
+  };
+
   // Check if any filters are active
-  const hasActiveFilters = traineeFilter || facultyFilter || epaFilter || statusFilter || startDate || endDate;
+  const hasActiveFilters = traineeFilter || facultyFilter || epaFilter || startDate || endDate;
 
-  const filteredAssessments = assessments.filter((assessment) => {
-    // Filter by trainee
-    const matchesTrainee = !traineeFilter || assessment.trainee_name?.toLowerCase().includes(traineeFilter.toLowerCase());
-    
-    // Filter by faculty (evaluator)
-    const matchesFaculty = !facultyFilter || assessment.evaluator_name?.toLowerCase().includes(facultyFilter.toLowerCase());
-    
-    // Filter by EPA
-    const matchesEPA = !epaFilter || assessment.epas.some(epa => 
-      epa.code?.toLowerCase().includes(epaFilter.toLowerCase()) ||
-      epa.title?.toLowerCase().includes(epaFilter.toLowerCase())
-    );
-    
-    // Filter by status
-    const matchesStatus = !statusFilter || assessment.status === statusFilter;
-    
-    // Filter by date range
-    const assessmentDate = new Date(assessment.shift_date);
-    const matchesStartDate = !startDate || assessmentDate >= new Date(startDate);
-    const matchesEndDate = !endDate || assessmentDate <= new Date(endDate);
-    
-    return matchesTrainee && matchesFaculty && matchesEPA && matchesStatus && matchesStartDate && matchesEndDate;
-  });
+  // No client-side filtering - backend handles all filtering via API parameters
+  const filteredAssessments = assessments;
 
-  // Extract unique options for dropdowns
-  const traineeOptions = Array.from(new Set(
-    assessments.map(assessment => assessment.trainee_name).filter(Boolean)
-  )).map(name => ({ label: name || '', value: name || '' }));
+  // Calculate pagination info
+  const totalPages = Math.ceil(totalCount / pageSize);
+  const startResult = ((currentPage - 1) * pageSize) + 1;
+  const endResult = Math.min(currentPage * pageSize, totalCount);
 
-  const facultyOptions = Array.from(new Set(
-    assessments.map(assessment => assessment.evaluator_name).filter(Boolean)
-  )).map(name => ({ label: name || '', value: name || '' }));
-
-  const epaOptions = Array.from(new Set(
-    assessments.flatMap(assessment => 
-      assessment.epas.map(epa => `${epa.code} - ${epa.title}`).filter(Boolean)
-    )
-  )).map(epaString => ({ label: epaString, value: epaString }));
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'submitted':
-        return '#3b82f6';
-      case 'draft':
-        return '#f59e0b';
-      default:
-        return '#6b7280';
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'submitted':
-        return 'Submitted';
-      case 'draft':
-        return 'Draft';
-      default:
-        return status;
-    }
-  };
 
   return (
     <View style={styles.container}>
@@ -247,7 +307,7 @@ export function AllAssessments({ onViewAssessment, onEditAssessment }: AllAssess
                 <Text style={styles.filterLabel}>Trainee</Text>
                 <Select
                   value={traineeFilter}
-                  onValueChange={setTraineeFilter}
+                  onValueChange={(value) => handleFilterChange(setTraineeFilter, value)}
                   placeholder="All Trainees"
                   options={traineeOptions}
                 />
@@ -258,7 +318,7 @@ export function AllAssessments({ onViewAssessment, onEditAssessment }: AllAssess
                 <Text style={styles.filterLabel}>Faculty</Text>
                 <Select
                   value={facultyFilter}
-                  onValueChange={setFacultyFilter}
+                  onValueChange={(value) => handleFilterChange(setFacultyFilter, value)}
                   placeholder="All Faculty"
                   options={facultyOptions}
                 />
@@ -269,25 +329,12 @@ export function AllAssessments({ onViewAssessment, onEditAssessment }: AllAssess
                 <Text style={styles.filterLabel}>EPA</Text>
                 <Select
                   value={epaFilter}
-                  onValueChange={setEpaFilter}
+                  onValueChange={(value) => handleFilterChange(setEpaFilter, value)}
                   placeholder="All EPAs"
                   options={epaOptions}
                 />
               </View>
 
-              {/* Status Filter */}
-              <View style={styles.filterField}>
-                <Text style={styles.filterLabel}>Status</Text>
-                <Select
-                  value={statusFilter}
-                  onValueChange={setStatusFilter}
-                  placeholder="All Statuses"
-                  options={[
-                    { label: 'Submitted', value: 'submitted' },
-                    { label: 'Draft', value: 'draft' },
-                  ]}
-                />
-              </View>
 
               {/* Date Filters */}
               <View style={styles.filterField}>
@@ -425,6 +472,18 @@ export function AllAssessments({ onViewAssessment, onEditAssessment }: AllAssess
           )}
         </Card>
 
+        {/* Pagination Info */}
+        {totalCount > 0 && (
+          <Card style={styles.paginationInfoCard}>
+            <CardContent>
+              <Text style={styles.paginationInfoText}>
+                Showing {startResult}-{endResult} of {totalCount} assessments
+                {hasActiveFilters && ' (filtered)'}
+              </Text>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Assessments List */}
         <View style={styles.assessmentsList}>
           {filteredAssessments.map((assessment) => (
@@ -435,26 +494,8 @@ export function AllAssessments({ onViewAssessment, onEditAssessment }: AllAssess
                   <View style={styles.assessmentInfo}>
                     <Text style={styles.traineeName}>{assessment.trainee_name}</Text>
                     <Text style={styles.facultyName}>by {assessment.evaluator_name}</Text>
-                    <View
-                      style={[
-                        styles.statusBadge,
-                        { backgroundColor: getStatusColor(assessment.status) },
-                      ]}
-                    >
-                      <Text style={styles.statusText}>{getStatusLabel(assessment.status)}</Text>
-                    </View>
                   </View>
                   <View style={styles.actionButtons}>
-                    {assessment.status === 'draft' && (
-                      <Button
-                        title="Edit"
-                        onPress={() => onEditAssessment?.(assessment.id!)}
-                        variant="default"
-                        size="sm"
-                        icon="✏️"
-                        style={styles.editButton}
-                      />
-                    )}
                     <Button
                       title="View"
                       onPress={() => onViewAssessment?.(assessment.id!)}
@@ -486,7 +527,7 @@ export function AllAssessments({ onViewAssessment, onEditAssessment }: AllAssess
                     {assessment.epas.length > 0 ? (
                       <View style={styles.epaBadge}>
                         <Text style={styles.epaText}>
-                          {assessment.epas[0].code} - {assessment.epas[0].title} (Level {assessment.epas[0].level})
+                          {assessment.epas[0].code.replace(/EPA(\d+)/, 'EPA $1')} - {assessment.epas[0].title} (Level {assessment.epas[0].level})
                         </Text>
                       </View>
                     ) : (
@@ -498,7 +539,10 @@ export function AllAssessments({ onViewAssessment, onEditAssessment }: AllAssess
                 {/* Entrustment Level */}
                 <View style={styles.entrustmentSection}>
                   <Text style={styles.entrustmentLabel}>Entrustment Level:</Text>
-                  <Text style={styles.entrustmentValue}>
+                  <Text style={[
+                    styles.entrustmentValue,
+                    { color: getMetricColor(assessment.average_entrustment, 'level') }
+                  ]}>
                     {assessment.average_entrustment ? assessment.average_entrustment.toFixed(1) : 'N/A'}
                   </Text>
                 </View>
@@ -507,11 +551,44 @@ export function AllAssessments({ onViewAssessment, onEditAssessment }: AllAssess
           ))}
         </View>
 
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <Card style={styles.paginationCard}>
+            <CardContent>
+              <View style={styles.paginationControls}>
+                <Button
+                  title="← Previous"
+                  onPress={goToPreviousPage}
+                  variant="outline"
+                  size="sm"
+                  disabled={!hasPrevious}
+                  style={[styles.paginationButton, !hasPrevious && styles.disabledButton]}
+                />
+                
+                <View style={styles.pageInfo}>
+                  <Text style={styles.pageText}>
+                    Page {currentPage} of {totalPages}
+                  </Text>
+                </View>
+                
+                <Button
+                  title="Next →"
+                  onPress={goToNextPage}
+                  variant="outline"
+                  size="sm"
+                  disabled={!hasNext}
+                  style={[styles.paginationButton, !hasNext && styles.disabledButton]}
+                />
+              </View>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Empty State */}
         {filteredAssessments.length === 0 && !loading && (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateText}>
-              No assessments found matching your filters
+              No assessments found{hasActiveFilters ? ' matching your filters' : ''}
             </Text>
           </View>
         )}
@@ -815,5 +892,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#64748b',
     textAlign: 'center',
+  },
+  
+  // Pagination styles
+  paginationInfoCard: {
+    margin: 16,
+    marginBottom: 8,
+  },
+  paginationInfoText: {
+    fontSize: 14,
+    color: '#64748b',
+    textAlign: 'center',
+  },
+  paginationCard: {
+    margin: 16,
+    marginTop: 8,
+  },
+  paginationControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  paginationButton: {
+    minWidth: 100,
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  pageInfo: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  pageText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
   },
 });

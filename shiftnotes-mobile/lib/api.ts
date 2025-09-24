@@ -513,6 +513,25 @@ export class ApiClient {
     return this.request<any>(`/analytics/competency-grid/?${params.toString()}`);
   }
 
+  async getTraineePerformanceData(cohort?: string, timeframeMonths?: string, sortBy?: string, sortOrder?: string): Promise<any> {
+    const params = new URLSearchParams();
+    if (cohort) params.append('cohort', cohort);
+    if (timeframeMonths) params.append('months', timeframeMonths);
+    if (sortBy) params.append('sort_by', sortBy);
+    if (sortOrder) params.append('sort_order', sortOrder);
+    
+    return this.request<any>(`/analytics/trainee-performance/?${params.toString()}`);
+  }
+
+  async getProgramPerformanceData(months: number, cohort?: string, trainee?: string): Promise<any> {
+    const params = new URLSearchParams();
+    params.append('months', months.toString());
+    if (cohort) params.append('cohort', cohort);
+    if (trainee) params.append('trainee', trainee);
+    
+    return this.request<any>(`/analytics/program-performance/?${params.toString()}`);
+  }
+
   async createCohort(cohortData: Partial<ApiCohort>): Promise<ApiCohort> {
     return this.request<ApiCohort>('/cohorts/', {
       method: 'POST',
@@ -563,6 +582,30 @@ export class ApiClient {
     });
   }
 
+  async getMailboxAssessments(page?: number, limit?: number): Promise<any> {
+    const params = new URLSearchParams();
+    if (page) params.append('page', page.toString());
+    if (limit) params.append('limit', limit.toString());
+    
+    const url = `/assessments/mailbox/${params.toString() ? '?' + params.toString() : ''}`;
+    return this.request<any>(url);
+  }
+
+  async getReadMailboxAssessments(page?: number, limit?: number): Promise<any> {
+    const params = new URLSearchParams();
+    if (page) params.append('page', page.toString());
+    if (limit) params.append('limit', limit.toString());
+    
+    const url = `/assessments/mailbox/read/${params.toString() ? '?' + params.toString() : ''}`;
+    return this.request<any>(url);
+  }
+
+  async markAssessmentAsRead(assessmentId: string): Promise<void> {
+    return this.request(`/assessments/${assessmentId}/mark-read/`, {
+      method: 'POST',
+    });
+  }
+
   // Program endpoints
   async getPrograms(organizationId?: string): Promise<ApiResponse<ApiProgram>> {
     let url = '/programs/';
@@ -573,12 +616,27 @@ export class ApiClient {
   }
 
   // Assessment endpoints (general)
-  async getAssessments(params?: { limit?: number; trainee?: string }): Promise<ApiResponse<ApiAssessment>> {
+  async getAssessments(params?: { 
+    limit?: number; 
+    page?: number;
+    trainee_id?: string; 
+    evaluator_id?: string;
+    epa_id?: string;
+    status?: string;
+    start_date?: string;
+    end_date?: string;
+  }): Promise<ApiResponse<ApiAssessment>> {
     let url = '/assessments/';
     const searchParams = new URLSearchParams();
     
     if (params?.limit) searchParams.append('limit', params.limit.toString());
-    if (params?.trainee) searchParams.append('trainee', params.trainee);
+    if (params?.page) searchParams.append('page', params.page.toString());
+    if (params?.trainee_id) searchParams.append('trainee_id', params.trainee_id);
+    if (params?.evaluator_id) searchParams.append('evaluator_id', params.evaluator_id);
+    if (params?.epa_id) searchParams.append('epa_id', params.epa_id);
+    if (params?.status) searchParams.append('status', params.status);
+    if (params?.start_date) searchParams.append('shift_date__gte', params.start_date);
+    if (params?.end_date) searchParams.append('shift_date__lte', params.end_date);
     
     if (searchParams.toString()) url += `?${searchParams.toString()}`;
     return this.request<ApiResponse<ApiAssessment>>(url);

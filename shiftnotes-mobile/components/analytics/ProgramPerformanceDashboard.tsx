@@ -358,49 +358,6 @@ const ProgramPerformanceDashboard: React.FC<ProgramPerformanceProps> = ({ user }
             </CardContent>
           </Card>
 
-          {/* Trainee Breakdown */}
-          <Card style={styles.tableCard}>
-            <CardHeader>
-              <CardTitle>Trainee Performance</CardTitle>
-            </CardHeader>
-            
-            <CardContent>
-              <View style={styles.tableHeader}>
-                <Text style={[styles.tableHeaderText, { flex: 2 }]}>Name</Text>
-                <Text style={[styles.tableHeaderText, { flex: 1 }]}>Assessments</Text>
-                <Text style={[styles.tableHeaderText, { flex: 1 }]}>Avg Level</Text>
-                <Text style={[styles.tableHeaderText, { flex: 1 }]}>Status</Text>
-              </View>
-              
-              {dashboardData.trainee_breakdown.map((trainee, index) => (
-                <View key={trainee.id} style={styles.tableRow}>
-                  <View style={{ flex: 2 }}>
-                    <Text style={styles.traineeNameText}>{trainee.name}</Text>
-                    <Text style={styles.traineeDeptText}>{trainee.department}</Text>
-                  </View>
-                  <Text style={[styles.tableText, { flex: 1 }]}>
-                    {trainee.assessments_in_period}
-                  </Text>
-                  <Text style={[
-                    styles.tableText, 
-                    { flex: 1, color: getMetricColor(trainee.average_competency_level, 'level') }
-                  ]}>
-                    {trainee.average_competency_level.toFixed(1)}
-                  </Text>
-                  <View style={[styles.statusBadge, { 
-                    backgroundColor: trainee.is_active ? '#dcfce7' : '#fef2f2',
-                    flex: 1
-                  }]}>
-                    <Text style={[styles.statusText, {
-                      color: trainee.is_active ? '#166534' : '#991b1b'
-                    }]}>
-                      {trainee.is_active ? 'Active' : 'Inactive'}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </CardContent>
-          </Card>
 
           {/* Competency Breakdown */}
           {dashboardData.competency_breakdown.length > 0 && (
@@ -478,22 +435,28 @@ const ProgramPerformanceDashboard: React.FC<ProgramPerformanceProps> = ({ user }
               <CardContent>
                 <View style={styles.trendsChart}>
                   <Text style={styles.trendsLabel}>Assessment Volume</Text>
-                  <View style={styles.trendsBars}>
-                    {dashboardData.trends.monthly_assessments.map((trend, index) => (
-                      <View key={index} style={styles.trendsBar}>
-                        <View 
-                          style={[
-                            styles.trendsBarFill, 
-                            { 
-                              height: `${Math.min(Math.max((trend.assessments / Math.max(...dashboardData.trends.monthly_assessments.map(t => t.assessments))) * 85, 8), 85)}%`,
-                              backgroundColor: '#3B82F6'
-                            }
-                          ]} 
-                        />
-                        <Text style={styles.trendsBarLabel}>{trend.month}</Text>
-                        <Text style={styles.trendsBarValue}>{trend.assessments}</Text>
-                      </View>
-                    ))}
+                  <View style={styles.horizontalBarsContainer}>
+                    {dashboardData.trends.monthly_assessments.map((trend, index) => {
+                      const maxAssessments = Math.max(...dashboardData.trends.monthly_assessments.map(t => t.assessments));
+                      const widthPercent = Math.min(Math.max((trend.assessments / maxAssessments) * 100, 5), 100);
+                      return (
+                        <View key={index} style={styles.horizontalBarRow}>
+                          <Text style={styles.horizontalBarLabel}>{trend.month}</Text>
+                          <View style={styles.horizontalBarTrack}>
+                            <View 
+                              style={[
+                                styles.horizontalBarFill, 
+                                { 
+                                  width: `${widthPercent}%`,
+                                  backgroundColor: '#3B82F6'
+                                }
+                              ]} 
+                            />
+                          </View>
+                          <Text style={styles.horizontalBarValue}>{trend.assessments}</Text>
+                        </View>
+                      );
+                    })}
                   </View>
                 </View>
 
@@ -511,23 +474,25 @@ const ProgramPerformanceDashboard: React.FC<ProgramPerformanceProps> = ({ user }
               <CardContent>
                 <View style={styles.trendsChart}>
                   <Text style={styles.trendsLabel}>Average Entrustment Level by Month</Text>
-                  <View style={styles.trendsBars}>
+                  <View style={styles.horizontalBarsContainer}>
                     {dashboardData.trends.monthly_entrustment.map((trend, index) => {
                       const maxLevel = 5; // EPA levels typically go from 1-5
-                      const heightPercent = Math.min(Math.max((trend.average_entrustment / maxLevel) * 85, 8), 85);
+                      const widthPercent = Math.min(Math.max((trend.average_entrustment / maxLevel) * 100, 5), 100);
                       return (
-                        <View key={index} style={styles.trendsBar}>
-                          <View 
-                            style={[
-                              styles.trendsBarFill, 
-                              { 
-                                height: `${heightPercent}%`,
-                                backgroundColor: getMetricColor(trend.average_entrustment, 'level')
-                              }
-                            ]} 
-                          />
-                          <Text style={styles.trendsBarLabel}>{trend.month}</Text>
-                          <Text style={styles.trendsBarValue}>{trend.average_entrustment.toFixed(1)}</Text>
+                        <View key={index} style={styles.horizontalBarRow}>
+                          <Text style={styles.horizontalBarLabel}>{trend.month}</Text>
+                          <View style={styles.horizontalBarTrack}>
+                            <View 
+                              style={[
+                                styles.horizontalBarFill, 
+                                { 
+                                  width: `${widthPercent}%`,
+                                  backgroundColor: getMetricColor(trend.average_entrustment, 'level')
+                                }
+                              ]} 
+                            />
+                          </View>
+                          <Text style={styles.horizontalBarValue}>{trend.average_entrustment.toFixed(1)}</Text>
                         </View>
                       );
                     })}
@@ -742,37 +707,42 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textAlign: 'center',
   },
-  trendsBars: {
+  // Horizontal bar chart styles
+  horizontalBarsContainer: {
+    gap: 12,
+    marginTop: 8,
+  },
+  horizontalBarRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'flex-end',
-    height: 120,
-    marginHorizontal: 8,
-  },
-  trendsBar: {
     alignItems: 'center',
-    flex: 1,
-    height: '100%',
-    justifyContent: 'flex-end',
-    marginHorizontal: 2,
+    gap: 12,
+    minHeight: 32,
   },
-  trendsBarFill: {
-    width: 28,
-    borderRadius: 4,
-    marginBottom: 8,
-    minHeight: 6,
-  },
-  trendsBarLabel: {
-    fontSize: 10,
+  horizontalBarLabel: {
+    fontSize: 12,
     color: '#64748B',
-    marginBottom: 2,
-    textAlign: 'center',
+    fontWeight: '500',
+    width: 60,
+    textAlign: 'right',
   },
-  trendsBarValue: {
-    fontSize: 11,
-    fontWeight: 'bold',
+  horizontalBarTrack: {
+    flex: 1,
+    height: 24,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  horizontalBarFill: {
+    height: '100%',
+    borderRadius: 12,
+    minWidth: 4,
+  },
+  horizontalBarValue: {
+    fontSize: 12,
+    fontWeight: '600',
     color: '#1E293B',
-    textAlign: 'center',
+    width: 40,
+    textAlign: 'left',
   },
   emptyCard: {
     margin: 16,

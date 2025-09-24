@@ -32,6 +32,7 @@ import { CompetencyGrid } from './components/admin/CompetencyGrid';
 import { FacultyDashboard } from './components/FacultyDashboard';
 import { FacultyDetailView } from './components/FacultyDetailView';
 import ProgramPerformanceDashboard from './components/analytics/ProgramPerformanceDashboard';
+import { TraineePerformance } from './components/TraineePerformance';
 import { SiteManagement } from './components/admin/SiteManagement';
 import { LoginScreen } from './components/LoginScreen';
 import { ForgotPasswordScreen } from './components/auth/ForgotPasswordScreen';
@@ -49,6 +50,7 @@ function AppContent() {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedCohortId, setSelectedCohortId] = useState<string | null>(null);
   const [selectedFacultyId, setSelectedFacultyId] = useState<string | null>(null);
+  const [previousRoute, setPreviousRoute] = useState<string>('my-assessments'); // Track where user came from
   
   const { width } = Dimensions.get('window');
   const MOBILE_BREAKPOINT = 768;
@@ -76,6 +78,7 @@ function AppContent() {
   };
 
   const handleViewAssessment = (assessmentId: string) => {
+    setPreviousRoute(currentRoute); // Remember where we came from
     setSelectedAssessmentId(assessmentId);
     setCurrentRoute('assessment-detail');
   };
@@ -123,7 +126,7 @@ function AppContent() {
 
   const handleBackFromAssessment = () => {
     setSelectedAssessmentId(null);
-    setCurrentRoute('my-assessments');
+    setCurrentRoute(previousRoute); // Go back to where we came from
   };
 
   const handleLogout = async () => {
@@ -203,7 +206,7 @@ function AppContent() {
       case 'overview':
         return <Overview onNewAssessment={handleNewAssessment} userInfo={userInfo} user={user} />;
       case 'mailbox':
-        return <Mailbox />;
+        return <Mailbox onViewAssessment={handleViewAssessment} />;
       case 'new-assessment':
         return <NewAssessmentForm onNavigate={handleNavigate} />;
       case 'edit-assessment':
@@ -260,6 +263,8 @@ function AppContent() {
         return <CompetencyGrid user={user} />;
       case 'program-performance':
         return <ProgramPerformanceDashboard user={user} />;
+      case 'trainee-performance':
+        return <TraineePerformance />;
       case 'site-management':
         return <SiteManagement />;
       case 'support-request':

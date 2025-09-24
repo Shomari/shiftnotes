@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -30,18 +30,41 @@ interface Assessment {
 interface MailboxData {
   results: Assessment[];
   count: number;
-  unread_count: number;
+  unread_count?: number;
+  read_count?: number;
+  next?: string;
+  previous?: string;
 }
 
-export function Mailbox() {
-  const [mailboxData, setMailboxData] = useState<MailboxData | null>(null);
+interface MailboxProps {
+  onViewAssessment?: (assessmentId: string) => void;
+}
+
+export function Mailbox({ onViewAssessment }: MailboxProps = {}) {
+  const [unreadData, setUnreadData] = useState<MailboxData | null>(null);
+  const [readData, setReadData] = useState<MailboxData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<'unread' | 'read'>('unread');
+  
+  // Pagination state for both tabs
+  const [unreadPage, setUnreadPage] = useState(1);
+  const [readPage, setReadPage] = useState(1);
+  const pageSize = 10; // Smaller page size for mailbox
+  
+  // Ref for scroll view to control scroll position
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const loadMailboxData = async () => {
     try {
-      const data = await apiClient.getMailboxAssessments();
-      setMailboxData(data);
+      // Load current tab data with pagination
+      if (activeTab === 'unread') {
+        const unreadResponse = await apiClient.getMailboxAssessments(unreadPage, pageSize);
+        setUnreadData(unreadResponse);
+      } else {
+        const readResponse = await apiClient.getReadMailboxAssessments(readPage, pageSize);
+        setReadData(readResponse);
+      }
     } catch (error) {
       console.error('Failed to load mailbox data:', error);
       Alert.alert('Error', 'Failed to load mailbox data');
@@ -51,20 +74,28 @@ export function Mailbox() {
     }
   };
 
+  const loadBothTabsInitial = async () => {
+    try {
+      // Load first page of both tabs to get initial data and counts
+      const [unreadResponse, readResponse] = await Promise.all([
+        apiClient.getMailboxAssessments(1, pageSize),
+        apiClient.getReadMailboxAssessments(1, pageSize)
+      ]);
+      
+      setUnreadData(unreadResponse);
+      setReadData(readResponse);
+    } catch (error) {
+      console.error('Failed to load initial mailbox data:', error);
+      Alert.alert('Error', 'Failed to load mailbox data');
+    }
+  };
+
   const handleMarkAsRead = async (assessmentId: string) => {
     try {
       await apiClient.markAssessmentAsRead(assessmentId);
       
-      // Remove the assessment from the list
-      setMailboxData(prev => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          results: prev.results.filter(assessment => assessment.id !== assessmentId),
-          count: prev.count - 1,
-          unread_count: prev.unread_count - 1,
-        };
-      });
+      // Reload both unread and read data
+      await loadMailboxData();
 
       Alert.alert('Success', 'Assessment marked as read');
     } catch (error) {
@@ -78,12 +109,51 @@ export function Mailbox() {
     loadMailboxData();
   };
 
+
   useEffect(() => {
     loadMailboxData();
+  }, [activeTab, unreadPage, readPage]);
+
+  // Scroll to top when tab changes
+  useEffect(() => {
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({ y: 0, animated: true });
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    // Load initial data for both tabs when component mounts
+    loadBothTabsInitial();
   }, []);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
+  };
+
+  // Pagination functions
+  const getCurrentPage = () => activeTab === 'unread' ? unreadPage : readPage;
+  const setCurrentPage = (page: number) => {
+    if (activeTab === 'unread') {
+      setUnreadPage(page);
+    } else {
+      setReadPage(page);
+    }
+  };
+
+  const getCurrentData = () => activeTab === 'unread' ? unreadData : readData;
+  
+  const goToPreviousPage = () => {
+    const currentPage = getCurrentPage();
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const goToNextPage = () => {
+    const currentData = getCurrentData();
+    if (currentData?.next) {
+      setCurrentPage(getCurrentPage() + 1);
+    }
   };
 
   const getEntrustmentLabel = (level: number) => {
@@ -111,30 +181,67 @@ export function Mailbox() {
       <View style={styles.header}>
         <Text style={styles.title}>📬 Leadership Mailbox</Text>
         <Text style={styles.subtitle}>
-          Assessments with private comments ({mailboxData?.unread_count || 0} unread)
+          Assessments with private comments
         </Text>
+        
+        {/* Tab Navigation */}
+        <View style={styles.tabContainer}>
+          <Button
+            title={`Unread (${unreadData?.unread_count || 0})`}
+            onPress={() => {
+              setActiveTab('unread');
+              setUnreadPage(1); // Reset to first page when switching tabs
+            }}
+            variant={activeTab === 'unread' ? 'default' : 'outline'}
+            size="sm"
+            style={styles.tabButton}
+          />
+          <Button
+            title={`Read (${readData?.read_count || 0})`}
+            onPress={() => {
+              setActiveTab('read');
+              setReadPage(1); // Reset to first page when switching tabs
+            }}
+            variant={activeTab === 'read' ? 'default' : 'outline'}
+            size="sm"
+            style={styles.tabButton}
+          />
+        </View>
       </View>
 
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollView}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {mailboxData?.results.length === 0 ? (
-          <Card style={styles.emptyCard}>
-            <CardContent>
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyIcon}>📭</Text>
-                <Text style={styles.emptyTitle}>No Unread Messages</Text>
-                <Text style={styles.emptySubtitle}>
-                  All assessments with private comments have been reviewed
-                </Text>
-              </View>
-            </CardContent>
-          </Card>
-        ) : (
-          mailboxData?.results.map((assessment) => (
+        {(() => {
+          const currentData = activeTab === 'unread' ? unreadData : readData;
+          const isEmpty = !currentData?.results.length;
+          
+          if (isEmpty) {
+            return (
+              <Card style={styles.emptyCard}>
+                <CardContent>
+                  <View style={styles.emptyState}>
+                    <Text style={styles.emptyIcon}>📭</Text>
+                    <Text style={styles.emptyTitle}>
+                      {activeTab === 'unread' ? 'No Unread Messages' : 'No Read Messages'}
+                    </Text>
+                    <Text style={styles.emptySubtitle}>
+                      {activeTab === 'unread' 
+                        ? 'All assessments with private comments have been reviewed'
+                        : 'No assessments have been marked as read yet'
+                      }
+                    </Text>
+                  </View>
+                </CardContent>
+              </Card>
+            );
+          }
+          
+          return currentData?.results.map((assessment) => (
             <Card key={assessment.id} style={styles.assessmentCard}>
               <CardHeader>
                 <View style={styles.cardHeader}>
@@ -159,7 +266,9 @@ export function Mailbox() {
                     <Text style={styles.sectionLabel}>EPA Assessed:</Text>
                     {assessment.assessment_epas.map((epa, index) => (
                       <View key={index} style={styles.epaItem}>
-                        <Text style={styles.epaCode}>{epa.epa_code} - {epa.epa_title}</Text>
+                        <Text style={styles.epaCode}>
+                          {epa.epa_code.replace(/EPA(\d+)/, 'EPA $1')} - {epa.epa_title}
+                        </Text>
                         <Text style={styles.entrustmentLevel}>
                           {getEntrustmentLabel(epa.entrustment_level)}
                         </Text>
@@ -178,18 +287,83 @@ export function Mailbox() {
                   </View>
                 </View>
 
-                {/* Action Button */}
+                {/* Action Buttons */}
                 <View style={styles.actionSection}>
                   <Button
-                    title="Mark as Read"
-                    onPress={() => handleMarkAsRead(assessment.id)}
-                    style={styles.markReadButton}
+                    title="View Assessment"
+                    onPress={() => onViewAssessment?.(assessment.id)}
+                    variant="outline"
+                    size="sm"
+                    style={styles.viewButton}
                   />
+                  {activeTab === 'unread' && (
+                    <Button
+                      title="Mark as Read"
+                      onPress={() => handleMarkAsRead(assessment.id)}
+                      size="sm"
+                      style={styles.markReadButton}
+                    />
+                  )}
                 </View>
               </CardContent>
             </Card>
-          ))
-        )}
+          ));
+        })()}
+
+        {/* Pagination Controls */}
+        {(() => {
+          const currentData = activeTab === 'unread' ? unreadData : readData;
+          const currentPage = getCurrentPage();
+          const totalCount = currentData?.count || 0;
+          const totalPages = Math.ceil(totalCount / pageSize);
+          const startResult = ((currentPage - 1) * pageSize) + 1;
+          const endResult = Math.min(currentPage * pageSize, totalCount);
+          
+          console.log('Pagination debug:', { activeTab, totalCount, totalPages, currentPage, hasNext: !!currentData?.next });
+          
+          if (totalCount > 0) { // Show pagination info even for single page
+            return (
+              <View style={styles.paginationContainer}>
+                {/* Pagination Info */}
+                <View style={styles.paginationInfo}>
+                  <Text style={styles.paginationText}>
+                    Showing {startResult}-{endResult} of {totalCount} {activeTab} assessments
+                  </Text>
+                </View>
+                
+                {/* Pagination Controls - only show if multiple pages */}
+                {totalPages > 1 && (
+                  <View style={styles.paginationControls}>
+                    <Button
+                      title="← Previous"
+                      onPress={goToPreviousPage}
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage <= 1}
+                      style={[styles.paginationButton, currentPage <= 1 && styles.disabledButton]}
+                    />
+                    
+                    <View style={styles.pageInfo}>
+                      <Text style={styles.pageText}>
+                        Page {currentPage} of {totalPages}
+                      </Text>
+                    </View>
+                    
+                    <Button
+                      title="Next →"
+                      onPress={goToNextPage}
+                      variant="outline"
+                      size="sm"
+                      disabled={!currentData?.next}
+                      style={[styles.paginationButton, !currentData?.next && styles.disabledButton]}
+                    />
+                  </View>
+                )}
+              </View>
+            );
+          }
+          return null;
+        })()}
       </ScrollView>
     </View>
   );
@@ -226,6 +400,14 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     color: '#6b7280',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    marginTop: 16,
+    gap: 8,
+  },
+  tabButton: {
+    flex: 1,
   },
   scrollView: {
     flex: 1,
@@ -329,9 +511,51 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   actionSection: {
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  viewButton: {
+    minWidth: 120,
   },
   markReadButton: {
     paddingHorizontal: 20,
+    minWidth: 120,
+  },
+  
+  // Pagination styles
+  paginationContainer: {
+    padding: 16,
+    backgroundColor: '#ffffff',
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  paginationInfo: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  paginationText: {
+    fontSize: 14,
+    color: '#64748b',
+  },
+  paginationControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  paginationButton: {
+    minWidth: 100,
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  pageInfo: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  pageText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
   },
 });

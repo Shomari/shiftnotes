@@ -53,10 +53,24 @@ export function Overview({ onNewAssessment, userInfo, user: userProp }: Overview
       let allAssessments: ApiAssessment[] = [];
       
       if (user?.role === 'admin' || user?.role === 'leadership') {
-        // For admin/leadership: get all assessments from their program
-        console.log('Loading program-wide assessments for admin/leadership user');
-        const response = await apiClient.getAssessments({ limit: 100 });
+        // For admin/leadership: get program performance data for accurate metrics
+        console.log('Loading program-wide data for admin/leadership user');
+        const programData = await apiClient.getProgramPerformanceData(1); // Last 1 month for "this month"
+        const allTimeData = await apiClient.getProgramPerformanceData(24); // Last 24 months for "total"
+        
+        // Get recent assessments for activity feed
+        const response = await apiClient.getAssessments({ limit: 5 });
         allAssessments = response.results || [];
+        
+        // Set stats from program performance data
+        setStats({
+          thisMonth: programData.metrics?.assessments_in_period || 0,
+          total: allTimeData.metrics?.assessments_in_period || 0,
+          recentActivity: allAssessments.slice(0, 5),
+        });
+        
+        setAssessments(allAssessments);
+        return;
       } else if (user?.role === 'system-admin') {
         // System admin gets no assessment data
         setStats({

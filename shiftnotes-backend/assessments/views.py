@@ -15,43 +15,55 @@ class AssessmentViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['trainee', 'evaluator', 'status', 'shift_date']
     ordering = ['-created_at']
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        user = self.request.user
+        
+        # Security: filter by user's organization and program
+        if user.role == 'system-admin':
+            # System admins can see all submitted assessments + their own drafts
+            queryset = queryset.filter(
+                Q(status='submitted') | Q(status='draft', evaluator=user)
+            )
+        elif not user.program:
+            # No program = no assessments
+            return Assessment.objects.none()
+        elif user.role in ['admin', 'leadership']:
+            # Admin/leadership see all submitted assessments in their program + their own drafts
+            queryset = queryset.filter(
+                trainee__program=user.program
+            ).filter(
+                Q(status='submitted') | Q(status='draft', evaluator=user)
+            )
+        else:
+            # Faculty see submitted assessments they gave/received + their own drafts
+            queryset = queryset.filter(
+                Q(trainee=user) | Q(evaluator=user)
+            ).filter(
+                Q(status='submitted') | Q(status='draft', evaluator=user)
+            )
+        
+        # Handle ID-based filtering (much more reliable)
+        trainee_id = self.request.query_params.get('trainee_id')
+        if trainee_id:
+            queryset = queryset.filter(trainee_id=trainee_id)
+        
+        evaluator_id = self.request.query_params.get('evaluator_id')
+        if evaluator_id:
+            queryset = queryset.filter(evaluator_id=evaluator_id)
+        
+        epa_id = self.request.query_params.get('epa_id')
+        if epa_id:
+            queryset = queryset.filter(assessment_epas__epa_id=epa_id).distinct()
+        
+        return queryset
 
     def get_serializer_class(self):
         if self.action == 'create':
             return AssessmentCreateSerializer
         return AssessmentSerializer
 
-    def get_queryset(self):
-        user = self.request.user
-        
-        # System admins can see all assessments
-        if user.role == 'system-admin':
-            queryset = Assessment.objects.all()
-        elif not user.program:
-            # All other users need a program
-            queryset = Assessment.objects.none()
-        elif user.role in ['admin', 'leadership']:
-            # Admins and leadership can see all assessments in their program
-            queryset = Assessment.objects.filter(
-                Q(trainee__program=user.program) | 
-                Q(evaluator__program=user.program)
-            ).distinct()
-        else:
-            # Faculty and trainees can see assessments they gave or received
-            queryset = Assessment.objects.filter(
-                Q(trainee=user) | Q(evaluator=user)
-            ).distinct()
-        
-        # Apply date range filtering if provided
-        start_date = self.request.query_params.get('start_date')
-        end_date = self.request.query_params.get('end_date')
-        
-        if start_date:
-            queryset = queryset.filter(shift_date__gte=start_date)
-        if end_date:
-            queryset = queryset.filter(shift_date__lte=end_date)
-        
-        return queryset
 
     @action(detail=False, methods=['get'])
     def my_assessments(self, request):
@@ -130,7 +142,7 @@ class AssessmentViewSet(viewsets.ModelViewSet):
             )
         
         # Get assessments with private comments that current user hasn't acknowledged
-        assessments = Assessment.objects.filter(
+        assessments_queryset = Assessment.objects.filter(
             private_comments__isnull=False,
             private_comments__gt='',  # Has non-empty private comments
             status='submitted'  # Only submitted assessments
@@ -144,13 +156,86 @@ class AssessmentViewSet(viewsets.ModelViewSet):
         
         # Filter by program if not system admin
         if user.role != 'system-admin' and user.program:
-            assessments = assessments.filter(trainee__program=user.program)
+            assessments_queryset = assessments_queryset.filter(trainee__program=user.program)
         
-        serializer = self.get_serializer(assessments, many=True)
+        # Manual pagination implementation
+        from django.core.paginator import Paginator
+        page_number = request.GET.get('page', 1)
+        page_size = int(request.GET.get('limit', 20))
+        
+        paginator = Paginator(assessments_queryset, page_size)
+        page_obj = paginator.get_page(page_number)
+        
+        serializer = self.get_serializer(page_obj.object_list, many=True)
+        
+        # Build pagination URLs
+        next_url = None
+        previous_url = None
+        if page_obj.has_next():
+            next_url = f"{request.build_absolute_uri()}?page={page_obj.next_page_number()}&limit={page_size}"
+        if page_obj.has_previous():
+            previous_url = f"{request.build_absolute_uri()}?page={page_obj.previous_page_number()}&limit={page_size}"
+        
         return Response({
             'results': serializer.data,
-            'count': assessments.count(),
-            'unread_count': assessments.count()
+            'count': paginator.count,
+            'unread_count': paginator.count,
+            'next': next_url,
+            'previous': previous_url
+        })
+    
+    @action(detail=False, methods=['get'], url_path='mailbox/read')
+    def mailbox_read(self, request):
+        """Get assessments with private comments that have been read by current leadership user"""
+        user = request.user
+        
+        # Only leadership can access mailbox
+        if user.role not in ['leadership', 'admin', 'system-admin']:
+            return Response(
+                {'detail': 'Only leadership can access the mailbox.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Get assessments with private comments that current user HAS acknowledged
+        assessments_queryset = Assessment.objects.filter(
+            private_comments__isnull=False,
+            private_comments__gt='',  # Has non-empty private comments
+            status='submitted',  # Only submitted assessments
+            acknowledged_by=user  # Only assessments acknowledged by this user
+        ).select_related(
+            'trainee', 'evaluator'
+        ).prefetch_related(
+            'assessment_epas__epa'
+        ).order_by('-created_at')
+        
+        # Filter by program if not system admin
+        if user.role != 'system-admin' and user.program:
+            assessments_queryset = assessments_queryset.filter(trainee__program=user.program)
+        
+        # Manual pagination implementation
+        from django.core.paginator import Paginator
+        page_number = request.GET.get('page', 1)
+        page_size = int(request.GET.get('limit', 20))
+        
+        paginator = Paginator(assessments_queryset, page_size)
+        page_obj = paginator.get_page(page_number)
+        
+        serializer = self.get_serializer(page_obj.object_list, many=True)
+        
+        # Build pagination URLs
+        next_url = None
+        previous_url = None
+        if page_obj.has_next():
+            next_url = f"{request.build_absolute_uri()}?page={page_obj.next_page_number()}&limit={page_size}"
+        if page_obj.has_previous():
+            previous_url = f"{request.build_absolute_uri()}?page={page_obj.previous_page_number()}&limit={page_size}"
+        
+        return Response({
+            'results': serializer.data,
+            'count': paginator.count,
+            'read_count': paginator.count,
+            'next': next_url,
+            'previous': previous_url
         })
     
     @action(detail=True, methods=['post'], url_path='mark-read')

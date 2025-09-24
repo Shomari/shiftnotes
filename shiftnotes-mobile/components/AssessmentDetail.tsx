@@ -48,30 +48,23 @@ export function AssessmentDetail({ assessmentId, onBack }: AssessmentDetailProps
   const loadAssessmentDetail = async () => {
     try {
       setLoading(true);
-      const response = await apiClient.getAssessments();
-      console.log('Fetched assessments for detail:', response);
+      // Get the specific assessment by ID - much more efficient!
+      const foundAssessment = await apiClient.getAssessment(assessmentId);
+      console.log('Fetched assessment detail:', foundAssessment);
       
-      // Find the specific assessment
-      const foundAssessment = response.results?.find(a => a.id === assessmentId);
+      // Transform API data to match our interface
+      const transformedAssessment: Assessment = {
+        ...foundAssessment,
+        epas: foundAssessment.assessment_epas?.map(epa => ({
+          code: epa.epa_code || 'Unknown EPA',
+          title: epa.epa_title || 'Unknown Title',
+          level: epa.entrustment_level || 1,
+          what_went_well: epa.what_went_well || '',
+          what_could_improve: epa.what_could_improve || '',
+        })) || [],
+      };
       
-      if (foundAssessment) {
-        // Transform API data to match our interface
-        const transformedAssessment: Assessment = {
-          ...foundAssessment,
-          epas: foundAssessment.assessment_epas?.map(epa => ({
-            code: epa.epa_code || 'Unknown EPA',
-            title: epa.epa_title || 'Unknown Title',
-            level: epa.entrustment_level || 1,
-            what_went_well: epa.what_went_well || '',
-            what_could_improve: epa.what_could_improve || '',
-          })) || [],
-        };
-        
-        setAssessment(transformedAssessment);
-      } else {
-        Alert.alert('Error', 'Assessment not found');
-        onBack();
-      }
+      setAssessment(transformedAssessment);
     } catch (error) {
       console.error('Error loading assessment detail:', error);
       Alert.alert('Error', 'Failed to load assessment details');
@@ -246,7 +239,9 @@ export function AssessmentDetail({ assessmentId, onBack }: AssessmentDetailProps
               {assessment.epas.map((epa, index) => (
                 <View key={index} style={styles.epaCard}>
                   <View style={styles.epaHeader}>
-                    <Text style={styles.epaCode}>{epa.code} - {epa.title}</Text>
+                    <Text style={styles.epaCode}>
+                      {epa.code.replace(/EPA(\d+)/, 'EPA $1')} - {epa.title}
+                    </Text>
                     <View style={styles.entrustmentBadge}>
                       <Text style={styles.entrustmentLevel}>Level {epa.level}</Text>
                     </View>

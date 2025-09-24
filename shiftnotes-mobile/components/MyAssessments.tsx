@@ -449,14 +449,6 @@ export function MyAssessments({ onViewAssessment, onEditAssessment, onDiscardDra
                     <Text style={styles.traineeName}>
                       {user?.role === 'trainee' ? assessment.evaluator_name : assessment.trainee_name}
                     </Text>
-                    <View
-                      style={[
-                        styles.statusBadge,
-                        { backgroundColor: getStatusColor(assessment.status) },
-                      ]}
-                    >
-                      <Text style={styles.statusText}>{getStatusLabel(assessment.status)}</Text>
-                    </View>
                   </View>
                   <View style={styles.actionButtons}>
                     {assessment.status === 'draft' && (
@@ -510,7 +502,7 @@ export function MyAssessments({ onViewAssessment, onEditAssessment, onDiscardDra
                     {assessment.epas.length > 0 ? (
                       <View style={styles.epaBadge}>
                         <Text style={styles.epaText}>
-                          {assessment.epas[0].code} - {assessment.epas[0].title} (Level {assessment.epas[0].level})
+                          {assessment.epas[0].code.replace(/EPA(\d+)/, 'EPA $1')} - {assessment.epas[0].title} (Level {assessment.epas[0].level})
                         </Text>
                       </View>
                     ) : (

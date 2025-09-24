@@ -99,6 +99,29 @@ class UserViewSet(viewsets.ModelViewSet):
             'results': serializer.data,
             'count': trainees.count()
         })
+    
+    @action(detail=False, methods=['get'])
+    def faculty(self, request):
+        """Get faculty and leadership users from the requesting user's program"""
+        # Get the requesting user's program
+        if not request.user.program:
+            # If user has no program, return empty result
+            return Response({
+                'results': [],
+                'count': 0
+            })
+        
+        # Get faculty and leadership from the same program
+        faculty = User.objects.filter(
+            role__in=['faculty', 'leadership'],
+            program=request.user.program
+        )
+        
+        serializer = UserSerializer(faculty, many=True)
+        return Response({
+            'results': serializer.data,
+            'count': faculty.count()
+        })
 
 class CohortViewSet(viewsets.ModelViewSet):
     queryset = Cohort.objects.all()

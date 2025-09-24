@@ -649,3 +649,154 @@ def competency_grid_data(request):
             }
         }
     })
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def trainee_performance_data(request):
+    """Get trainee performance data with filtering and sorting capabilities"""
+    
+    # Get the user's program
+    if not request.user.program:
+        return JsonResponse({'error': 'User is not assigned to a program'}, status=400)
+    
+    program = request.user.program
+    
+    # Parse filters
+    cohort_id = request.GET.get('cohort')
+    months = int(request.GET.get('months', 6))  # Default to 6 months
+    sort_by = request.GET.get('sort_by', 'name')  # Default sort by name
+    sort_order = request.GET.get('sort_order', 'asc')  # asc or desc
+    
+    # Calculate date range for the specified months
+    end_date = timezone.now()
+    start_date = end_date - timedelta(days=months * 30)
+    
+    # Filter assessments by date range
+    assessments_filter = Q(
+        trainee__program=program, 
+        status='submitted',
+        shift_date__gte=start_date.date(),
+        shift_date__lte=end_date.date()
+    )
+    
+    # Get trainees query
+    trainees_query = User.objects.filter(
+        role='trainee',
+        program=program,
+        deactivated_at__isnull=True  # Only active trainees
+    )
+    
+    # Apply cohort filter if provided
+    if cohort_id:
+        try:
+            cohort = Cohort.objects.get(id=cohort_id, program=program)
+            trainees_query = trainees_query.filter(cohort=cohort)
+        except Cohort.DoesNotExist:
+            return JsonResponse({'error': 'Cohort not found'}, status=404)
+    
+    # Get trainee performance data
+    trainee_performance = []
+    
+    for trainee in trainees_query:
+        # Get assessments for this trainee with date filtering
+        trainee_assessments = Assessment.objects.filter(
+            assessments_filter & Q(trainee=trainee)
+        )
+        
+        # Calculate metrics
+        total_assessments = trainee_assessments.count()
+        avg_entrustment = trainee_assessments.aggregate(
+            avg=Avg('assessment_epas__entrustment_level')
+        )['avg']
+        
+        # Get latest assessment date
+        latest_assessment = trainee_assessments.order_by('-created_at').first()
+        
+        # Get all-time assessment count (not filtered by date)
+        lifetime_assessments = Assessment.objects.filter(
+            trainee=trainee,
+            status='submitted'
+        ).count()
+        
+        trainee_performance.append({
+            'id': str(trainee.id),
+            'name': trainee.name,
+            'cohort_id': str(trainee.cohort.id) if trainee.cohort else None,
+            'cohort_name': trainee.cohort.name if trainee.cohort else 'No Cohort',
+            'total_assessments': total_assessments,
+            'lifetime_assessments': lifetime_assessments,
+            'avg_entrustment_level': round(avg_entrustment, 2) if avg_entrustment else None,
+            'latest_assessment_date': latest_assessment.created_at.isoformat() if latest_assessment else None,
+            'has_assessments': total_assessments > 0
+        })
+    
+    # Apply sorting
+    reverse_sort = sort_order == 'desc'
+    
+    if sort_by == 'name':
+        # Sort by last name
+        trainee_performance.sort(
+            key=lambda x: x['name'].split()[-1].lower(),
+            reverse=reverse_sort
+        )
+    elif sort_by == 'assessments':
+        trainee_performance.sort(
+            key=lambda x: x['total_assessments'],
+            reverse=reverse_sort
+        )
+    elif sort_by == 'avg_level':
+        # Sort by avg level, putting None values at the end
+        trainee_performance.sort(
+            key=lambda x: (x['avg_entrustment_level'] is None, x['avg_entrustment_level'] or 0),
+            reverse=reverse_sort
+        )
+    elif sort_by == 'cohort':
+        trainee_performance.sort(
+            key=lambda x: x['cohort_name'],
+            reverse=reverse_sort
+        )
+    elif sort_by == 'latest_assessment':
+        # Sort by latest assessment date, putting None values at the end
+        trainee_performance.sort(
+            key=lambda x: (x['latest_assessment_date'] is None, x['latest_assessment_date'] or ''),
+            reverse=reverse_sort
+        )
+    
+    # Get cohorts for filter dropdown
+    cohorts = Cohort.objects.filter(program=program).order_by('-start_date')
+    cohort_options = [
+        {
+            'id': str(cohort.id),
+            'name': cohort.name,
+            'trainee_count': User.objects.filter(role='trainee', cohort=cohort).count()
+        }
+        for cohort in cohorts
+    ]
+    
+    return JsonResponse({
+        'trainees': trainee_performance,
+        'cohorts': cohort_options,
+        'summary': {
+            'total_trainees': len(trainee_performance),
+            'trainees_with_assessments': len([t for t in trainee_performance if t['has_assessments']]),
+            'total_assessments': sum(t['total_assessments'] for t in trainee_performance),
+            'average_assessments_per_trainee': round(
+                sum(t['total_assessments'] for t in trainee_performance) / len(trainee_performance), 1
+            ) if trainee_performance else 0,
+            'overall_avg_entrustment': round(
+                sum(t['avg_entrustment_level'] for t in trainee_performance if t['avg_entrustment_level']) / 
+                len([t for t in trainee_performance if t['avg_entrustment_level']]), 2
+            ) if [t for t in trainee_performance if t['avg_entrustment_level']] else None
+        },
+        'filters': {
+            'cohort': cohort_id,
+            'months': months,
+            'sort_by': sort_by,
+            'sort_order': sort_order
+        },
+        'timeframe': {
+            'months': months,
+            'start_date': start_date.date().isoformat(),
+            'end_date': end_date.date().isoformat()
+        }
+    })

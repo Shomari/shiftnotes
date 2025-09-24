@@ -64,9 +64,14 @@ const getNavigationItems = (userRole?: string): NavigationItem[] => {
         icon: '🎯',
       },
       {
+        id: 'trainee-performance',
+        title: 'Trainee Performance',
+        icon: '🎓',
+      },
+      {
         id: 'competency-grid',
         title: 'Competency Grid',
-        icon: '📊',
+        icon: '📃',
       },
       {
         id: 'site-management',
@@ -106,9 +111,14 @@ const getNavigationItems = (userRole?: string): NavigationItem[] => {
               icon: '📈',
             },
             {
+              id: 'trainee-performance',
+              title: 'Trainee Performance',
+              icon: '🎓',
+            },
+            {
               id: 'competency-grid',
               title: 'Competency Grid',
-              icon: '📊',
+              icon: '📃',
             },
           ];
         }
