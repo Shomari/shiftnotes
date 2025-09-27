@@ -60,6 +60,8 @@ export interface Assessment {
   traineeName: string
   evaluatorName: string
   privateComments?: string
+  whatWentWell?: string;
+  whatCouldImprove?: string;
   acknowledgedAt?: string
   acknowledgedBy?: string
 }
@@ -69,8 +71,6 @@ export interface AssessmentEPA {
   epaCode: string
   epaTitle: string
   entrustmentLevel: 1 | 2 | 3 | 4 | 5
-  whatWentWell: string
-  whatCouldImprove: string
 }
 
 export interface Milestone {
@@ -105,6 +105,6 @@ export interface AssessmentFormData {
   shiftDate: string
   location: string
   privateComments: string
-  selectedEPAs: string[]
-  epaAssessments: Record<string, Partial<AssessmentEPA>>
+  whatWentWell: string;
+  whatCouldImprove: string;
 }

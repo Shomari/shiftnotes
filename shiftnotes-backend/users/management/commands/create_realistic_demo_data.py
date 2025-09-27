@@ -642,48 +642,20 @@ class Command(BaseCommand):
                         datetime.min.time().replace(hour=random.randint(8, 18), minute=random.randint(0, 59))
                     )
                     
-                    # Create assessment (created_at will be auto-set, then we'll update it)
-                    assessment = Assessment.objects.create(
-                        trainee=trainee,
-                        evaluator=evaluator,
-                        shift_date=shift_date,
-                        location=site.name,
-                        status='submitted',
-                        private_comments=private_comment
-                    )
-                    
-                    # Update created_at to our realistic date (bypassing auto_now_add)
-                    Assessment.objects.filter(id=assessment.id).update(created_at=creation_datetime)
-                    
                     # Create multiple EPAs with individual variance for realistic competency distribution
                     selected_epas = random.sample(epa_list, min(num_epas, len(epa_list)))
                     
+                    # Pre-calculate entrustment levels for feedback generation
+                    epa_data_for_feedback = []
                     for epa in selected_epas:
-                        # Create much more realistic variance patterns
-                        # Each trainee has individual strengths and weaknesses across competencies
-                        
-                        # Create trainee-specific competency bias (some trainees are better at certain areas)
+                        # Create trainee-specific competency bias
                         trainee_seed = hash(f"{trainee.id}_{epa.code}") % 1000
                         random.seed(trainee_seed)
                         
-                        # Competency-specific variance - some EPAs are naturally harder/easier
-                        epa_difficulty_modifier = {
-                            # Clinical EPAs tend to have higher scores
-                            'EPA1': 0.2, 'EPA2': 0.1, 'EPA3': 0.0, 'EPA4': 0.1,
-                            # Procedure EPAs more variable
-                            'EPA10': -0.3, 'EPA11': -0.2, 'EPA12': -0.1, 'EPA13': -0.2,
-                            # Communication generally good
-                            'EPA18': 0.3, 'EPA19': 0.2,
-                            # Systems-based practice often lower
-                            'EPA17': -0.4, 'EPA20': -0.3, 'EPA21': -0.5, 'EPA22': -0.2
-                        }.get(epa.code, 0.0)
+                        # EPA difficulty modifier
+                        epa_difficulty_modifier = self.get_epa_difficulty_modifier(epa.code)
                         
-                        # Individual trainee variance (much more aggressive)
-                        # 40% normal variance (±0.8)
-                        # 35% moderate outliers (±1.2 to ±1.8) 
-                        # 20% strong outliers (±2.0 to ±2.8)
-                        # 5% extreme outliers (±3.0+)
-                        
+                        # Individual trainee variance (realistic distribution)
                         variance_type = random.choices(
                             ['normal', 'moderate', 'strong', 'extreme'], 
                             weights=[40, 35, 20, 5]
@@ -712,19 +684,36 @@ class Command(BaseCommand):
                         
                         # Apply all variance factors
                         final_level = base_level_for_time + variance + epa_difficulty_modifier + random.uniform(-0.3, 0.3)
-                        
-                        # Clamp to valid range but allow more extreme values
                         epa_entrustment_level = min(5, max(1, round(final_level)))
                         
-                        # Generate realistic feedback for this specific EPA and level
-                        what_went_well, what_could_improve = self.generate_realistic_feedback(epa, epa_entrustment_level)
-                        
+                        epa_data_for_feedback.append({
+                            'epa': epa,
+                            'entrustment_level': epa_entrustment_level
+                        })
+                    
+                    # Generate overall feedback for the assessment
+                    overall_feedback = self.generate_overall_assessment_feedback(epa_data_for_feedback, trainee, evaluator)
+                    
+                    # Create assessment (created_at will be auto-set, then we'll update it)
+                    assessment = Assessment.objects.create(
+                        trainee=trainee,
+                        evaluator=evaluator,
+                        shift_date=shift_date,
+                        location=site.name,
+                        status='submitted',
+                        private_comments=private_comment,
+                        what_went_well=overall_feedback['what_went_well'],
+                        what_could_improve=overall_feedback['what_could_improve']
+                    )
+                    
+                    # Update created_at to our realistic date (bypassing auto_now_add)
+                    Assessment.objects.filter(id=assessment.id).update(created_at=creation_datetime)
+                    
+                    for epa_data in epa_data_for_feedback:
                         AssessmentEPA.objects.create(
                             assessment=assessment,
-                            epa=epa,
-                            entrustment_level=epa_entrustment_level,
-                            what_went_well=what_went_well,
-                            what_could_improve=what_could_improve
+                            epa=epa_data['epa'],
+                            entrustment_level=epa_data['entrustment_level']
                         )
                     
                     if private_comment:
@@ -1099,11 +1088,11 @@ class Command(BaseCommand):
         if not self.epa_competency_descriptions or epa_code not in self.epa_competency_descriptions:
             # Fallback to generic descriptions
             generic_descriptions = {
-                1: "I had to do it (Requires constant direct supervision)",
-                2: "I helped a lot (Requires considerable direct supervision)", 
-                3: "I helped a little (Requires minimal direct supervision)",
-                4: "I needed to be there but did not help (Requires indirect supervision)",
-                5: "I didn't need to be there at all (No supervision required)"
+                1: "I had to do it (Requires constant direct supervision and myself or others' hands-on action for completion)",
+                2: "I helped a lot (Requires considerable direct supervision and myself or others' guidance for completion)",
+                3: "I helped a little (Requires minimal direct supervision or guidance from myself or others for completion)",
+                4: "I needed to be there but did not help (Requires indirect supervision and no guidance by myself or others)",
+                5: "I didn't need to be there at all (Does not require any supervision or guidance by myself or others)"
             }
             return generic_descriptions.get(entrustment_level, "Unknown level")
         
@@ -1120,6 +1109,109 @@ class Command(BaseCommand):
         competency_data = epa_competencies[first_competency_code]
         
         return competency_data['levels'].get(entrustment_level, "Unknown level")
+
+    def generate_overall_assessment_feedback(self, selected_epas, trainee, evaluator):
+        """Generate overall feedback for the entire assessment based on selected EPAs"""
+        
+        # Calculate average performance across all EPAs for this assessment
+        avg_performance = sum(epa['entrustment_level'] for epa in selected_epas) / len(selected_epas)
+        
+        # Generate what went well based on overall performance
+        what_went_well_options = {
+            'high': [
+                "Excellent clinical reasoning and decision-making throughout the shift.",
+                "Demonstrated strong leadership and communication skills.",
+                "Showed exceptional professionalism and patient care.",
+                "Efficiently managed multiple complex cases with minimal supervision.",
+                "Excellent teaching and mentoring of junior staff."
+            ],
+            'good': [
+                "Good clinical performance with appropriate decision-making.",
+                "Effective communication with patients and team members.",
+                "Demonstrated solid medical knowledge and application.",
+                "Worked well independently on most cases.",
+                "Showed good judgment in seeking help when needed."
+            ],
+            'average': [
+                "Demonstrated basic competency in clinical tasks.",
+                "Showed willingness to learn and improve.",
+                "Maintained professional behavior throughout the shift.",
+                "Completed assigned tasks with appropriate supervision.",
+                "Asked relevant questions when uncertain."
+            ],
+            'needs_improvement': [
+                "Showed effort but needs continued development.",
+                "Demonstrated basic understanding of clinical concepts.",
+                "Maintained professional demeanor despite challenges.",
+                "Recognized limitations and sought help appropriately.",
+                "Showed commitment to learning and improvement."
+            ]
+        }
+        
+        # Generate what could improve based on overall performance
+        what_could_improve_options = {
+            'high': [
+                "Continue developing expertise in complex case management.",
+                "Consider taking on more teaching responsibilities.",
+                "Explore opportunities for research or quality improvement.",
+                "Focus on advanced procedural skills development.",
+                "Continue excellent work with minor refinements."
+            ],
+            'good': [
+                "Work on efficiency in clinical decision-making.",
+                "Develop more systematic approach to patient assessment.",
+                "Improve confidence in independent decision-making.",
+                "Focus on advanced clinical skills development.",
+                "Enhance teaching skills with junior colleagues."
+            ],
+            'average': [
+                "Improve clinical reasoning and differential diagnosis skills.",
+                "Work on efficiency and time management.",
+                "Develop more confidence in patient interactions.",
+                "Focus on strengthening medical knowledge base.",
+                "Practice more systematic approach to patient care."
+            ],
+            'needs_improvement': [
+                "Focus on fundamental clinical knowledge review.",
+                "Work on basic patient assessment skills.",
+                "Improve organization and time management.",
+                "Develop better communication strategies.",
+                "Seek additional mentoring and educational opportunities."
+            ]
+        }
+        
+        # Determine performance category
+        if avg_performance >= 4.5:
+            category = 'high'
+        elif avg_performance >= 3.5:
+            category = 'good'
+        elif avg_performance >= 2.5:
+            category = 'average'
+        else:
+            category = 'needs_improvement'
+        
+        # Select random feedback from appropriate category
+        what_went_well = random.choice(what_went_well_options[category])
+        what_could_improve = random.choice(what_could_improve_options[category])
+        
+        return {
+            'what_went_well': what_went_well,
+            'what_could_improve': what_could_improve
+        }
+
+    def get_epa_difficulty_modifier(self, epa_code):
+        """Get difficulty modifier for specific EPAs"""
+        epa_difficulty_modifiers = {
+            # Clinical EPAs tend to have higher scores
+            'EPA1': 0.2, 'EPA2': 0.1, 'EPA3': 0.0, 'EPA4': 0.1,
+            # Procedure EPAs more variable
+            'EPA10': -0.3, 'EPA11': -0.2, 'EPA12': -0.1, 'EPA13': -0.2,
+            # Communication generally good
+            'EPA18': 0.3, 'EPA19': 0.2,
+            # Systems-based practice often lower
+            'EPA17': -0.4, 'EPA20': -0.3, 'EPA21': -0.5, 'EPA22': -0.2
+        }
+        return epa_difficulty_modifiers.get(epa_code, 0.0)
 
     def select_balanced_epa(self, epa_list, assessment_num, total_assessments):
         """Select EPA with better distribution to ensure all EPAs get coverage"""

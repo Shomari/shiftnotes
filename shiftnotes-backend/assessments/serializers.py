@@ -13,33 +13,21 @@ class AssessmentEPASerializer(serializers.ModelSerializer):
         model = AssessmentEPA
         fields = [
             'id', 'epa', 'epa_code', 'epa_title', 'epa_category',
-            'entrustment_level', 'entrustment_level_description', 'what_went_well', 'what_could_improve', 'created_at'
+            'entrustment_level', 'entrustment_level_description', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
     
     def get_entrustment_level_description(self, obj):
-        """Get the appropriate milestone level description from SubCompetency"""
-        # Get the first SubCompetency mapped to this EPA
-        # In a more sophisticated implementation, you might want to:
-        # 1. Let evaluators choose which specific competency they're assessing
-        # 2. Use the most relevant competency based on assessment context
-        # 3. Combine multiple competency descriptions
-        
-        sub_competency = obj.epa.sub_competencies.first()
-        if not sub_competency:
-            # Fallback to generic descriptions if no SubCompetency is mapped
-            generic_descriptions = {
-                1: "I had to do it (Requires constant direct supervision)",
-                2: "I helped a lot (Requires considerable direct supervision)",
-                3: "I helped a little (Requires minimal direct supervision)",
-                4: "I needed to be there but did not help (Requires indirect supervision)",
-                5: "I didn't need to be there at all (No supervision required)"
-            }
-            return generic_descriptions.get(obj.entrustment_level, "Unknown level")
-        
-        # Get the appropriate milestone level description
-        level_field = f'milestone_level_{obj.entrustment_level}'
-        return getattr(sub_competency, level_field, "Unknown level")
+        """Always use generic entrustment level descriptions for consistency"""
+        # Use consistent generic descriptions across all EPAs
+        generic_descriptions = {
+            1: "I had to do it (Requires constant direct supervision and myself or others' hands-on action for completion)",
+            2: "I helped a lot (Requires considerable direct supervision and myself or others' guidance for completion)",
+            3: "I helped a little (Requires minimal direct supervision or guidance from myself or others for completion)",
+            4: "I needed to be there but did not help (Requires indirect supervision and no guidance by myself or others)",
+            5: "I didn't need to be there at all (Does not require any supervision or guidance by myself or others)"
+        }
+        return generic_descriptions.get(obj.entrustment_level, "Unknown level")
 
 class AssessmentSerializer(serializers.ModelSerializer):
     trainee_name = serializers.CharField(source='trainee.name', read_only=True)
@@ -55,6 +43,7 @@ class AssessmentSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'trainee', 'trainee_name', 'evaluator', 'evaluator_name',
             'shift_date', 'location', 'status', 'private_comments',
+            'what_went_well', 'what_could_improve',
             'acknowledged_by', 'acknowledged_by_names', 'is_read_by_current_user',
             'created_at', 'updated_at', 'assessment_epas', 'epa_count', 'average_entrustment'
         ]
@@ -85,7 +74,7 @@ class AssessmentCreateSerializer(serializers.ModelSerializer):
         model = Assessment
         fields = [
             'trainee', 'evaluator', 'shift_date', 'location', 'status',
-            'private_comments', 'assessment_epas'
+            'private_comments', 'what_went_well', 'what_could_improve', 'assessment_epas'
         ]
 
     def create(self, validated_data):

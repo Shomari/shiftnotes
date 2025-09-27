@@ -219,13 +219,16 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8080",
     "http://localhost:8081",
+    "http://localhost:8082",      # Additional Expo port
     "http://localhost:8001",      # For web mode testing
     "http://127.0.0.1:3000",
     "http://127.0.0.1:8080",
     "http://127.0.0.1:8081", 
+    "http://127.0.0.1:8082",      # Additional Expo port
     "http://127.0.0.1:8001",      # For web mode testing
     "http://192.168.86.20:8080",  # Expo development server
     "http://192.168.86.20:8081",  # Expo development server alternate port
+    "http://192.168.86.20:8082",  # Expo development server additional port
     "http://192.168.86.20:8001",  # Local IP for physical device testing
     "http://44.197.181.141:8000",
     "http://44.197.181.141:8001",

@@ -15,13 +15,18 @@ class EPACategorySerializer(serializers.ModelSerializer):
 class EPASerializer(serializers.ModelSerializer):
     program_name = serializers.CharField(source='program.name', read_only=True)
     category_title = serializers.CharField(source='category.title', read_only=True)
+    sub_competencies = serializers.SerializerMethodField()
     
     class Meta:
         model = EPA
         fields = [
             'id', 'code', 'title', 'description', 'is_active',
-            'program', 'program_name', 'category', 'category_title'
+            'program', 'program_name', 'category', 'category_title', 'sub_competencies'
         ]
+    
+    def get_sub_competencies(self, obj):
+        """Get SubCompetencies mapped to this EPA"""
+        return [{'id': sc.id, 'code': sc.code, 'title': sc.title} for sc in obj.sub_competencies.all()]
         
     def validate(self, data):
         """Validate that EPA code is unique within the program"""

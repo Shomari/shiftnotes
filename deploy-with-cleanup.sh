@@ -1,7 +1,11 @@
 #!/bin/bash
 
-# EPAnotes Backend Deployment Script with Docker Cleanup
-# This script cleans up old Docker resources before deploying to prevent memory/disk issues
+# Configuration
+KEY_PATH="~/.ssh/shiftnotes-key.pem"
+USER="ec2-user"
+HOST="52.200.99.7"
+PROJECT_DIR="shiftnotes"
+BACKEND_DIR="shiftnotes-backend"
 
 set -e  # Exit on any error
 

@@ -154,3 +154,6 @@ coverage.xml
 
 # Misc
 *.orig
+
+# Landing page (separate repository)
+epanotes-landing-page/

@@ -31,8 +31,6 @@ interface Assessment extends ApiAssessment {
     code: string;
     title: string;
     level: number;
-    what_went_well: string;
-    what_could_improve: string;
   }>;
 }
 
@@ -60,8 +58,6 @@ export function AssessmentDetail({ assessmentId, onBack }: AssessmentDetailProps
           title: epa.epa_title || 'Unknown Title',
           level: epa.entrustment_level || 1,
           entrustment_level_description: epa.entrustment_level_description || '',
-          what_went_well: epa.what_went_well || '',
-          what_could_improve: epa.what_could_improve || '',
         })) || [],
       };
       
@@ -72,6 +68,19 @@ export function AssessmentDetail({ assessmentId, onBack }: AssessmentDetailProps
       onBack();
     } finally {
       setLoading(false);
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'submitted':
+        return 'Submitted';
+      case 'draft':
+        return 'Draft';
+      case 'locked':
+        return 'Locked';
+      default:
+        return status;
     }
   };
 
@@ -88,17 +97,10 @@ export function AssessmentDetail({ assessmentId, onBack }: AssessmentDetailProps
     }
   };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'submitted':
-        return 'Submitted';
-      case 'draft':
-        return 'Draft';
-      case 'locked':
-        return 'Locked';
-      default:
-        return status;
-    }
+  const getEntrustmentLevelColor = (level: number) => {
+    if (level === 1) return '#f97316'; // Orange
+    if (level <= 3) return '#f59e0b'; // Yellow
+    return '#3b82f6'; // Blue
   };
 
   const getEntrustmentLevelText = (epa: any) => {
@@ -236,9 +238,9 @@ export function AssessmentDetail({ assessmentId, onBack }: AssessmentDetailProps
                 <View key={index} style={styles.epaCard}>
                   <View style={styles.epaHeader}>
                     <Text style={styles.epaCode}>
-                      {epa.code.replace(/EPA(\d+)/, 'EPA $1')} - {epa.title}
+                      {epa.code}: {epa.title}
                     </Text>
-                    <View style={styles.entrustmentBadge}>
+                    <View style={[styles.entrustmentBadge, { backgroundColor: getEntrustmentLevelColor(epa.level) }]}>
                       <Text style={styles.entrustmentLevel}>Level {epa.level}</Text>
                     </View>
                   </View>
@@ -246,23 +248,41 @@ export function AssessmentDetail({ assessmentId, onBack }: AssessmentDetailProps
                   <Text style={styles.entrustmentDescription}>
                     {getEntrustmentLevelText(epa)}
                   </Text>
-                  
-                  <View style={styles.feedbackSection}>
-                    <View style={styles.feedbackItem}>
-                      <Text style={styles.feedbackLabel}>What went well:</Text>
-                      <Text style={styles.feedbackText}>{epa.what_went_well}</Text>
-                    </View>
-                    
-                    <View style={styles.feedbackItem}>
-                      <Text style={styles.feedbackLabel}>What could improve:</Text>
-                      <Text style={styles.feedbackText}>{epa.what_could_improve}</Text>
-                    </View>
-                  </View>
                 </View>
               ))}
             </View>
           </CardContent>
         </Card>
+
+        {/* Overall Feedback */}
+        {(assessment.what_went_well || assessment.what_could_improve) && (
+          <Card style={styles.epasCard}>
+            <CardHeader>
+              <View style={styles.cardHeaderWithIcon}>
+                <Text style={styles.cardIcon}>📝</Text>
+                <View style={styles.cardTitleContainer}>
+                  <CardTitle>Overall Feedback</CardTitle>
+                </View>
+              </View>
+            </CardHeader>
+            <CardContent>
+              <View style={styles.feedbackSection}>
+                {assessment.what_went_well && (
+                  <View style={styles.feedbackItem}>
+                    <Text style={styles.feedbackLabel}>What went well:</Text>
+                    <Text style={styles.feedbackText}>{assessment.what_went_well}</Text>
+                  </View>
+                )}
+                {assessment.what_could_improve && (
+                  <View style={styles.feedbackItem}>
+                    <Text style={styles.feedbackLabel}>What could improve:</Text>
+                    <Text style={styles.feedbackText}>{assessment.what_could_improve}</Text>
+                  </View>
+                )}
+              </View>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Private Comments (only for faculty/leadership, NOT trainees) */}
         {user?.role !== 'trainee' && assessment.private_comments && (
@@ -445,6 +465,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#1e293b',
+    flex: 1,
   },
   entrustmentBadge: {
     backgroundColor: '#3b82f6',

@@ -17,7 +17,6 @@ import {
 } from 'react-native';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Input } from '../ui/Input';
-import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
 // import { Checkbox } from '../ui/Checkbox';
 import { 
@@ -26,7 +25,6 @@ import {
   ApiCoreCompetency, 
   ApiSubCompetency, 
   ApiSubCompetencyEPA,
-  ApiEPACategory,
   ApiProgram
 } from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
@@ -46,8 +44,6 @@ const isTablet = width >= 768;
 interface EPAFormData {
   code: string;
   title: string;
-  description: string;
-  category: string;
   is_active: boolean;
   sub_competencies: string[];
 }
@@ -62,7 +58,6 @@ interface GroupedSubCompetencies {
 export function EPAManagement() {
   const { user } = useAuth();
   const [epas, setEPAs] = useState<ApiEPA[]>([]);
-  const [epaCategories, setEpaCategories] = useState<ApiEPACategory[]>([]);
   const [coreCompetencies, setCoreCompetencies] = useState<ApiCoreCompetency[]>([]);
   const [subCompetencies, setSubCompetencies] = useState<ApiSubCompetency[]>([]);
   const [subCompetencyEPAs, setSubCompetencyEPAs] = useState<ApiSubCompetencyEPA[]>([]);
@@ -76,8 +71,6 @@ export function EPAManagement() {
   const [formData, setFormData] = useState<EPAFormData>({
     code: '',
     title: '',
-    description: '',
-    category: '',
     is_active: true,
     sub_competencies: [],
   });
@@ -106,16 +99,14 @@ export function EPAManagement() {
 
     setLoading(true);
     try {
-      const [epasResponse, epaCategoriesResponse, coreCompetenciesResponse, subCompetenciesResponse, subCompetencyEPAsResponse] = await Promise.all([
+      const [epasResponse, coreCompetenciesResponse, subCompetenciesResponse, subCompetencyEPAsResponse] = await Promise.all([
         apiClient.getEPAs(user.program),
-        apiClient.getEPACategories(user.program),
         apiClient.getCoreCompetencies(),
         apiClient.getSubCompetencies(),
         apiClient.getSubCompetencyEPAs(),
       ]);
 
       setEPAs(epasResponse.results || []);
-      setEpaCategories(epaCategoriesResponse.results || []);
       setCoreCompetencies(coreCompetenciesResponse.results || []);
       setSubCompetencies(subCompetenciesResponse.results || []);
       setSubCompetencyEPAs(subCompetencyEPAsResponse.results || []);
@@ -146,17 +137,17 @@ export function EPAManagement() {
   }, {} as GroupedSubCompetencies);
 
   // Calculate active EPAs for section title
-  const activeEPAs = epas.filter(epa => epa.is_active).length;
+  const activeEPAs = epas.filter(epa => epa.is_active !== false).length;
+  
+  // Debug EPA counts
+  console.log('=== EPA COUNT DEBUG ===');
+  console.log('Total EPAs loaded:', epas.length);
+  console.log('Active EPAs (is_active !== false):', activeEPAs);
+  console.log('EPAs with is_active=true:', epas.filter(epa => epa.is_active === true).length);
+  console.log('EPAs with is_active=false:', epas.filter(epa => epa.is_active === false).length);
+  console.log('EPAs with is_active=undefined:', epas.filter(epa => epa.is_active === undefined).length);
+  console.log('EPA is_active values:', epas.map(epa => ({ code: epa.code, is_active: epa.is_active })));
 
-  // Group EPAs by category
-  const epasByCategory = epas.reduce((acc, epa) => {
-    const categoryName = epa.category_title || epa.category;
-    if (!acc[categoryName]) {
-      acc[categoryName] = [];
-    }
-    acc[categoryName].push(epa);
-    return acc;
-  }, {} as Record<string, ApiEPA[]>);
 
   const handleCreateEPA = () => {
     setEditingEPA(null);
@@ -164,8 +155,6 @@ export function EPAManagement() {
     setFormData({
       code: 'EPA 23', // Pre-filled as shown in image
       title: '',
-      description: '',
-      category: '',
       is_active: true,
       sub_competencies: [],
     });
@@ -178,8 +167,6 @@ export function EPAManagement() {
     setFormData({
       code: epa.code,
       title: epa.title,
-      description: epa.description || '',
-      category: epa.category,
       is_active: epa.is_active || true,
       sub_competencies: epa.sub_competencies?.map(sc => sc.id) || [],
     });
@@ -203,14 +190,6 @@ export function EPAManagement() {
       fieldErrors.title = 'Please enter an EPA title';
     }
     
-    if (!formData.category) {
-      fieldErrors.category = 'Please select a category';
-    }
-    
-    if (!formData.description || !formData.description.trim()) {
-      fieldErrors.description = 'Please enter a description';
-    }
-    
     // If there are validation errors, set them and return
     if (Object.keys(fieldErrors).length > 0) {
       setValidationErrors(fieldErrors);
@@ -223,8 +202,6 @@ export function EPAManagement() {
       const epaData = {
         code: formData.code,
         title: formData.title,
-        description: formData.description,
-        category: formData.category,
         is_active: formData.is_active,
         program: user?.program || '',
       };
@@ -440,8 +417,6 @@ export function EPAManagement() {
     setFormData({
       code: '',
       title: '',
-      description: '',
-      category: '',
       is_active: true,
       sub_competencies: [],
     });
@@ -463,6 +438,75 @@ export function EPAManagement() {
     return `${coreTitle} ${subCompNumber}: ${subComp.title}`;
   };
 
+  // Get core competencies that an EPA is mapped to
+  const getEpaCompetencies = (epa: ApiEPA) => {
+    // Debug: Log EPA details
+    console.log(`\n=== EPA ${epa.code} (ID: ${epa.id}) ===`);
+    
+    // Use the sub_competencies from the EPA object and look up full sub-competency data
+    if (epa.sub_competencies && epa.sub_competencies.length > 0) {
+      console.log(`EPA ${epa.code} - Found sub_competencies:`, epa.sub_competencies.length);
+      
+      const competencyIds = new Set<string>();
+      epa.sub_competencies.forEach(epaSubComp => {
+        // Find the full sub-competency object using the ID
+        const fullSubComp = subCompetencies.find(sc => sc.id === epaSubComp.id);
+        if (fullSubComp && fullSubComp.core_competency) {
+          competencyIds.add(fullSubComp.core_competency);
+          console.log(`  - SubComp ${fullSubComp.code} -> CoreComp ${fullSubComp.core_competency}`);
+        } else {
+          console.log(`  - SubComp ${epaSubComp.code} (${epaSubComp.id}) not found in full list`);
+        }
+      });
+      
+      const competencies = Array.from(competencyIds)
+        .map(id => coreCompetencies.find(comp => comp.id === id))
+        .filter(comp => comp !== undefined) as ApiCoreCompetency[];
+        
+      console.log(`EPA ${epa.code} - Final competencies:`, competencies.map(c => c.code));
+      return competencies;
+    }
+    
+    // Fallback to using subCompetencyEPAs relationships
+    const epaSubCompetencyRelations = subCompetencyEPAs.filter(relation => relation.epa === epa.id);
+    console.log(`EPA ${epa.code} - Using fallback relations:`, epaSubCompetencyRelations.length);
+    
+    if (epaSubCompetencyRelations.length === 0) {
+      console.log(`EPA ${epa.code} - No relationships found`);
+      return [];
+    }
+
+    // Get unique core competency IDs from the related sub-competencies
+    const competencyIds = new Set<string>();
+    epaSubCompetencyRelations.forEach(relation => {
+      const subComp = subCompetencies.find(sc => sc.id === relation.sub_competency);
+      if (subComp && subComp.core_competency) {
+        competencyIds.add(subComp.core_competency);
+      }
+    });
+
+    // Return the core competency objects
+    const competencies = Array.from(competencyIds)
+      .map(id => coreCompetencies.find(comp => comp.id === id))
+      .filter(comp => comp !== undefined) as ApiCoreCompetency[];
+      
+    console.log(`EPA ${epa.code} - Fallback competencies:`, competencies.map(c => c.code));
+    return competencies;
+  };
+
+  // Generate consistent colors for competency codes
+  const getCompetencyColor = (competencyCode: string) => {
+    const colors: Record<string, string> = {
+      'PC': '#3b82f6',    // Patient Care - Blue
+      'MK': '#10b981',    // Medical Knowledge - Green
+      'PBLI': '#f59e0b',  // Practice-based Learning - Orange
+      'ICS': '#8b5cf6',   // Interpersonal & Communication - Purple
+      'P': '#ef4444',     // Professionalism - Red
+      'SBP': '#06b6d4',   // Systems-based Practice - Cyan
+      'COMP': '#64748b',  // General Competency - Gray
+    };
+    return colors[competencyCode] || '#6b7280';
+  };
 
   const renderEPACard = (epa: ApiEPA) => (
     <Card key={epa.id} style={styles.epaCard}>
@@ -470,12 +514,13 @@ export function EPAManagement() {
         <View style={styles.epaHeader}>
           <View style={styles.epaInfo}>
             <View style={styles.epaTitleRow}>
-              <View style={[styles.categoryTag, { backgroundColor: getCategoryColor(epa.category_title || epa.category) }]}>
-                <Text style={styles.categoryText}>{epa.category_title || epa.category}</Text>
-              </View>
+              {getEpaCompetencies(epa).map((competency, index) => (
+                <View key={index} style={[styles.competencyBadge, { backgroundColor: getCompetencyColor(competency.code) }]}>
+                  <Text style={styles.competencyText}>{competency.code}</Text>
+                </View>
+              ))}
             </View>
-            <Text style={styles.epaTitle}>{epa.title}</Text>
-            <Text style={styles.epaDescription}>{epa.description}</Text>
+            <Text style={styles.epaTitle}>{epa.code}: {epa.title}</Text>
           </View>
           <View style={styles.epaActions}>
             <Pressable
@@ -496,17 +541,6 @@ export function EPAManagement() {
     </Card>
   );
 
-  const getCategoryColor = (category: string) => {
-    const colors: Record<string, string> = {
-      'Emergency Care': '#ef4444',
-      'Patient Assessment': '#3b82f6',
-      'Procedural Skills': '#10b981',
-      'Communication': '#f59e0b',
-      'Professionalism': '#8b5cf6',
-      'Systems-Based Practice': '#06b6d4',
-    };
-    return colors[category] || '#6b7280';
-  };
 
   const renderSubCompetencySelector = () => (
     <View style={styles.subCompetencySelector}>
@@ -594,11 +628,7 @@ export function EPAManagement() {
             EPAs currently available for use in assessments
           </Text>
           
-          {Object.entries(epasByCategory).map(([category, categoryEPAs]) => (
-            <View key={category} style={styles.categorySection}>
-              {categoryEPAs.filter(epa => epa.is_active).map(renderEPACard)}
-            </View>
-          ))}
+          {epas.filter(epa => epa.is_active !== false).map(renderEPACard)}
         </View>
           </>
         ) : (
@@ -647,22 +677,6 @@ export function EPAManagement() {
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Category *</Text>
-              <Select
-                value={formData.category}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
-                placeholder="Select category"
-                options={epaCategories.map(cat => ({
-                  label: cat.title,
-                  value: cat.id,
-                }))}
-              />
-              {validationErrors.category && (
-                <Text style={styles.errorText}>{validationErrors.category}</Text>
-              )}
-            </View>
-
-            <View style={styles.field}>
               <Text style={styles.label}>Title *</Text>
               <Input
                 value={formData.title}
@@ -672,21 +686,6 @@ export function EPAManagement() {
               />
               {validationErrors.title && (
                 <Text style={styles.errorText}>{validationErrors.title}</Text>
-              )}
-            </View>
-
-            <View style={styles.field}>
-              <Text style={styles.label}>Description *</Text>
-              <Input
-                value={formData.description}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, description: text }))}
-                placeholder="Detailed description of what this EPA involves"
-                multiline
-                numberOfLines={4}
-                style={[styles.input, styles.textArea]}
-              />
-              {validationErrors.description && (
-                <Text style={styles.errorText}>{validationErrors.description}</Text>
               )}
             </View>
 
@@ -848,34 +847,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
+    flexWrap: 'wrap',
+    gap: 6,
   },
-  epaCode: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1e293b',
-    marginRight: 12,
-  },
-  categoryTag: {
+  competencyBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
+    alignSelf: 'flex-start',
   },
-  categoryText: {
-    fontSize: 12,
-    fontWeight: '500',
+  competencyText: {
+    fontSize: 11,
+    fontWeight: '600',
     color: '#ffffff',
   },
   epaTitle: {
     fontSize: 16,
     fontWeight: '500',
     color: '#374151',
-    marginBottom: 8,
+    marginTop: 4,
     lineHeight: 22,
-  },
-  epaDescription: {
-    fontSize: 14,
-    color: '#64748b',
-    lineHeight: 20,
   },
   epaActions: {
     flexDirection: 'row',

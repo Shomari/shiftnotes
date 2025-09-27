@@ -158,6 +158,13 @@ export function MyAssessments({ onViewAssessment, onEditAssessment, onDiscardDra
         filterParams.epa_id = epaFilter;
       }
       
+      // For trainees, always filter by submitted status
+      if (user?.role === 'trainee') {
+        filterParams.status = 'submitted';
+      } else if (statusFilter) {
+        filterParams.status = statusFilter;
+      }
+      
       // Add date filters if set
       if (startDate) {
         filterParams.start_date = startDate;
@@ -395,19 +402,21 @@ export function MyAssessments({ onViewAssessment, onEditAssessment, onDiscardDra
                 />
               </View>
 
-              {/* Status Filter */}
-              <View style={styles.filterField}>
-                <Text style={styles.filterLabel}>Status</Text>
-                <Select
-                  value={statusFilter}
-                  onValueChange={setStatusFilter}
-                  placeholder="All Statuses"
-                  options={[
-                    { label: 'Submitted', value: 'submitted' },
-                    { label: 'Draft', value: 'draft' },
-                  ]}
-                />
-              </View>
+              {/* Status Filter - only for non-trainees */}
+              {user?.role !== 'trainee' && (
+                <View style={styles.filterField}>
+                  <Text style={styles.filterLabel}>Status</Text>
+                  <Select
+                    value={statusFilter}
+                    onValueChange={setStatusFilter}
+                    placeholder="All Statuses"
+                    options={[
+                      { label: 'Submitted', value: 'submitted' },
+                      { label: 'Draft', value: 'draft' },
+                    ]}
+                  />
+                </View>
+              )}
 
               {/* Date Filters */}
               <CustomDatePicker

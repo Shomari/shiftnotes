@@ -19,6 +19,8 @@ class Assessment(models.Model):
     location = models.CharField(max_length=200, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     private_comments = models.TextField(blank=True)
+    what_went_well = models.TextField(blank=True)
+    what_could_improve = models.TextField(blank=True)
     acknowledged_by = models.ManyToManyField(User, blank=True, related_name='assessments_acknowledged', help_text="Leadership users who have acknowledged this assessment")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -48,8 +50,6 @@ class AssessmentEPA(models.Model):
         (4, 'I needed to be there but did not help (Requires indirect supervision)'),
         (5, 'I didn\'t need to be there at all (No supervision required)'),
     ])
-    what_went_well = models.TextField()
-    what_could_improve = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

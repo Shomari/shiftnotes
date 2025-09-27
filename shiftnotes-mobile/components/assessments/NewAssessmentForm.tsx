@@ -3,7 +3,7 @@
  * Updated to match the web version design exactly
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
   Pressable,
   Dimensions,
   KeyboardAvoidingView,
+  LayoutChangeEvent,
 } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -78,6 +79,14 @@ import { useAuth } from '../../contexts/AuthContext';
 const { width } = Dimensions.get('window');
 const isTablet = width > 768;
 
+// Generate a unique key for list items
+const generateUniqueKey = () => `slot_${Date.now()}_${Math.random()}`;
+
+interface EpaSlot {
+  key: string;
+  epaId: string | null;
+}
+
 interface NewAssessmentFormProps {
   onNavigate: (routeId: string) => void;
   assessmentId?: string; // Optional - if provided, form will load and edit existing assessment
@@ -86,17 +95,27 @@ interface NewAssessmentFormProps {
 export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFormProps) {
   const { user } = useAuth();
   
-  // State management (updated for single-program architecture)
+  // State management
   const [epas, setEPAs] = useState<EPA[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [selectedEPA, setSelectedEPA] = useState<string>('');
-  const [epaAssessment, setEpaAssessment] = useState<Partial<AssessmentEPA>>({});
+  const [assessmentSlots, setAssessmentSlots] = useState<EpaSlot[]>([
+    { key: generateUniqueKey(), epaId: null }
+  ]);
+  const [epaAssessments, setEpaAssessments] = useState<Record<string, Partial<AssessmentEPA>>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [epaEntrustmentDescriptions, setEpaEntrustmentDescriptions] = useState<{[key: number]: string}>({});
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDraftNotification, setShowDraftNotification] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
+  const scrollViewRef = useRef<ScrollView>(null);
+  const fieldErrorOffsetsRef = useRef<{[key: string]: number}>({ traineeId: 0 });
+  const isWeb = Platform.OS === 'web';
+
+  const handleFieldLayout = (key: string) => (event: LayoutChangeEvent) => {
+    const { y } = event.nativeEvent.layout;
+    fieldErrorOffsetsRef.current[key] = y;
+  };
 
   // Form handling with react-hook-form (same as web!)
   const {
@@ -119,20 +138,20 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
   // Load data on component mount and when user changes
   useEffect(() => {
     if (user?.program) {
-      console.log('Loading data for user program:', user.program);
-      loadEPAsForProgram(user.program);
       loadTraineesForProgram(user.program);
+      loadEPAsForProgram(user.program);
+      loadEPAEntrustmentDescriptions();
     }
-  }, [user]);
+  }, [user?.program]);
 
-  // Load assessment data for editing when assessmentId is provided
+  // Load existing assessment data for editing
   useEffect(() => {
-    if (assessmentId && user?.program) {
-      console.log('Loading assessment data for editing:', assessmentId);
+    if (assessmentId) {
       loadAssessmentData(assessmentId);
     }
-  }, [assessmentId, user?.program]);
+  }, [assessmentId]);
 
+  // API calls and data loading
   const loadEPAsForProgram = async (programId: string) => {
     try {
       const epasResponse = await apiClient.getEPAs(programId);
@@ -169,13 +188,15 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
         name: user.name,
         email: user.email,
         role: user.role,
+        organization: user.organization,
+        program: user.program,
         cohortId: user.cohort || undefined,
         cohortName: user.cohort_name || undefined,
         startDate: user.start_date || undefined,
         department: user.department,
         specialties: user.specialties,
         isActive: true,
-        createdAt: user.created_at,
+        created_at: user.created_at,
         updatedAt: user.created_at,
       })) || [];
 
@@ -189,75 +210,80 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
     }
   };
 
+  const loadEPAEntrustmentDescriptions = async () => {
+    // Using generic descriptions, no need to fetch anymore
+    setEpaEntrustmentDescriptions({
+      1: "I had to do it (Requires constant direct supervision and myself or others' hands-on action for completion)",
+      2: "I helped a lot (Requires considerable direct supervision and myself or others' guidance for completion)",
+      3: "I helped a little (Requires minimal direct supervision or guidance from myself or others for completion)",
+      4: "I needed to be there but did not help (Requires indirect supervision and no guidance by myself or others)",
+      5: "I didn't need to be there at all (Does not require any supervision or guidance by myself or others)"
+    });
+  };
 
-  // Load EPA-specific entrustment level descriptions
-  const loadEPAEntrustmentDescriptions = async (epaId: string) => {
-    try {
-      // Get SubCompetencies mapped to this EPA
-      const subCompetenciesResponse = await apiClient.getSubCompetencies();
-      
-      // Find SubCompetencies that are mapped to this EPA
-      const epaSubCompetencies = subCompetenciesResponse.results?.filter(subComp => 
-        subComp.epas?.some((epa: any) => epa.id === epaId)
-      ) || [];
-      
-      if (epaSubCompetencies.length > 0) {
-        // Use the first SubCompetency for descriptions
-        // In a more sophisticated implementation, you might let evaluators choose
-        const subComp = epaSubCompetencies[0];
-        
-        const descriptions = {
-          1: subComp.milestone_level_1,
-          2: subComp.milestone_level_2,
-          3: subComp.milestone_level_3,
-          4: subComp.milestone_level_4,
-          5: subComp.milestone_level_5,
-        };
-        
-        setEpaEntrustmentDescriptions(descriptions);
-      } else {
-        // Fallback to generic descriptions if no SubCompetency mapping found
-        setEpaEntrustmentDescriptions({
-          1: "I had to do it (Requires constant direct supervision)",
-          2: "I helped a lot (Requires considerable direct supervision)",
-          3: "I helped a little (Requires minimal direct supervision)",
-          4: "I needed to be there but did not help (Requires indirect supervision)",
-          5: "I didn't need to be there at all (No supervision required)"
-        });
-      }
-    } catch (error) {
-      console.error('Error loading EPA entrustment descriptions:', error);
-      // Fallback to generic descriptions
-      setEpaEntrustmentDescriptions({
-        1: "I had to do it (Requires constant direct supervision)",
-        2: "I helped a lot (Requires considerable direct supervision)",
-        3: "I helped a little (Requires minimal direct supervision)",
-        4: "I needed to be there but did not help (Requires indirect supervision)",
-        5: "I didn't need to be there at all (No supervision required)"
+  const updateEPAAssessment = (epaId: string, field: keyof AssessmentEPA, value: any) => {
+    setEpaAssessments(current => ({
+      ...current,
+      [epaId]: {
+        ...current[epaId],
+        [field]: value,
+      },
+    }));
+  };
+
+  const addEpaSlot = () => {
+    setAssessmentSlots(current => [
+      ...current,
+      { key: generateUniqueKey(), epaId: null },
+    ]);
+  };
+
+  const removeEpaSlot = (key: string) => {
+    const slotToRemove = assessmentSlots.find(s => s.key === key);
+    if (slotToRemove && slotToRemove.epaId) {
+      // Clean up the assessment data for the removed EPA
+      setEpaAssessments(current => {
+        const updated = { ...current };
+        delete updated[slotToRemove.epaId as string];
+        return updated;
       });
     }
+    setAssessmentSlots(current => current.filter(s => s.key !== key));
   };
 
-  // EPA selection handling (single EPA only)
-  const handleEPASelect = (epaId: string) => {
-    setSelectedEPA(epaId);
-    // Reset assessment data when changing EPA
-    setEpaAssessment({
-      entrustmentLevel: 1,
-      whatWentWell: '',
-      whatCouldImprove: '',
-    });
-    setValidationErrors({});
+  const handleEpaSelectionChange = (key: string, newEpaId: string | null) => {
+    const oldSlot = assessmentSlots.find(s => s.key === key);
+    const oldEpaId = oldSlot?.epaId;
+
+    // If the EPA is being changed, remove the old EPA's assessment data
+    if (oldEpaId && oldEpaId !== newEpaId) {
+      setEpaAssessments(current => {
+        const updated = { ...current };
+        delete updated[oldEpaId];
+        return updated;
+      });
+    }
     
-    // Load EPA-specific entrustment descriptions
-    loadEPAEntrustmentDescriptions(epaId);
+    // Initialize new EPA assessment if it doesn't exist
+    if (newEpaId && !epaAssessments[newEpaId]) {
+      setEpaAssessments(current => ({
+        ...current,
+        [newEpaId]: {
+          entrustmentLevel: undefined,
+          whatWentWell: '',
+          whatCouldImprove: '',
+        }
+      }));
+    }
+
+    setAssessmentSlots(current =>
+      current.map(s => (s.key === key ? { ...s, epaId: newEpaId } : s))
+    );
   };
 
-  const updateEPAAssessment = (field: string, value: any) => {
-    setEpaAssessment(current => ({
-      ...current,
-      [field]: value,
-    }));
+  const getAvailableEpas = () => {
+    const selectedEpaIds = new Set(assessmentSlots.map(s => s.epaId).filter(Boolean));
+    return epas.filter(epa => !selectedEpaIds.has(epa.id));
   };
 
   // Load assessment data for editing
@@ -274,21 +300,28 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
       setValue('shiftDate', assessment.shift_date || '');
       setValue('location', assessment.location || '');
       setValue('privateComments', assessment.private_comments || '');
+      setValue('whatWentWell', assessment.what_went_well || '');
+      setValue('whatCouldImprove', assessment.what_could_improve || '');
       
-      // Populate EPA assessment (single EPA only)
+      // Populate EPA assessments
       if (assessment.assessment_epas && assessment.assessment_epas.length > 0) {
-        const firstEpaAssessment = assessment.assessment_epas[0]; // Take only the first EPA
-        if (firstEpaAssessment.epa) {
-          setSelectedEPA(firstEpaAssessment.epa);
-          setEpaAssessment({
-            entrustmentLevel: firstEpaAssessment.entrustment_level || 1,
-            whatWentWell: firstEpaAssessment.what_went_well || '',
-            whatCouldImprove: firstEpaAssessment.what_could_improve || '',
-          });
-          
-          // Load EPA-specific entrustment descriptions for editing
-          loadEPAEntrustmentDescriptions(firstEpaAssessment.epa);
-        }
+        const loadedSlots: EpaSlot[] = assessment.assessment_epas.map(epa => ({
+          key: generateUniqueKey(),
+          epaId: epa.epa,
+        }));
+        setAssessmentSlots(loadedSlots.length > 0 ? loadedSlots : [{ key: generateUniqueKey(), epaId: null }]);
+
+        const assessmentsData: Record<string, Partial<AssessmentEPA>> = {};
+        assessment.assessment_epas.forEach(epaData => {
+          if (epaData.epa) {
+            assessmentsData[epaData.epa] = {
+              entrustmentLevel: epaData.entrustment_level as 1 | 2 | 3 | 4 | 5,
+              whatWentWell: epaData.what_went_well || '',
+              whatCouldImprove: epaData.what_could_improve || '',
+            };
+          }
+        });
+        setEpaAssessments(assessmentsData);
       }
       
       console.log('Form populated with assessment data');
@@ -314,8 +347,8 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
     console.log('=== Form submission started ===');
     console.log('Form data:', data);
     console.log('Is draft:', isDraft);
-    console.log('Selected EPA:', selectedEPA);
-    console.log('EPA assessment:', epaAssessment);
+    console.log('Assessment Slots:', assessmentSlots);
+    console.log('EPA assessments:', epaAssessments);
     console.log('Current user:', user);
     console.log('User program:', user?.program);
     
@@ -329,34 +362,25 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
     if (!data.traineeId) {
       fieldErrors.traineeId = 'Please select a trainee';
     }
-    
-    if (!data.shiftDate) {
-      fieldErrors.shiftDate = 'Please select a shift date';
+
+    if (!isDraft && assessmentSlots.every(s => s.epaId === null)) {
+      fieldErrors.epa = 'Please select at least one EPA to assess';
     }
-    
-    if (!data.location) {
-      fieldErrors.location = 'Please select a location/site';
-    }
-    
-    if (!user?.program) {
-      fieldErrors.program = 'User program not found';
-    }
-    
-    if (!isDraft && !selectedEPA) {
-      fieldErrors.epa = 'Please select an EPA to assess';
-    }
-    
+
     // Additional validation for non-draft submissions
-    if (!isDraft && selectedEPA) {
-      if (!epaAssessment?.entrustmentLevel || epaAssessment.entrustmentLevel < 1) {
-        fieldErrors.entrustmentLevel = 'Please select an entrustment level for the EPA';
-      }
-      
-      if (!epaAssessment?.whatWentWell?.trim()) {
+    if (!isDraft) {
+      assessmentSlots.forEach(slot => {
+        if (slot.epaId) {
+          const assessment = epaAssessments[slot.epaId];
+          if (!assessment?.entrustmentLevel) {
+            fieldErrors[`${slot.key}-entrustmentLevel`] = 'Please select an entrustment level for this EPA';
+          }
+        }
+      });
+      if (!data.whatWentWell?.trim()) {
         fieldErrors.whatWentWell = 'Please provide feedback on what went well';
       }
-      
-      if (!epaAssessment?.whatCouldImprove?.trim()) {
+      if (!data.whatCouldImprove?.trim()) {
         fieldErrors.whatCouldImprove = 'Please provide feedback on what could improve';
       }
     }
@@ -366,7 +390,7 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
       const shiftDate = new Date(data.shiftDate);
       const today = new Date();
       today.setHours(23, 59, 59, 999); // End of today
-      
+
       if (shiftDate > today) {
         fieldErrors.shiftDate = 'Shift date cannot be in the future';
       }
@@ -376,18 +400,62 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
     if (Object.keys(fieldErrors).length > 0) {
       console.log('Validation errors found:', fieldErrors);
       setValidationErrors(fieldErrors);
+
+      setTimeout(() => {
+        const baseOrderedKeys = ['traineeId', 'shiftDate', 'location', 'epa'];
+        
+        const epaOrderedKeys = assessmentSlots.flatMap(slot => slot.epaId ? [
+          `${slot.key}-entrustmentLevel`,
+        ] : []);
+
+        const allOrderedKeys = [...baseOrderedKeys, ...epaOrderedKeys, 'whatWentWell', 'whatCouldImprove'];
+        const firstErrorKey = allOrderedKeys.find(key => key in fieldErrors);
+        
+        if (!firstErrorKey) {
+          // Fallback if a key isn't found in the ordered list
+          const firstKey = Object.keys(fieldErrors)[0];
+          const keyForScrolling = firstKey.split('-')[0] || firstKey;
+          
+          if (isWeb) {
+            const element = document.querySelector(`[data-field-key="${keyForScrolling}"]`);
+            if (element instanceof HTMLElement) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          } else {
+            const y = fieldErrorOffsetsRef.current[keyForScrolling] ?? 0;
+            scrollViewRef.current?.scrollTo({ y: Math.max(y - 32, 0), animated: true });
+          }
+          return;
+        }
+
+        const keyForScrolling = firstErrorKey.split('-')[0] || firstErrorKey;
+        
+        if (isWeb) {
+          const element = document.querySelector(`[data-field-key="${keyForScrolling}"]`);
+          if (element instanceof HTMLElement) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+          }
+        }
+        const y = fieldErrorOffsetsRef.current[keyForScrolling] ?? 0;
+        scrollViewRef.current?.scrollTo({ y: Math.max(y - 32, 0), animated: true });
+      }, 0);
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const assessmentEPAs = selectedEPA ? [{
-        epa: selectedEPA,
-        entrustment_level: epaAssessment?.entrustmentLevel || 1,
-        what_went_well: epaAssessment?.whatWentWell || '',
-        what_could_improve: epaAssessment?.whatCouldImprove || '',
-      }] : [];
+      const assessmentEPAs = assessmentSlots
+        .filter(slot => slot.epaId)
+        .map(slot => {
+          const epaId = slot.epaId!;
+          const assessment = epaAssessments[epaId];
+          return {
+            epa: epaId,
+            entrustment_level: assessment?.entrustmentLevel || 1,
+          };
+        });
 
       const assessmentData = {
         trainee: data.traineeId,
@@ -396,6 +464,8 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
         location: data.location,
         status: isDraft ? 'draft' as const : 'submitted' as const,
         private_comments: data.privateComments || '',
+        what_went_well: data.whatWentWell || '',
+        what_could_improve: data.whatCouldImprove || '',
         assessment_epas: assessmentEPAs,
       };
 
@@ -428,9 +498,9 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
             console.log('Web confirm Continue button pressed');
             // Clear form data
             reset();
-            setSelectedEPA('');
-            setEpaAssessment({});
-            
+            setAssessmentSlots([{ key: generateUniqueKey(), epaId: null }]);
+            setEpaAssessments({});
+
             console.log('About to navigate to overview...');
             console.log('onNavigate function:', onNavigate);
             // Small delay for better UX, then navigate
@@ -455,8 +525,8 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
                   console.log('Success alert Continue button pressed');
                   // Clear form data
                   reset();
-                  setSelectedEPA('');
-                  setEpaAssessment({});
+                  setAssessmentSlots([{ key: generateUniqueKey(), epaId: null }]);
+                  setEpaAssessments({});
                   
                   console.log('About to navigate to overview...');
                   console.log('onNavigate function:', onNavigate);
@@ -489,7 +559,7 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
     }
   };
 
-  const selectedTrainee = trainees.find(t => t.id === control._formValues?.traineeId);
+  const selectedTrainee = users.find(t => t.id === control._formValues?.traineeId);
 
   return (
     <KeyboardAvoidingView 
@@ -518,6 +588,7 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
       <View style={[styles.content, isTablet && styles.contentTablet]}>
         {/* Main Form */}
         <ScrollView 
+          ref={scrollViewRef}
           style={[styles.mainForm, isTablet && styles.mainFormTablet]} 
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -531,30 +602,37 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
               <CardContent>
               {/* Trainee and Shift Date Row */}
               <View style={[styles.row, !isTablet && styles.column]}>
-                <View style={[styles.field, isTablet && styles.fieldHalf]}>
+                <View
+                  style={[styles.field, isTablet && styles.fieldHalf]}
+                  onLayout={handleFieldLayout('traineeId')}
+                  {...(isWeb ? { 'data-field-key': 'traineeId' } : {})}
+                >
                   <Text style={styles.label}>Trainee *</Text>
                   <Controller
                     control={control}
                     name="traineeId"
-                    rules={{ required: 'Please select a trainee' }}
                     render={({ field: { onChange, value } }) => (
                       <Select
                         value={value}
                         onValueChange={onChange}
                         placeholder="Select trainee"
-                        options={trainees.map(trainee => ({
+                        options={users.map(trainee => ({
                           label: trainee.name,
                           value: trainee.id,
                         }))}
                       />
                     )}
                   />
-                  {errors.traineeId && (
-                    <Text style={styles.errorText}>{errors.traineeId.message}</Text>
+                  {validationErrors.traineeId && (
+                    <Text style={styles.errorText}>{validationErrors.traineeId}</Text>
                   )}
                 </View>
 
-                <View style={[styles.field, isTablet && styles.fieldHalf]}>
+                <View
+                  style={[styles.field, isTablet && styles.fieldHalf]}
+                  onLayout={handleFieldLayout('shiftDate')}
+                  {...(isWeb ? { dataSet: { fieldKey: 'shiftDate' } } : {})}
+                >
                   <Text style={styles.label}>Shift Date *</Text>
                   <Controller
                     control={control}
@@ -657,7 +735,11 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
               </View>
 
               {/* Location/Site */}
-              <View style={styles.field}>
+              <View
+                style={styles.field}
+                onLayout={handleFieldLayout('location')}
+                {...(isWeb ? { dataSet: { fieldKey: 'location' } } : {})}
+              >
                 <Text style={styles.label}>Location/Site</Text>
                 <Controller
                   control={control}
@@ -687,107 +769,149 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
             <Card style={styles.epaCard}>
             <CardHeader>
               <CardTitle>EPA Selection</CardTitle>
-              <Text style={styles.cardSubtitle}>Select the EPA observed during this shift</Text>
+              <Text style={styles.cardSubtitle}>Select the EPAs observed during this shift</Text>
             </CardHeader>
             <CardContent>
-              <View style={styles.field}>
-                  <Text style={styles.label}>Select EPA *</Text>
-                  <Select
-                    value={selectedEPA}
-                    onValueChange={(value) => value && handleEPASelect(value)}
-                    placeholder="Choose an EPA to assess"
-                    options={epas.map(epa => ({
-                      label: `${epa.code.replace(/EPA(\d+)/, 'EPA $1')}: ${epa.title}`,
-                      value: epa.id,
-                      subtitle: epa.category,
-                    }))}
-                  />
-                  {validationErrors.epa && (
-                    <Text style={styles.errorText}>{validationErrors.epa}</Text>
-                  )}
-                </View>
+              {assessmentSlots.map((slot, index) => {
+                const isFirst = index === 0;
+                const selectedEpa = slot.epaId ? epas.find(e => e.id === slot.epaId) : null;
+                const availableEpas = getAvailableEpas();
+                const currentSelection = slot.epaId ? epas.find(e => e.id === slot.epaId) : null;
+                const options = (currentSelection ? [currentSelection, ...availableEpas] : availableEpas).map(e => ({
+                  label: `${e.code}: ${e.title}`,
+                  value: e.id,
+                }));
 
-              {/* Selected EPA Assessment */}
-              {selectedEPA && (() => {
-                const epa = epas.find(e => e.id === selectedEPA)!;
+
                 return (
-                  <View key={selectedEPA} style={styles.selectedEpa}>
+                  <View 
+                    key={slot.key} 
+                    style={[styles.selectedEpa, { marginTop: isFirst ? 0 : 20 }]}
+                    onLayout={handleFieldLayout(slot.key)}
+                    {...(isWeb ? { 'data-field-key': slot.key } : {})}
+                  >
                     <View style={styles.epaHeader}>
                       <View style={styles.epaInfo}>
-                        <Text style={styles.epaCode}>
-                          {epa.code.replace(/EPA(\d+)/, 'EPA $1')}
-                        </Text>
-                        <Text style={styles.epaTitle}>{epa.title}</Text>
-                      </View>
-                      <Pressable
-                        onPress={() => setSelectedEPA('')}
-                        style={styles.removeButton}
-                      >
-                        <Text style={styles.removeText}>✕</Text>
-                      </Pressable>
-                    </View>
-
-                    {/* EPA Assessment Form */}
-                    <View style={styles.epaForm}>
-                      {/* Entrustment Level */}
-                      <View style={styles.field}>
-                        <Text style={styles.label}>Entrustment Level *</Text>
+                        <Text style={styles.label}>{isFirst ? "Choose EPA *" : "Choose Another EPA"}</Text>
                         <Select
-                          value={String(epaAssessment?.entrustmentLevel || 1)}
-                          onValueChange={(value) =>
-                            updateEPAAssessment('entrustmentLevel', parseInt(value))
-                          }
-                          placeholder="Select entrustment level"
-                          options={Object.entries(epaEntrustmentDescriptions).map(([level, description]) => ({
-                            label: `Level ${level}: ${description}`,
-                            value: level,
-                          }))}
+                          value={slot.epaId || ''}
+                          onValueChange={(value) => handleEpaSelectionChange(slot.key, value || null)}
+                          placeholder={isFirst ? "Select an EPA to assess" : "Select another EPA"}
+                          options={options}
                         />
-                        {validationErrors.entrustmentLevel && (
-                          <Text style={styles.errorText}>{validationErrors.entrustmentLevel}</Text>
+                         {validationErrors.epa && isFirst && slot.epaId === null && (
+                          <Text style={[styles.errorText, { marginTop: 4}]}>{validationErrors.epa}</Text>
                         )}
                       </View>
-
-                      {/* Feedback Fields */}
-                      <View style={styles.field}>
-                        <Text style={styles.label}>What Went Well *</Text>
-                        <Input
-                          value={epaAssessment?.whatWentWell || ''}
-                          onChangeText={(value) =>
-                            updateEPAAssessment('whatWentWell', value)
-                          }
-                          placeholder="Describe what the trainee did well..."
-                          multiline
-                          numberOfLines={3}
-                          style={styles.textArea}
-                          containerStyle={styles.inputNoMargin}
-                        />
-                        {validationErrors.whatWentWell && (
-                          <Text style={styles.errorText}>{validationErrors.whatWentWell}</Text>
-                        )}
-                      </View>
-
-                      <View style={styles.field}>
-                        <Text style={styles.label}>What Could Improve *</Text>
-                        <Input
-                          value={epaAssessment?.whatCouldImprove || ''}
-                          onChangeText={(value) =>
-                            updateEPAAssessment('whatCouldImprove', value)
-                          }
-                          placeholder="Describe areas for improvement..."
-                          multiline
-                          numberOfLines={3}
-                          style={styles.textArea}
-                          containerStyle={styles.inputNoMargin}
-                        />
-                        {validationErrors.whatCouldImprove && (
-                          <Text style={styles.errorText}>{validationErrors.whatCouldImprove}</Text>
-                        )}
-                      </View>
+                      {!isFirst && (
+                        <Pressable
+                          onPress={() => removeEpaSlot(slot.key)}
+                          style={styles.removeButton}
+                        >
+                          <Text style={styles.removeText}>✕</Text>
+                        </Pressable>
+                      )}
                     </View>
+
+                    {slot.epaId && selectedEpa && (
+                      <View style={styles.epaForm}>
+                         {/* Entrustment Level */}
+                        <View
+                          style={styles.field}
+                           onLayout={handleFieldLayout(`${slot.key}-entrustmentLevel`)}
+                           {...(isWeb ? { 'data-field-key': `${slot.key}-entrustmentLevel` } : {})}
+                        >
+                          <Text style={styles.label}>Entrustment Level *</Text>
+                          <Select
+                            value={String(epaAssessments[slot.epaId]?.entrustmentLevel || '')}
+                            onValueChange={(value) =>
+                               updateEPAAssessment(slot.epaId!, 'entrustmentLevel', parseInt(value))
+                            }
+                            placeholder="Select entrustment level"
+                            options={Object.entries(epaEntrustmentDescriptions).map(([level, description]) => {
+                              const parts = description.split(' (');
+                              const mainText = parts[0];
+                              const subtitleText = parts[1] ? parts[1].replace(')', '') : '';
+                              return {
+                                label: `Level ${level}: ${mainText}`,
+                                subtitle: subtitleText,
+                                value: level,
+                              };
+                            })}
+                          />
+                          {validationErrors[`${slot.key}-entrustmentLevel`] && (
+                            <Text style={styles.errorText}>
+                              {validationErrors[`${slot.key}-entrustmentLevel`]}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                    )}
                   </View>
                 );
-              })()}
+              })}
+              
+              {/* Add Another EPA Button */}
+              <Pressable
+                style={styles.addEpaButton}
+                onPress={addEpaSlot}
+              >
+                <Text style={styles.addEpaButtonText}>+ Add Another EPA</Text>
+              </Pressable>
+            </CardContent>
+          </Card>
+
+          {/* Feedback Section */}
+          <Card style={styles.detailsCard}>
+            <CardHeader>
+              <CardTitle>Overall Feedback</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {/* What Went Well */}
+              <View style={styles.field} onLayout={handleFieldLayout('whatWentWell')} {...(isWeb ? { 'data-field-key': 'whatWentWell' } : {})}>
+                <Text style={styles.label}>What Went Well *</Text>
+                <Controller
+                  control={control}
+                  name="whatWentWell"
+                  render={({ field: { onChange, value } }) => (
+                    <Input
+                      value={value}
+                      onChangeText={onChange}
+                      placeholder="Describe what the trainee did well..."
+                      multiline
+                      numberOfLines={3}
+                      style={styles.textArea}
+                      containerStyle={styles.inputNoMargin}
+                    />
+                  )}
+                />
+                {validationErrors.whatWentWell && (
+                  <Text style={styles.errorText}>{validationErrors.whatWentWell}</Text>
+                )}
+              </View>
+
+              {/* What Could Improve */}
+              <View style={styles.field} onLayout={handleFieldLayout('whatCouldImprove')} {...(isWeb ? { 'data-field-key': 'whatCouldImprove' } : {})}>
+                <Text style={styles.label}>What Could Improve *</Text>
+                <Controller
+                  control={control}
+                  name="whatCouldImprove"
+                  render={({ field: { onChange, value } }) => (
+                    <Input
+                      value={value}
+                      onChangeText={onChange}
+                      placeholder="Describe areas for improvement..."
+                      multiline
+                      numberOfLines={3}
+                      style={styles.textArea}
+                      containerStyle={styles.inputNoMargin}
+                    />
+                  )}
+                />
+                {validationErrors.whatCouldImprove && (
+                  <Text style={styles.errorText}>{validationErrors.whatCouldImprove}</Text>
+                )}
+              </View>
             </CardContent>
           </Card>
 
@@ -845,9 +969,9 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
                 </View>
                 
                 <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>EPA:</Text>
+                  <Text style={styles.summaryLabel}>EPAs:</Text>
                   <Text style={styles.summaryValue}>
-                    {selectedEPA ? epas.find(e => e.id === selectedEPA)?.code || 'Selected' : 'None'}
+                    {assessmentSlots.filter(slot => slot.epaId).map(slot => epas.find(e => e.id === slot.epaId)?.code).join(', ') || 'None'}
                   </Text>
                 </View>
 
@@ -1199,5 +1323,21 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'center',
     lineHeight: 24,
+  },
+  addEpaButton: {
+    backgroundColor: '#f3f4f6',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+  },
+  addEpaButtonText: {
+    color: '#6b7280',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
