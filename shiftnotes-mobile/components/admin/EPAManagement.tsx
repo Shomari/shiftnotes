@@ -18,6 +18,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
+import { Select } from '../ui/Select';
 // import { Checkbox } from '../ui/Checkbox';
 import { 
   apiClient, 
@@ -35,7 +36,8 @@ import {
   CaretDown,
   CaretRight,
   ToggleLeft,
-  ToggleRight
+  ToggleRight,
+  ArrowCounterClockwise
 } from 'phosphor-react-native';
 
 const { width } = Dimensions.get('window');
@@ -66,6 +68,7 @@ export function EPAManagement() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingEPA, setEditingEPA] = useState<ApiEPA | null>(null);
   const [expandedCompetencies, setExpandedCompetencies] = useState<Set<string>>(new Set());
+  const [epaStatusFilter, setEpaStatusFilter] = useState<'active' | 'inactive' | 'all'>('active');
   
   // Form state
   const [formData, setFormData] = useState<EPAFormData>({
@@ -356,18 +359,104 @@ export function EPAManagement() {
     console.log('All sub-competency relationships processed successfully');
   };
 
+  const handleReactivateEPA = async (epa: ApiEPA) => {
+    const message = `Reactivate "${epa.title}"?\n\nThis EPA will become available for use in new assessments.`;
+    
+    const confirmReactivate = Platform.OS === 'web' 
+      ? window.confirm(message)
+      : await new Promise<boolean>((resolve) => {
+          Alert.alert(
+            'Reactivate EPA',
+            message,
+            [
+              { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+              { text: 'Reactivate', onPress: () => resolve(true) },
+            ]
+          );
+        });
+
+    if (!confirmReactivate) return;
+
+    setLoading(true);
+    try {
+      // Update EPA to set is_active = true
+      await apiClient.updateEPA(epa.id, { is_active: true });
+      await loadData();
+      
+      const successMessage = 'EPA reactivated successfully';
+      if (Platform.OS === 'web') {
+        window.alert(successMessage);
+      } else {
+        Alert.alert('Success', successMessage);
+      }
+    } catch (error) {
+      console.error('Error reactivating EPA:', error);
+      const errorMessage = 'Failed to reactivate EPA';
+      if (Platform.OS === 'web') {
+        window.alert(errorMessage);
+      } else {
+        Alert.alert('Error', errorMessage);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeactivateEPA = async (epa: ApiEPA) => {
+    const message = `Deactivate "${epa.title}"?\n\nThis EPA will no longer be available for new assessments, but existing assessments using this EPA will be preserved.\n\nYou can reactivate it later if needed.`;
+    
+    const confirmDeactivate = Platform.OS === 'web' 
+      ? window.confirm(message)
+      : await new Promise<boolean>((resolve) => {
+          Alert.alert(
+            'Deactivate EPA',
+            message,
+            [
+              { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+              { text: 'Deactivate', style: 'destructive', onPress: () => resolve(true) },
+            ]
+          );
+        });
+
+    if (!confirmDeactivate) return;
+
+    setLoading(true);
+    try {
+      // Update EPA to set is_active = false
+      await apiClient.updateEPA(epa.id, { is_active: false });
+      await loadData();
+      
+      const successMessage = 'EPA deactivated successfully';
+      if (Platform.OS === 'web') {
+        window.alert(successMessage);
+      } else {
+        Alert.alert('Success', successMessage);
+      }
+    } catch (error) {
+      console.error('Error deactivating EPA:', error);
+      const errorMessage = 'Failed to deactivate EPA';
+      if (Platform.OS === 'web') {
+        window.alert(errorMessage);
+      } else {
+        Alert.alert('Error', errorMessage);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleDeleteEPA = async (epa: ApiEPA) => {
-    const message = `Are you sure you want to delete "${epa.title}"? This cannot be undone.`;
+    const message = `Permanently delete "${epa.title}"?\n\nThis action cannot be undone. This EPA can only be deleted if it has never been used in any assessments.`;
     
     const confirmDelete = Platform.OS === 'web' 
       ? window.confirm(message)
       : await new Promise<boolean>((resolve) => {
           Alert.alert(
-            'Delete EPA',
+            'Permanently Delete EPA',
             message,
             [
               { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-              { text: 'Delete', style: 'destructive', onPress: () => resolve(true) },
+              { text: 'Delete Permanently', style: 'destructive', onPress: () => resolve(true) },
             ]
           );
         });
@@ -379,15 +468,23 @@ export function EPAManagement() {
       await apiClient.deleteEPA(epa.id);
       await loadData();
       
-      const successMessage = 'EPA deleted successfully';
+      const successMessage = 'EPA permanently deleted';
       if (Platform.OS === 'web') {
         window.alert(successMessage);
       } else {
         Alert.alert('Success', successMessage);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting EPA:', error);
-      const errorMessage = 'Failed to delete EPA';
+      let errorMessage = 'Failed to delete EPA';
+      
+      // Check for specific error about assessments
+      if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.message?.includes('assessment')) {
+        errorMessage = 'Cannot delete EPA: It has been used in assessments';
+      }
+      
       if (Platform.OS === 'web') {
         window.alert(errorMessage);
       } else {
@@ -508,6 +605,20 @@ export function EPAManagement() {
     return colors[competencyCode] || '#6b7280';
   };
 
+  // Format EPA code with space (EPA1 -> EPA 1)
+  const formatEpaCode = (code: string) => {
+    return code.replace(/EPA(\d+)/i, 'EPA $1');
+  };
+
+  // Sort EPAs numerically by extracting the number from the code
+  const sortEpasNumerically = (epas: ApiEPA[]) => {
+    return [...epas].sort((a, b) => {
+      const numA = parseInt(a.code.replace(/\D/g, '')) || 0;
+      const numB = parseInt(b.code.replace(/\D/g, '')) || 0;
+      return numA - numB;
+    });
+  };
+
   const renderEPACard = (epa: ApiEPA) => (
     <Card key={epa.id} style={styles.epaCard}>
       <CardContent>
@@ -520,21 +631,42 @@ export function EPAManagement() {
                 </View>
               ))}
             </View>
-            <Text style={styles.epaTitle}>{epa.code}: {epa.title}</Text>
+            <Text style={styles.epaTitle}>{formatEpaCode(epa.code)}: {epa.title}</Text>
           </View>
           <View style={styles.epaActions}>
-            <Pressable
-              style={styles.actionButton}
-              onPress={() => handleEditEPA(epa)}
-            >
-              <PencilSimple size={16} color="#3b82f6" />
-            </Pressable>
-            <Pressable
-              style={styles.actionButton}
-              onPress={() => handleDeleteEPA(epa)}
-            >
-              <Trash size={16} color="#ef4444" />
-            </Pressable>
+            {epa.is_active !== false ? (
+              // Active EPA: Show Edit and Deactivate
+              <>
+                <Pressable
+                  style={styles.actionButton}
+                  onPress={() => handleEditEPA(epa)}
+                >
+                  <PencilSimple size={16} color="#3b82f6" />
+                </Pressable>
+                <Pressable
+                  style={styles.actionButton}
+                  onPress={() => handleDeactivateEPA(epa)}
+                >
+                  <Trash size={16} color="#ef4444" />
+                </Pressable>
+              </>
+            ) : (
+              // Inactive EPA: Show Reactivate and Delete
+              <>
+                <Pressable
+                  style={[styles.actionButton, styles.reactivateButton]}
+                  onPress={() => handleReactivateEPA(epa)}
+                >
+                  <ArrowCounterClockwise size={16} color="#10b981" />
+                </Pressable>
+                <Pressable
+                  style={styles.actionButton}
+                  onPress={() => handleDeleteEPA(epa)}
+                >
+                  <Trash size={16} color="#ef4444" />
+                </Pressable>
+              </>
+            )}
           </View>
         </View>
       </CardContent>
@@ -611,8 +743,23 @@ export function EPAManagement() {
       <ScrollView style={styles.content}>
         {program ? (
           <>
-            {/* Add EPA Button */}
-            <View style={styles.addButtonContainer}>
+            {/* Controls Row */}
+            <View style={styles.controlsRow}>
+              <View style={styles.statusFilterContainer}>
+                <Text style={styles.filterLabel}>Show:</Text>
+                <Select
+                  value={epaStatusFilter}
+                  onValueChange={(value) => setEpaStatusFilter(value as 'active' | 'inactive' | 'all')}
+                  placeholder="Active EPAs"
+                  options={[
+                    { label: 'Active EPAs', value: 'active' },
+                    { label: 'Inactive EPAs', value: 'inactive' },
+                    { label: 'All EPAs', value: 'all' },
+                  ]}
+                  style={styles.statusFilterSelect}
+                />
+              </View>
+              
               <Button
                 title="Add EPA"
                 onPress={handleCreateEPA}
@@ -621,14 +768,24 @@ export function EPAManagement() {
               />
             </View>
 
-        {/* Active EPAs Section */}
+        {/* EPAs Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Active EPAs ({activeEPAs})</Text>
+          <Text style={styles.sectionTitle}>
+            {epaStatusFilter === 'active' && `Active EPAs (${epas.filter(epa => epa.is_active !== false).length})`}
+            {epaStatusFilter === 'inactive' && `Inactive EPAs (${epas.filter(epa => epa.is_active === false).length})`}
+            {epaStatusFilter === 'all' && `All EPAs (${epas.length})`}
+          </Text>
           <Text style={styles.sectionDescription}>
-            EPAs currently available for use in assessments
+            {epaStatusFilter === 'active' && 'EPAs currently available for use in assessments'}
+            {epaStatusFilter === 'inactive' && 'EPAs that are no longer available for new assessments'}
+            {epaStatusFilter === 'all' && 'All EPAs in the system'}
           </Text>
           
-          {epas.filter(epa => epa.is_active !== false).map(renderEPACard)}
+          {sortEpasNumerically(epas.filter(epa => {
+            if (epaStatusFilter === 'active') return epa.is_active !== false;
+            if (epaStatusFilter === 'inactive') return epa.is_active === false;
+            return true; // 'all'
+          })).map(renderEPACard)}
         </View>
           </>
         ) : (
@@ -784,9 +941,23 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
-  addButtonContainer: {
-    marginBottom: 24,
-    alignItems: 'flex-end',
+  controlsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    paddingTop: 0,
+    gap: 16,
+  },
+  statusFilterContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  statusFilterSelect: {
+    flex: 1,
+    maxWidth: 200,
   },
   addButton: {
     flexDirection: 'row',
@@ -876,6 +1047,9 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 6,
     backgroundColor: '#f1f5f9',
+  },
+  reactivateButton: {
+    backgroundColor: '#dcfce7', // Light green background for reactivate
   },
   modalContainer: {
     flex: 1,

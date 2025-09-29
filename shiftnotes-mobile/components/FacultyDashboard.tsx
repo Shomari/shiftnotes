@@ -14,6 +14,7 @@ import debounce from 'lodash.debounce';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Button } from './ui/Button';
 import { Select } from './ui/Select';
+import { CustomDatePicker } from './ui/DatePicker';
 import { apiClient } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -95,18 +96,25 @@ export function FacultyDashboard({ onViewFaculty }: FacultyDashboardProps = {}) 
   const [loading, setLoading] = useState(true);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
-  // Fetch dashboard data on component mount
+  // Fetch dashboard data on component mount and when filters change
   useEffect(() => {
     console.log('DatePicker available:', !!DatePicker, Platform.OS);
     loadDashboardData();
-  }, []);
+  }, [startDate, endDate]);
 
   const loadDashboardData = async (search?: string) => {
     try {
       setLoading(true);
       
-      const data = await apiClient.getFacultyDashboard(undefined, undefined, undefined, search || searchQuery);
+      const data = await apiClient.getFacultyDashboard(
+        undefined, // facultyId
+        startDate || undefined, 
+        endDate || undefined, 
+        search || searchQuery
+      );
       console.log('Faculty dashboard data:', data);
       setDashboardData(data);
     } catch (error) {
@@ -122,7 +130,7 @@ export function FacultyDashboard({ onViewFaculty }: FacultyDashboardProps = {}) 
     debounce((searchTerm: string) => {
       loadDashboardData(searchTerm);
     }, 300),
-    []
+    [startDate, endDate] // Update when dates change
   );
 
   // Handle search input changes with debouncing
@@ -133,6 +141,8 @@ export function FacultyDashboard({ onViewFaculty }: FacultyDashboardProps = {}) 
 
   const clearFilters = () => {
     setSearchQuery('');
+    setStartDate('');
+    setEndDate('');
     loadDashboardData(''); // Reload with empty search
   };
 
@@ -151,7 +161,7 @@ export function FacultyDashboard({ onViewFaculty }: FacultyDashboardProps = {}) 
   };
 
   // Check if any filters are active
-  const hasActiveFilters = searchQuery;
+  const hasActiveFilters = searchQuery || startDate || endDate;
 
 
   const formatDate = (dateString: string | null) => {
@@ -223,6 +233,25 @@ export function FacultyDashboard({ onViewFaculty }: FacultyDashboardProps = {}) 
                   />
                 </View>
 
+                {/* Date Filters */}
+                <View style={styles.dateFiltersSection}>
+                  <Text style={styles.dateFiltersHelper}>* Filtered by shift date</Text>
+                  <View style={styles.dateFiltersRow}>
+                    <CustomDatePicker
+                      label="Start Date"
+                      value={startDate}
+                      onChange={setStartDate}
+                      placeholder="Select start date"
+                    />
+
+                    <CustomDatePicker
+                      label="End Date"
+                      value={endDate}
+                      onChange={setEndDate}
+                      placeholder="Select end date"
+                    />
+                  </View>
+                </View>
 
                 {/* Clear Filters Button */}
                 <View style={styles.filterField}>
@@ -505,6 +534,18 @@ const styles = StyleSheet.create({
   filterField: {
     gap: 8,
     marginBottom: 4,
+  },
+  dateFiltersSection: {
+    marginBottom: 8,
+  },
+  dateFiltersHelper: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontStyle: 'italic',
+    marginBottom: 12,
+  },
+  dateFiltersRow: {
+    gap: 16,
   },
   filterLabel: {
     fontSize: 14,

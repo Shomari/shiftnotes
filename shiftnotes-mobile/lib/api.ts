@@ -356,7 +356,7 @@ export class ApiClient {
 
   async updateEPA(epaId: string, epaData: Partial<ApiEPA>): Promise<ApiEPA> {
     return this.request<ApiEPA>(`/epas/${epaId}/`, {
-      method: 'PUT',
+      method: 'PATCH',  // Use PATCH for partial updates
       body: JSON.stringify(epaData),
     });
   }

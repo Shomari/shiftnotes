@@ -19,59 +19,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Select } from '../ui/Select';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
+import { CustomDatePicker } from '../ui/DatePicker';
 import { User } from '../../lib/types';
 import { apiClient } from '../../lib/api';
-
-// Web-only imports for react-datepicker
-let DatePicker: any = null;
-if (Platform.OS === 'web') {
-  try {
-    DatePicker = require('react-datepicker').default;
-    require('react-datepicker/dist/react-datepicker.css');
-    
-    // Add custom styles for z-index fix with higher values
-    const style = document.createElement('style');
-    style.textContent = `
-      .react-datepicker-popper {
-        z-index: 999999 !important;
-      }
-      .react-datepicker {
-        z-index: 999999 !important;
-      }
-      .react-datepicker__portal {
-        z-index: 999999 !important;
-        position: fixed !important;
-      }
-      .date-picker-popper {
-        z-index: 999999 !important;
-      }
-      .react-datepicker-wrapper {
-        width: 100%;
-        z-index: 1000 !important;
-        position: relative !important;
-      }
-      .react-datepicker__input-container {
-        width: 100%;
-        position: relative;
-        z-index: 1000;
-      }
-      .react-datepicker__input-container input {
-        width: 100% !important;
-        position: relative;
-        z-index: 1000;
-      }
-      .react-datepicker__tab-loop {
-        z-index: 999999 !important;
-      }
-      .react-datepicker-ignore-onclickoutside {
-        z-index: 999999 !important;
-      }
-    `;
-    document.head.appendChild(style);
-  } catch (e) {
-    console.warn('Failed to load react-datepicker:', e);
-  }
-}
 
 const { width } = Dimensions.get('window');
 const isTablet = width >= 768;
@@ -413,161 +363,23 @@ export function CompetencyGrid({ user }: CompetencyGridProps) {
             <CardContent>
               <View style={styles.filtersContainer}>
                 {/* Date Filters */}
-                <View style={styles.filterField}>
-                  <Text style={styles.filterLabel}>Start Date</Text>
-                  {Platform.OS === 'web' ? (
-                    // Web: Use react-datepicker
-                    DatePicker ? (
-                      <View style={styles.datePickerContainer}>
-                        <DatePicker
-                          selected={startDate ? new Date(startDate) : null}
-                          onChange={(date: Date | null) => {
-                            if (date) {
-                              setStartDate(date.toISOString().split('T')[0]);
-                            } else {
-                              setStartDate('');
-                            }
-                          }}
-                          dateFormat="MM/dd/yyyy"
-                          placeholderText="Select start date"
-                          popperClassName="date-picker-popper"
-                          wrapperClassName="date-picker-wrapper"
-                          withPortal={true}
-                          portalId="react-datepicker-portal-start"
-                          isClearable
-                          popperModifiers={[
-                            {
-                              name: 'offset',
-                              options: {
-                                offset: [0, 10],
-                              },
-                            },
-                            {
-                              name: 'preventOverflow',
-                              options: {
-                                rootBoundary: 'viewport',
-                                tether: false,
-                                altAxis: true,
-                              },
-                            },
-                          ]}
-                          customInput={
-                            <input
-                              style={{
-                                width: '100%',
-                                padding: '8px 12px',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '6px',
-                                fontSize: '14px',
-                                backgroundColor: '#ffffff',
-                                color: '#374151',
-                                height: '36px',
-                                cursor: 'pointer',
-                                boxSizing: 'border-box',
-                                position: 'relative',
-                                zIndex: 1000,
-                              }}
-                            />
-                          }
-                        />
-                      </View>
-                    ) : (
-                      // Fallback to simple input if DatePicker fails to load
-                      <Input
-                        style={styles.dateInput}
-                        placeholder="mm/dd/yyyy"
-                        value={startDate}
-                        onChangeText={setStartDate}
-                      />
-                    )
-                  ) : (
-                    // Mobile: Use regular TextInput
-                    <Input
-                      style={styles.dateInput}
-                      placeholder="mm/dd/yyyy"
+                <View style={styles.dateFiltersSection}>
+                  <Text style={styles.dateFiltersHelper}>* Filtered by shift date</Text>
+                  <View style={styles.dateFiltersRow}>
+                    <CustomDatePicker
+                      label="Start Date"
                       value={startDate}
-                      onChangeText={setStartDate}
+                      onChange={setStartDate}
+                      placeholder="Select start date"
                     />
-                  )}
-                </View>
 
-                <View style={styles.filterField}>
-                  <Text style={styles.filterLabel}>End Date</Text>
-                  {Platform.OS === 'web' ? (
-                    // Web: Use react-datepicker
-                    DatePicker ? (
-                      <View style={styles.datePickerContainer}>
-                        <DatePicker
-                          selected={endDate ? new Date(endDate) : null}
-                          onChange={(date: Date | null) => {
-                            if (date) {
-                              setEndDate(date.toISOString().split('T')[0]);
-                            } else {
-                              setEndDate('');
-                            }
-                          }}
-                          dateFormat="MM/dd/yyyy"
-                          placeholderText="Select end date"
-                          popperClassName="date-picker-popper"
-                          wrapperClassName="date-picker-wrapper"
-                          withPortal={true}
-                          portalId="react-datepicker-portal-end"
-                          isClearable
-                          minDate={startDate ? new Date(startDate) : null}
-                          popperModifiers={[
-                            {
-                              name: 'offset',
-                              options: {
-                                offset: [0, 10],
-                              },
-                            },
-                            {
-                              name: 'preventOverflow',
-                              options: {
-                                rootBoundary: 'viewport',
-                                tether: false,
-                                altAxis: true,
-                              },
-                            },
-                          ]}
-                          customInput={
-                            <input
-                              style={{
-                                width: '100%',
-                                padding: '8px 12px',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '6px',
-                                fontSize: '14px',
-                                backgroundColor: '#ffffff',
-                                color: '#374151',
-                                height: '36px',
-                                cursor: 'pointer',
-                                boxSizing: 'border-box',
-                                position: 'relative',
-                                zIndex: 1000,
-                              }}
-                            />
-                          }
-                        />
-                      </View>
-                    ) : (
-                      // Fallback to simple input if DatePicker fails to load
-                      <Input
-                        style={styles.dateInput}
-                        placeholder="mm/dd/yyyy"
-                        value={endDate}
-                        onChangeText={setEndDate}
-                      />
-                    )
-                  ) : (
-                    // Mobile: Use regular TextInput
-                    <Input
-                      style={styles.dateInput}
-                      placeholder="mm/dd/yyyy"
+                    <CustomDatePicker
+                      label="End Date"
                       value={endDate}
-                      onChangeText={setEndDate}
+                      onChange={setEndDate}
+                      placeholder="Select end date"
                     />
-                  )}
+                  </View>
                 </View>
 
                 {/* Clear Filters Button */}
@@ -891,6 +703,18 @@ const styles = StyleSheet.create({
   filterField: {
     gap: 8,
     marginBottom: 4,
+  },
+  dateFiltersSection: {
+    marginBottom: 8,
+  },
+  dateFiltersHelper: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontStyle: 'italic',
+    marginBottom: 12,
+  },
+  dateFiltersRow: {
+    gap: 16,
   },
   filterLabel: {
     fontSize: 14,

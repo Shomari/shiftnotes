@@ -385,13 +385,13 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   filterRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
+    flexDirection: isTablet ? 'row' : 'column',
+    alignItems: isTablet ? 'flex-end' : 'stretch',
     gap: 16,
   },
   filterField: {
     flex: 1,
-    minWidth: 200,
+    minWidth: isTablet ? 200 : 0,
   },
   filterLabel: {
     fontSize: 14,

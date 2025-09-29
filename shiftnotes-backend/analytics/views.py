@@ -69,8 +69,8 @@ def program_performance_data(request):
     # Get assessments for this program in the timeframe
     assessments = Assessment.objects.filter(
         trainee__program=program,
-        created_at__gte=start_date,
-        created_at__lte=end_date
+        shift_date__gte=start_date.date(),
+        shift_date__lte=end_date.date()
     )
     
     # Apply cohort filter if provided
@@ -93,7 +93,7 @@ def program_performance_data(request):
     active_trainees_query = User.objects.filter(
         role='trainee',
         program=program,
-        assessments_received__created_at__gte=start_date
+        assessments_received__shift_date__gte=start_date.date()
     )
     
     # Apply same filters to trainee query
@@ -175,8 +175,8 @@ def program_performance_data(request):
         month_start = end_date - timedelta(days=(i+1) * 30)
         month_end = end_date - timedelta(days=i * 30)
         month_assessments_queryset = assessments.filter(
-            created_at__gte=month_start,
-            created_at__lt=month_end
+            shift_date__gte=month_start.date(),
+            shift_date__lt=month_end.date()
         )
         month_assessments_count = month_assessments_queryset.count()
         
@@ -302,8 +302,8 @@ def faculty_dashboard_data(request):
         
         # Get first and last assessment dates
         assessment_dates = faculty_assessments.aggregate(
-            first_date=Min('created_at'),
-            last_date=Max('created_at')
+            first_date=Min('shift_date'),
+            last_date=Max('shift_date')
         )
         first_assessment = assessment_dates['first_date']
         last_assessment = assessment_dates['last_date']
@@ -311,7 +311,7 @@ def faculty_dashboard_data(request):
         # Calculate active months
         active_months = 0
         if first_assessment and last_assessment:
-            days_active = (last_assessment.date() - first_assessment.date()).days
+            days_active = (last_assessment - first_assessment).days
             active_months = max(1, days_active // 30)
         
         # Calculate average turnaround time (shift date to creation date)
@@ -496,7 +496,7 @@ def competency_progress_data(request):
     
     # Get recent assessment trend (last 3 months)
     three_months_ago = timezone.now() - timedelta(days=90)
-    recent_assessments = trainee_assessments.filter(created_at__gte=three_months_ago)
+    recent_assessments = trainee_assessments.filter(shift_date__gte=three_months_ago.date())
     recent_avg = recent_assessments.aggregate(
         avg=Avg('assessment_epas__entrustment_level')
     )['avg']

@@ -14,8 +14,10 @@ class EPACategorySerializer(serializers.ModelSerializer):
 
 class EPASerializer(serializers.ModelSerializer):
     program_name = serializers.CharField(source='program.name', read_only=True)
-    category_title = serializers.CharField(source='category.title', read_only=True)
+    category_title = serializers.CharField(source='category.title', read_only=True, required=False)
     sub_competencies = serializers.SerializerMethodField()
+    category = serializers.PrimaryKeyRelatedField(queryset=EPACategory.objects.all(), required=False, allow_null=True)
+    description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     
     class Meta:
         model = EPA

@@ -3,9 +3,16 @@ from django.db import IntegrityError
 from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import EPACategory, EPA, CoreCompetency, SubCompetency, SubCompetencyEPA
 from .serializers import EPACategorySerializer, EPASerializer, CoreCompetencySerializer, SubCompetencySerializer, SubCompetencyEPASerializer
+
+# Custom pagination for EPA endpoint to handle more EPAs per program
+class EPAPagination(PageNumberPagination):
+    page_size = 50  # Allow up to 50 EPAs per page
+    page_size_query_param = 'limit'
+    max_page_size = 100
 
 # Create your views here.
 
@@ -26,8 +33,24 @@ class EPAViewSet(viewsets.ModelViewSet):
     filterset_fields = ['program', 'category', 'is_active']
     search_fields = ['code', 'title', 'description']
     ordering = ['code']
+    pagination_class = EPAPagination  # Use custom pagination for larger EPA sets
     
-    # Clean ViewSet - validation is handled by the serializer
+    def destroy(self, request, *args, **kwargs):
+        """Override delete to prevent deletion if EPA has been used in assessments"""
+        epa = self.get_object()
+        
+        # Check if EPA has been used in any assessments
+        from assessments.models import AssessmentEPA
+        assessment_count = AssessmentEPA.objects.filter(epa=epa).count()
+        
+        if assessment_count > 0:
+            return Response(
+                {'error': f'Cannot delete this EPA: It has been used in {assessment_count} assessment(s).'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # If no assessments use this EPA, allow deletion
+        return super().destroy(request, *args, **kwargs)
 
 class CoreCompetencyViewSet(viewsets.ModelViewSet):
     queryset = CoreCompetency.objects.all()

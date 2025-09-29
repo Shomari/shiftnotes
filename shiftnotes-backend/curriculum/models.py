@@ -18,10 +18,10 @@ class EPACategory(models.Model):
 class EPA(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     program = models.ForeignKey('organizations.Program', on_delete=models.CASCADE, related_name='epas')
-    category = models.ForeignKey(EPACategory, on_delete=models.CASCADE, related_name='epas')
+    category = models.ForeignKey(EPACategory, on_delete=models.CASCADE, related_name='epas', null=True, blank=True)
     code = models.CharField(max_length=20)  # e.g., "EPA-EM-01"
     title = models.CharField(max_length=500)
-    description = models.TextField()
+    description = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
     
     class Meta:

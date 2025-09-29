@@ -260,8 +260,8 @@ class Command(BaseCommand):
             'EPA4': ['PC2', 'PC4', 'MK1', 'MK2'],
             'EPA5': ['PC2', 'PC3', 'PC4', 'MK1', 'MK2'],
             'EPA6': ['PC3', 'PC4', 'MK1', 'MK2', 'PBLI1'],
-            'EPA7': ['MK1', 'MK2', 'SBP1', 'SBP2', 'PBLI1', 'PBLI2'],  # Added SBP2, PBLI2
-            'EPA8': ['PC3', 'PC4', 'PC5', 'PC6', 'MK1', 'MK2', 'PBLI1', 'PBLI2', 'ICS1'],  # Added PBLI2
+            'EPA7': ['MK1', 'MK2', 'SBP1', 'PBLI1'],  # Removed SBP2, PBLI2 (not in CSV mapping)
+            'EPA8': ['PC3', 'PC4', 'PC5', 'PC6', 'MK1', 'MK2', 'PBLI1', 'ICS1'],  # Removed PBLI2 (not in CSV mapping)
             'EPA9': ['PC2', 'PC6', 'MK2'],
             'EPA10': ['PC6', 'MK2', 'SBP3', 'SBP4', 'ICS1', 'ICS3'],
             'EPA11': ['PC8', 'MK2', 'ICS1', 'ICS2'],
@@ -274,7 +274,7 @@ class Command(BaseCommand):
             'EPA18': ['SBP1', 'SBP3', 'SBP4', 'P1', 'P2', 'ICS2', 'ICS3'],
             'EPA19': ['P1', 'P2', 'P3', 'ICS1'],  # Added P3
             'EPA20': ['MK2', 'SBP1', 'SBP4', 'ICS2', 'ICS3'],
-            'EPA21': ['PC6', 'PC7', 'SBP1', 'SBP2', 'SBP3', 'P2', 'ICS2', 'ICS3'],  # Added SBP2
+            'EPA21': ['PC6', 'PC7', 'SBP1', 'SBP3', 'P2', 'ICS2', 'ICS3'],  # Removed SBP2 (not in CSV mapping)
             'EPA22': ['P1', 'P2', 'P3'],  # Added P3
         }
         
@@ -613,9 +613,10 @@ class Command(BaseCommand):
                     # Determine how many EPAs to assess (1-3 EPAs per assessment for better coverage)
                     num_epas = random.choices([1, 2, 3], weights=[60, 30, 10])[0]  # Most assessments have 1 EPA, some have 2-3
                     
-                    # Create private comments for 5% of assessments
+                    # Create private comments - limit to 5 total for leadership mailbox
                     private_comment = ""
-                    if random.random() < 0.05:  # 5% chance
+                    # Only add to first 5 assessments that don't already have private comments
+                    if len(private_comment_assessments) < 5 and random.random() < 0.05:  # 5% chance, but cap at 5 total
                         private_comments_options = [
                             f"{trainee.name} demonstrated exceptional clinical reasoning during this challenging case. Ready for increased autonomy.",
                             f"Excellent performance by {trainee.name}. Showed strong leadership during the resuscitation.",
@@ -723,19 +724,19 @@ class Command(BaseCommand):
                 
                 self.stdout.write(f'📋 Created {total_assessments} assessments for {trainee.name}')
         
-        # Mark most private comment assessments as read, leaving only 3 unread
+        # Mark 2 private comment assessments as read, leaving 3 unread (total: 5 with private comments)
         if private_comment_assessments:
             leadership_users = User.objects.filter(role__in=['leadership', 'admin'], program=program)
             
-            # Leave 3 assessments unread for demo purposes
-            assessments_to_mark_read = private_comment_assessments[:-3]
+            # Mark only the first 2 assessments as read, leave the last 3 unread
+            assessments_to_mark_read = private_comment_assessments[:2]  # First 2 are read
             
             for assessment in assessments_to_mark_read:
                 # Mark as read by all leadership (for demo purposes)
                 assessment.acknowledged_by.set(leadership_users)
             
             self.stdout.write(f'📬 Created {len(private_comment_assessments)} assessments with private comments')
-            self.stdout.write(f'📖 Marked {len(assessments_to_mark_read)} as read, leaving 3 unread for demo')
+            self.stdout.write(f'📖 Marked {len(assessments_to_mark_read)} as read, leaving {len(private_comment_assessments) - len(assessments_to_mark_read)} unread for demo')
         
         self.stdout.write(f'🎯 Total assessments created: {total_assessments_created}')
 

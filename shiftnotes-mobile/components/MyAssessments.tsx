@@ -419,19 +419,24 @@ export function MyAssessments({ onViewAssessment, onEditAssessment, onDiscardDra
               )}
 
               {/* Date Filters */}
-              <CustomDatePicker
-                label="Start Date"
-                value={startDate}
-                onChange={setStartDate}
-                placeholder="Select start date"
-              />
+              <View style={styles.dateFiltersSection}>
+                <Text style={styles.dateFiltersHelper}>* Filtered by shift date</Text>
+                <View style={styles.dateFiltersRow}>
+                  <CustomDatePicker
+                    label="Start Date"
+                    value={startDate}
+                    onChange={setStartDate}
+                    placeholder="Select start date"
+                  />
 
-              <CustomDatePicker
-                label="End Date"
-                value={endDate}
-                onChange={setEndDate}
-                placeholder="Select end date"
-              />
+                  <CustomDatePicker
+                    label="End Date"
+                    value={endDate}
+                    onChange={setEndDate}
+                    placeholder="Select end date"
+                  />
+                </View>
+              </View>
 
               {/* Clear Filters Button */}
               <View style={styles.filterField}>
@@ -511,12 +516,11 @@ export function MyAssessments({ onViewAssessment, onEditAssessment, onDiscardDra
                   <View style={styles.epasList}>
                     {assessment.epas.length > 0 ? (
                       <View style={styles.epaBadge}>
-                        <Text style={styles.epaText}>
-                          {assessment.epas[0].code.replace(/EPA(\d+)/, 'EPA $1')} - {assessment.epas[0].title} (
-                          <Text style={{ color: getMetricColor(assessment.epas[0].level, 'level') }}>
-                            Level {assessment.epas[0].level}
-                          </Text>
-                          )
+                        <Text style={styles.epaText} numberOfLines={2}>
+                          {assessment.epas[0].code.replace(/EPA(\d+)/, 'EPA $1')} - {assessment.epas[0].title}
+                        </Text>
+                        <Text style={[styles.epaLevelText, { color: getMetricColor(assessment.epas[0].level, 'level') }]}>
+                          Level {assessment.epas[0].level}
                         </Text>
                       </View>
                     ) : (
@@ -711,6 +715,18 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 4,
   },
+  dateFiltersSection: {
+    marginBottom: 8,
+  },
+  dateFiltersHelper: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontStyle: 'italic',
+    marginBottom: 12,
+  },
+  dateFiltersRow: {
+    gap: 16,
+  },
   filterLabel: {
     fontSize: 14,
     fontWeight: '500',
@@ -830,15 +846,23 @@ const styles = StyleSheet.create({
   epaBadge: {
     backgroundColor: '#f3f4f6',
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#e5e7eb',
+    flex: 1,
+    minWidth: 0, // Allow shrinking
   },
   epaText: {
     fontSize: 12,
     color: '#374151',
     fontWeight: '500',
+    marginBottom: 4,
+    flexShrink: 1, // Allow text to shrink
+  },
+  epaLevelText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   noEpaText: {
     fontSize: 12,

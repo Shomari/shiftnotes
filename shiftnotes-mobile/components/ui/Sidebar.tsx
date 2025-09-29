@@ -53,11 +53,11 @@ const getNavigationItems = (userRole?: string): NavigationItem[] => {
         title: 'EPA Management',
         icon: '📋',
       },
-      {
-        id: 'category-management',
-        title: 'Category Management',
-        icon: '🏷️',
-      },
+      // {
+      //   id: 'category-management',
+      //   title: 'Category Management',
+      //   icon: '🏷️',
+      // },
       {
         id: 'competency-management',
         title: 'Competency Management',
