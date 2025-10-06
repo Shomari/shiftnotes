@@ -134,6 +134,53 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
     }
   }, [assessmentId]);
 
+  // TEMPORARY: Clear invalid EPAs when shift date changes (day-of-week filtering)
+  // TODO: Remove this when permanent solution is implemented
+  const shiftDateValue = watch('shiftDate');
+  useEffect(() => {
+    if (!shiftDateValue || assessmentSlots.length === 0) return;
+
+    const date = new Date(shiftDateValue);
+    const dayOfWeek = date.getDay();
+    const allowedEpaNumbers = EPA_DAY_OF_WEEK_MAP[dayOfWeek];
+
+    if (!allowedEpaNumbers) return;
+
+    // Check if any selected EPAs are no longer valid for this day
+    const updatedSlots = assessmentSlots.map(slot => {
+      if (!slot.epaId) return slot;
+
+      const selectedEpa = epas.find(e => e.id === slot.epaId);
+      if (!selectedEpa) return slot;
+
+      const epaNumber = getEpaNumber(selectedEpa.code);
+      const isValidForDay = epaNumber !== null && allowedEpaNumbers.includes(epaNumber);
+
+      // If EPA is no longer valid for this day, clear it
+      if (!isValidForDay) {
+        // Clean up the assessment data for the cleared EPA
+        setEpaAssessments(current => {
+          const updated = { ...current };
+          delete updated[slot.epaId as string];
+          return updated;
+        });
+        return { ...slot, epaId: null };
+      }
+
+      return slot;
+    });
+
+    // Only update if something changed
+    const hasChanges = updatedSlots.some((slot, index) => 
+      slot.epaId !== assessmentSlots[index].epaId
+    );
+    
+    if (hasChanges) {
+      setAssessmentSlots(updatedSlots);
+    }
+  }, [shiftDateValue, epas, assessmentSlots]);
+  // END TEMPORARY
+
   // API calls and data loading
   const loadEPAsForProgram = async (programId: string) => {
     try {
