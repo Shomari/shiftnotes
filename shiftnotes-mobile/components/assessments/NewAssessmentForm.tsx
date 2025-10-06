@@ -150,6 +150,7 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
     formState: { errors },
     reset,
     setValue,
+    watch,
   } = useForm<AssessmentFormData>({
     defaultValues: {
       traineeId: '',
