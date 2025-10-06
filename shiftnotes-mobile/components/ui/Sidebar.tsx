@@ -30,7 +30,7 @@ interface SidebarProps {
 
 const getNavigationItems = (userRole?: string): NavigationItem[] => {
 
-  // Coordinator and System Coordinator - full access including overview
+  // Coordinator and System Coordinator - administrative access
   if (userRole === 'admin' || userRole === 'system-admin') {
     return [
       {
@@ -47,11 +47,6 @@ const getNavigationItems = (userRole?: string): NavigationItem[] => {
         id: 'cohort-management',
         title: 'Cohort Management',
         icon: '🎓',
-      },
-      {
-        id: 'epa-management',
-        title: 'EPA Management',
-        icon: '📋',
       },
       // {
       //   id: 'category-management',
@@ -76,7 +71,7 @@ const getNavigationItems = (userRole?: string): NavigationItem[] => {
     ];
   }
 
-        // Leadership - analytics and strategic oversight
+        // Leadership - analytics, strategic oversight, and EPA management
         if (userRole === 'leadership') {
           return [
             {
@@ -109,6 +104,11 @@ const getNavigationItems = (userRole?: string): NavigationItem[] => {
               id: 'trainee-performance',
               title: 'Trainee Performance',
               icon: '🎓',
+            },
+            {
+              id: 'epa-management',
+              title: 'EPA Management',
+              icon: '📝',
             },
             {
               id: 'competency-grid',

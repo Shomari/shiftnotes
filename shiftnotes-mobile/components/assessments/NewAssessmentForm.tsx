@@ -82,6 +82,32 @@ const isTablet = width > 768;
 // Generate a unique key for list items
 const generateUniqueKey = () => `slot_${Date.now()}_${Math.random()}`;
 
+// ============================================================================
+// TEMPORARY: EPA Day-of-Week Filtering (MVP Customer Request)
+// ============================================================================
+// This is a TEMPORARY hardcoded mapping to filter EPAs by shift date day of week.
+// TODO: Remove this when permanent solution is implemented
+// Maps day of week (0=Sunday, 6=Saturday) to available EPA numbers
+const EPA_DAY_OF_WEEK_MAP: Record<number, number[]> = {
+  0: [2, 8, 12, 13, 14, 15, 16, 17],        // Sunday
+  1: [7, 9, 14, 16, 20, 21, 22],             // Monday
+  2: [2, 4, 10, 12, 13, 14, 16, 17],         // Tuesday
+  3: [2, 5, 12, 13, 14, 16, 17, 22],         // Wednesday
+  4: [2, 3, 12, 13, 14, 16, 17, 18, 22],     // Thursday
+  5: [6, 12, 13, 14, 16, 17, 19, 22],        // Friday
+  6: [1, 11, 12, 13, 14, 16, 17, 22],        // Saturday
+};
+
+/**
+ * TEMPORARY: Extract EPA number from EPA code (e.g., "EPA 1" -> 1, "EPA1" -> 1)
+ * TODO: Remove this when permanent solution is implemented
+ */
+const getEpaNumber = (epaCode: string): number | null => {
+  const match = epaCode.match(/EPA\s*(\d+)/i);
+  return match ? parseInt(match[1], 10) : null;
+};
+// ============================================================================
+
 interface EpaSlot {
   key: string;
   epaId: string | null;
@@ -283,7 +309,27 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
 
   const getAvailableEpas = () => {
     const selectedEpaIds = new Set(assessmentSlots.map(s => s.epaId).filter(Boolean));
-    return epas.filter(epa => !selectedEpaIds.has(epa.id));
+    
+    // TEMPORARY: Filter by day of week if shift date is set
+    // TODO: Remove this when permanent solution is implemented
+    const shiftDate = watch('shiftDate');
+    let dayFilteredEpas = epas;
+    
+    if (shiftDate) {
+      const date = new Date(shiftDate);
+      const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
+      const allowedEpaNumbers = EPA_DAY_OF_WEEK_MAP[dayOfWeek];
+      
+      if (allowedEpaNumbers) {
+        dayFilteredEpas = epas.filter(epa => {
+          const epaNumber = getEpaNumber(epa.code);
+          return epaNumber !== null && allowedEpaNumbers.includes(epaNumber);
+        });
+      }
+    }
+    // END TEMPORARY
+    
+    return dayFilteredEpas.filter(epa => !selectedEpaIds.has(epa.id));
   };
 
   // Load assessment data for editing
@@ -770,6 +816,11 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
             <CardHeader>
               <CardTitle>EPA Selection</CardTitle>
               <Text style={styles.cardSubtitle}>Select the EPAs observed during this shift</Text>
+              {watch('shiftDate') && (
+                <Text style={styles.helperText}>
+                  📅 Available EPAs are filtered based on the shift date's day of week
+                </Text>
+              )}
             </CardHeader>
             <CardContent>
               {assessmentSlots.map((slot, index) => {
@@ -1157,6 +1208,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748b',
     marginTop: 4,
+  },
+  helperText: {
+    fontSize: 13,
+    color: '#3b82f6',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   row: {
     flexDirection: 'row',

@@ -1,6 +1,6 @@
 /**
- * EPA Management component for Coordinator users
- * Redesigned to match the image layout with statistics and sections
+ * EPA Management component for Leadership users
+ * Allows program leadership to manage EPAs and their competency mappings
  */
 
 import React, { useState, useEffect } from 'react';
@@ -141,15 +141,6 @@ export function EPAManagement() {
 
   // Calculate active EPAs for section title
   const activeEPAs = epas.filter(epa => epa.is_active !== false).length;
-  
-  // Debug EPA counts
-  console.log('=== EPA COUNT DEBUG ===');
-  console.log('Total EPAs loaded:', epas.length);
-  console.log('Active EPAs (is_active !== false):', activeEPAs);
-  console.log('EPAs with is_active=true:', epas.filter(epa => epa.is_active === true).length);
-  console.log('EPAs with is_active=false:', epas.filter(epa => epa.is_active === false).length);
-  console.log('EPAs with is_active=undefined:', epas.filter(epa => epa.is_active === undefined).length);
-  console.log('EPA is_active values:', epas.map(epa => ({ code: epa.code, is_active: epa.is_active })));
 
 
   const handleCreateEPA = () => {
@@ -177,8 +168,6 @@ export function EPAManagement() {
   };
 
   const handleSaveEPA = async () => {
-    console.log('handleSaveEPA called', { formData, editingEPA });
-    
     // Clear previous validation errors
     setValidationErrors({});
     
@@ -196,7 +185,6 @@ export function EPAManagement() {
     // If there are validation errors, set them and return
     if (Object.keys(fieldErrors).length > 0) {
       setValidationErrors(fieldErrors);
-      console.log('Validation errors:', fieldErrors);
       return;
     }
 
@@ -209,27 +197,19 @@ export function EPAManagement() {
         program: user?.program || '',
       };
 
-      console.log('Saving EPA data:', epaData);
-
       let savedEPA: ApiEPA;
       if (editingEPA) {
         // Update existing EPA
-        console.log('Updating EPA with ID:', editingEPA.id);
         savedEPA = await apiClient.updateEPA(editingEPA.id, epaData);
       } else {
         // Create new EPA
-        console.log('Creating new EPA');
         savedEPA = await apiClient.createEPA(epaData);
       }
-
-      console.log('EPA saved successfully:', savedEPA);
 
       // Handle sub-competency relationships
       try {
         await handleSubCompetencyRelationships(savedEPA.id);
-        console.log('Sub-competency relationships handled successfully');
-      } catch (subCompError) {
-        console.error('Error handling sub-competency relationships:', subCompError);
+      } catch (subCompError: any) {
         throw new Error(`EPA saved but failed to update sub-competency relationships: ${subCompError.message}`);
       }
 
@@ -251,7 +231,6 @@ export function EPAManagement() {
       
       // Try to parse structured error response from backend
       if (error.response && error.response.data) {
-        console.log('Error response data:', error.response.data);
         
         // Check for DRF ValidationError format (field-specific errors)
         if (error.response.data.code) {
@@ -312,28 +291,19 @@ export function EPAManagement() {
   };
 
   const handleSubCompetencyRelationships = async (epaId: string) => {
-    console.log('Handling sub-competency relationships for EPA:', epaId);
-    console.log('Form sub-competencies:', formData.sub_competencies);
-    
     // Get current relationships for this EPA
     const currentRelationships = subCompetencyEPAs.filter(rel => rel.epa === epaId);
     const currentSubCompIds = currentRelationships.map(rel => rel.sub_competency);
-    console.log('Current relationships:', currentRelationships);
-    console.log('Current sub-competency IDs:', currentSubCompIds);
 
     // Determine which relationships to add and remove
     const toAdd = formData.sub_competencies.filter(id => !currentSubCompIds.includes(id));
     const toRemove = currentSubCompIds.filter(id => !formData.sub_competencies.includes(id));
-    console.log('To add:', toAdd);
-    console.log('To remove:', toRemove);
 
     // Remove old relationships
     for (const rel of currentRelationships) {
       if (toRemove.includes(rel.sub_competency)) {
-        console.log('Deleting sub-competency relationship:', rel.id);
         try {
           await apiClient.deleteSubCompetencyEPA(rel.id);
-          console.log('Successfully deleted relationship:', rel.id);
         } catch (deleteError) {
           console.error('Error deleting relationship:', rel.id, deleteError);
           throw deleteError;
@@ -343,20 +313,17 @@ export function EPAManagement() {
 
     // Add new relationships
     for (const subCompId of toAdd) {
-      console.log('Creating sub-competency relationship:', { sub_competency: subCompId, epa: epaId });
       try {
-        const result = await apiClient.createSubCompetencyEPA({
+        await apiClient.createSubCompetencyEPA({
           sub_competency: subCompId,
           epa: epaId,
         });
-        console.log('Successfully created relationship:', result);
       } catch (createError) {
         console.error('Error creating relationship:', { sub_competency: subCompId, epa: epaId }, createError);
         throw createError;
       }
     }
     
-    console.log('All sub-competency relationships processed successfully');
   };
 
   const handleReactivateEPA = async (epa: ApiEPA) => {
@@ -537,22 +504,14 @@ export function EPAManagement() {
 
   // Get core competencies that an EPA is mapped to
   const getEpaCompetencies = (epa: ApiEPA) => {
-    // Debug: Log EPA details
-    console.log(`\n=== EPA ${epa.code} (ID: ${epa.id}) ===`);
-    
     // Use the sub_competencies from the EPA object and look up full sub-competency data
     if (epa.sub_competencies && epa.sub_competencies.length > 0) {
-      console.log(`EPA ${epa.code} - Found sub_competencies:`, epa.sub_competencies.length);
-      
       const competencyIds = new Set<string>();
       epa.sub_competencies.forEach(epaSubComp => {
         // Find the full sub-competency object using the ID
         const fullSubComp = subCompetencies.find(sc => sc.id === epaSubComp.id);
         if (fullSubComp && fullSubComp.core_competency) {
           competencyIds.add(fullSubComp.core_competency);
-          console.log(`  - SubComp ${fullSubComp.code} -> CoreComp ${fullSubComp.core_competency}`);
-        } else {
-          console.log(`  - SubComp ${epaSubComp.code} (${epaSubComp.id}) not found in full list`);
         }
       });
       
@@ -560,16 +519,13 @@ export function EPAManagement() {
         .map(id => coreCompetencies.find(comp => comp.id === id))
         .filter(comp => comp !== undefined) as ApiCoreCompetency[];
         
-      console.log(`EPA ${epa.code} - Final competencies:`, competencies.map(c => c.code));
       return competencies;
     }
     
     // Fallback to using subCompetencyEPAs relationships
     const epaSubCompetencyRelations = subCompetencyEPAs.filter(relation => relation.epa === epa.id);
-    console.log(`EPA ${epa.code} - Using fallback relations:`, epaSubCompetencyRelations.length);
     
     if (epaSubCompetencyRelations.length === 0) {
-      console.log(`EPA ${epa.code} - No relationships found`);
       return [];
     }
 
@@ -587,7 +543,6 @@ export function EPAManagement() {
       .map(id => coreCompetencies.find(comp => comp.id === id))
       .filter(comp => comp !== undefined) as ApiCoreCompetency[];
       
-    console.log(`EPA ${epa.code} - Fallback competencies:`, competencies.map(c => c.code));
     return competencies;
   };
 
