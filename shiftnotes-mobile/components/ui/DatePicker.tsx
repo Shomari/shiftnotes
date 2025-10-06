@@ -38,6 +38,8 @@ interface DatePickerProps {
   placeholder?: string;
   disabled?: boolean;
   style?: any;
+  maxDate?: Date;
+  error?: string;
 }
 
 export function CustomDatePicker({
@@ -47,6 +49,8 @@ export function CustomDatePicker({
   placeholder = "Select date",
   disabled = false,
   style,
+  maxDate,
+  error,
 }: DatePickerProps) {
 
   // For web, use Material-UI DatePicker with proper setup
@@ -66,23 +70,26 @@ export function CustomDatePicker({
               }
             }}
             disabled={disabled}
+            maxDate={maxDate ? dayjs(maxDate) : undefined}
             slotProps={{
               textField: {
                 size: 'small',
                 fullWidth: true,
+                error: !!error,
+                helperText: error,
                 sx: {
                   '& .MuiOutlinedInput-root': {
                     minHeight: '44px',
                     backgroundColor: disabled ? '#f3f4f6' : '#ffffff',
                     '& fieldset': {
-                      borderColor: '#d1d5db',
+                      borderColor: error ? '#ef4444' : '#d1d5db',
                       borderRadius: '8px',
                     },
                     '&:hover fieldset': {
-                      borderColor: '#9ca3af',
+                      borderColor: error ? '#ef4444' : '#9ca3af',
                     },
                     '&.Mui-focused fieldset': {
-                      borderColor: '#3b82f6',
+                      borderColor: error ? '#ef4444' : '#3b82f6',
                       borderWidth: '1px',
                     },
                   },
@@ -92,11 +99,15 @@ export function CustomDatePicker({
                     color: '#374151',
                   },
                   '& .MuiInputLabel-root': {
-                    color: '#6b7280',
+                    color: error ? '#ef4444' : '#6b7280',
                     fontSize: '16px',
                     '&.Mui-focused': {
-                      color: '#3b82f6',
+                      color: error ? '#ef4444' : '#3b82f6',
                     },
+                  },
+                  '& .MuiFormHelperText-root': {
+                    color: '#ef4444',
+                    marginLeft: 0,
                   },
                 },
               },
