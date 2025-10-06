@@ -54,11 +54,6 @@ const getNavigationItems = (userRole?: string): NavigationItem[] => {
       //   icon: '🏷️',
       // },
       {
-        id: 'competency-management',
-        title: 'Competency Management',
-        icon: '🎯',
-      },
-      {
         id: 'competency-grid',
         title: 'Competency Grid',
         icon: '📃',
@@ -71,7 +66,7 @@ const getNavigationItems = (userRole?: string): NavigationItem[] => {
     ];
   }
 
-        // Leadership - analytics, strategic oversight, and EPA management
+        // Leadership - analytics, strategic oversight, EPA and competency management
         if (userRole === 'leadership') {
           return [
             {
@@ -109,6 +104,11 @@ const getNavigationItems = (userRole?: string): NavigationItem[] => {
               id: 'epa-management',
               title: 'EPA Management',
               icon: '📝',
+            },
+            {
+              id: 'competency-management',
+              title: 'Competency Management',
+              icon: '🎯',
             },
             {
               id: 'competency-grid',

@@ -1,5 +1,6 @@
 /**
- * Competency Management component for managing core competencies and sub-competencies
+ * Competency Management component for Leadership users
+ * Allows program leadership to manage core competencies and sub-competencies
  */
 
 import React, { useState, useEffect } from 'react';
