@@ -18,6 +18,25 @@ import {
 } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 
+// MUI imports for web only
+let MuiRadio: any = null;
+let MuiRadioGroup: any = null;
+let MuiFormControlLabel: any = null;
+let MuiFormControl: any = null;
+let MuiFormLabel: any = null;
+if (Platform.OS === 'web') {
+  try {
+    const muiMaterial = require('@mui/material');
+    MuiRadio = muiMaterial.Radio;
+    MuiRadioGroup = muiMaterial.RadioGroup;
+    MuiFormControlLabel = muiMaterial.FormControlLabel;
+    MuiFormControl = muiMaterial.FormControl;
+    MuiFormLabel = muiMaterial.FormLabel;
+  } catch (e) {
+    console.warn('Failed to load MUI Radio components:', e);
+  }
+}
+
 import { Button } from '../ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Input } from '../ui/Input';
@@ -805,28 +824,104 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
                            onLayout={handleFieldLayout(`${slot.key}-entrustmentLevel`)}
                            {...(isWeb ? { 'data-field-key': `${slot.key}-entrustmentLevel` } : {})}
                         >
-                          <Text style={styles.label}>Entrustment Level *</Text>
-                          <Select
-                            value={String(epaAssessments[slot.epaId]?.entrustmentLevel || '')}
-                            onValueChange={(value) =>
-                               updateEPAAssessment(slot.epaId!, 'entrustmentLevel', parseInt(value))
-                            }
-                            placeholder="Select entrustment level"
-                            options={Object.entries(epaEntrustmentDescriptions).map(([level, description]) => {
-                              const parts = description.split(' (');
-                              const mainText = parts[0];
-                              const subtitleText = parts[1] ? parts[1].replace(')', '') : '';
-                              return {
-                                label: `Level ${level}: ${mainText}`,
-                                subtitle: subtitleText,
-                                value: level,
-                              };
-                            })}
-                          />
-                          {validationErrors[`${slot.key}-entrustmentLevel`] && (
-                            <Text style={styles.errorText}>
-                              {validationErrors[`${slot.key}-entrustmentLevel`]}
-                            </Text>
+                          {Platform.OS === 'web' && MuiFormControl && MuiFormLabel && MuiRadioGroup && MuiFormControlLabel && MuiRadio ? (
+                            <MuiFormControl 
+                              component="fieldset" 
+                              error={!!validationErrors[`${slot.key}-entrustmentLevel`]}
+                              sx={{ width: '100%' }}
+                            >
+                              <MuiFormLabel 
+                                component="legend"
+                                sx={{
+                                  color: validationErrors[`${slot.key}-entrustmentLevel`] ? '#ef4444' : '#374151',
+                                  fontSize: '14px',
+                                  fontWeight: '500',
+                                  marginBottom: '12px',
+                                  '&.Mui-focused': {
+                                    color: validationErrors[`${slot.key}-entrustmentLevel`] ? '#ef4444' : '#3b82f6',
+                                  },
+                                }}
+                              >
+                                Entrustment Level *
+                              </MuiFormLabel>
+                              <MuiRadioGroup
+                                value={String(epaAssessments[slot.epaId]?.entrustmentLevel || '')}
+                                onChange={(e: any) => 
+                                  updateEPAAssessment(slot.epaId!, 'entrustmentLevel', parseInt(e.target.value))
+                                }
+                              >
+                                {Object.entries(epaEntrustmentDescriptions).map(([level, description]) => {
+                                  const parts = description.split(' (');
+                                  const mainText = parts[0];
+                                  const subtitleText = parts[1] ? `(${parts[1]}` : '';
+                                  return (
+                                    <MuiFormControlLabel
+                                      key={level}
+                                      value={level}
+                                      control={<MuiRadio />}
+                                      label={
+                                        <View>
+                                          <Text style={{ fontSize: '15px', fontWeight: '500', color: '#1f2937' }}>
+                                            Level {level}: {mainText}
+                                          </Text>
+                                          <Text style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>
+                                            {subtitleText}
+                                          </Text>
+                                        </View>
+                                      }
+                                      sx={{
+                                        marginBottom: '8px',
+                                        marginLeft: '0',
+                                        border: '1px solid #e5e7eb',
+                                        borderRadius: '8px',
+                                        padding: '12px',
+                                        backgroundColor: '#ffffff',
+                                        '&:hover': {
+                                          backgroundColor: '#f9fafb',
+                                        },
+                                        '& .MuiRadio-root': {
+                                          color: '#d1d5db',
+                                          '&.Mui-checked': {
+                                            color: '#3b82f6',
+                                          },
+                                        },
+                                      }}
+                                    />
+                                  );
+                                })}
+                              </MuiRadioGroup>
+                              {validationErrors[`${slot.key}-entrustmentLevel`] && (
+                                <Text style={styles.errorText}>
+                                  {validationErrors[`${slot.key}-entrustmentLevel`]}
+                                </Text>
+                              )}
+                            </MuiFormControl>
+                          ) : (
+                            <>
+                              <Text style={styles.label}>Entrustment Level *</Text>
+                              <Select
+                                value={String(epaAssessments[slot.epaId]?.entrustmentLevel || '')}
+                                onValueChange={(value) =>
+                                   updateEPAAssessment(slot.epaId!, 'entrustmentLevel', parseInt(value))
+                                }
+                                placeholder="Select entrustment level"
+                                options={Object.entries(epaEntrustmentDescriptions).map(([level, description]) => {
+                                  const parts = description.split(' (');
+                                  const mainText = parts[0];
+                                  const subtitleText = parts[1] ? parts[1].replace(')', '') : '';
+                                  return {
+                                    label: `Level ${level}: ${mainText}`,
+                                    subtitle: subtitleText,
+                                    value: level,
+                                  };
+                                })}
+                              />
+                              {validationErrors[`${slot.key}-entrustmentLevel`] && (
+                                <Text style={styles.errorText}>
+                                  {validationErrors[`${slot.key}-entrustmentLevel`]}
+                                </Text>
+                              )}
+                            </>
                           )}
                         </View>
                       </View>

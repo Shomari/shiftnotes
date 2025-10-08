@@ -34,9 +34,10 @@ interface UserFormData {
 
 interface AddUserProps {
   onBack?: () => void;
+  onSuccess?: (message: string) => void;
 }
 
-export default function AddUser({ onBack }: AddUserProps) {
+export default function AddUser({ onBack, onSuccess }: AddUserProps) {
   const { user } = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
   const [cohorts, setCohorts] = useState<any[]>([]);
@@ -122,15 +123,9 @@ export default function AddUser({ onBack }: AddUserProps) {
 
       await apiClient.createUser(userData);
       
-      const successMessage = 'User created successfully';
-      if (Platform.OS === 'web') {
-        window.alert(successMessage);
-        onBack?.();
-      } else {
-        Alert.alert('Success', successMessage, [
-          { text: 'OK', onPress: onBack }
-        ]);
-      }
+      const successMessage = `User ${formData.name} created successfully`;
+      onSuccess?.(successMessage);
+      onBack?.();
     } catch (error: any) {
       console.error('Error creating user:', error);
       

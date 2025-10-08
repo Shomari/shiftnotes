@@ -18,6 +18,23 @@ import {
   TouchableWithoutFeedback,
   KeyboardAvoidingView,
 } from 'react-native';
+
+// MUI imports for web only
+let MuiAlert: any = null;
+let MuiTextField: any = null;
+let MuiInputAdornment: any = null;
+let MuiMenuItem: any = null;
+if (Platform.OS === 'web') {
+  try {
+    const muiMaterial = require('@mui/material');
+    MuiAlert = muiMaterial.Alert;
+    MuiTextField = muiMaterial.TextField;
+    MuiInputAdornment = muiMaterial.InputAdornment;
+    MuiMenuItem = muiMaterial.MenuItem;
+  } catch (e) {
+    console.warn('Failed to load MUI components:', e);
+  }
+}
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Input } from '../ui/Input';
@@ -31,17 +48,18 @@ import {
   MagnifyingGlass, 
   Plus, 
   PencilSimple, 
-  Users,
-  Export
+  Users
 } from 'phosphor-react-native';
 
 
 const { width } = Dimensions.get('window');
 const isTablet = width >= 768;
 
-interface UserManagementProps {
+export interface UserManagementProps {
   onAddUser: () => void;
   onEditUser: (userId: string) => void;
+  successMessage?: string | null;
+  onClearSuccess?: () => void;
 }
 
 // Sample data matching the web screenshots
@@ -112,7 +130,7 @@ interface UserFormData {
 }
 
 
-export function UserManagement({ onAddUser, onEditUser }: UserManagementProps) {
+export function UserManagement({ onAddUser, onEditUser, successMessage, onClearSuccess }: UserManagementProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [cohortFilter, setCohortFilter] = useState('');
@@ -122,10 +140,17 @@ export function UserManagement({ onAddUser, onEditUser }: UserManagementProps) {
   const [cohorts, setCohorts] = useState<ApiCohort[]>([]);
   const [loading, setLoading] = useState(false);
   
-  // Load data on component mount
+  // Load data on component mount and when returning with success message
   useEffect(() => {
     loadData();
   }, []);
+
+  // Reload data when success message is set (user was just added)
+  useEffect(() => {
+    if (successMessage) {
+      loadData();
+    }
+  }, [successMessage]);
   
   const loadData = async () => {
     setLoading(true);
@@ -136,8 +161,12 @@ export function UserManagement({ onAddUser, onEditUser }: UserManagementProps) {
         apiClient.getCohorts() // Get all cohorts without filtering by program
       ]);
       
-      if (usersResponse.results) {
-        // Use API users directly (no mapping needed with unified types)
+      // Handle both paginated and non-paginated responses
+      if (Array.isArray(usersResponse)) {
+        // Non-paginated response (pagination disabled)
+        setUsers(usersResponse);
+      } else if (usersResponse.results) {
+        // Paginated response
         setUsers(usersResponse.results);
       }
       
@@ -229,38 +258,201 @@ export function UserManagement({ onAddUser, onEditUser }: UserManagementProps) {
         <CardContent>
           <View style={styles.filterRow}>
             <View style={styles.filterField}>
-              <Text style={styles.label}>Search Users</Text>
-              <Input
-                placeholder="Search by name or email"
-                value={searchTerm}
-                onChangeText={setSearchTerm}
-                icon={<MagnifyingGlass size={16} color="#64748b" />}
-              />
+              {Platform.OS === 'web' && MuiTextField ? (
+                <MuiTextField
+                  label="Search Users"
+                  placeholder="Search by name or email"
+                  value={searchTerm}
+                  onChange={(e: any) => setSearchTerm(e.target.value)}
+                  variant="outlined"
+                  size="small"
+                  fullWidth
+                  InputProps={{
+                    startAdornment: MuiInputAdornment ? (
+                      <MuiInputAdornment position="start">
+                        <MagnifyingGlass size={18} color="#64748b" />
+                      </MuiInputAdornment>
+                    ) : undefined,
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: '#ffffff',
+                      '& fieldset': {
+                        borderColor: '#d1d5db',
+                        borderRadius: '8px',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: '#9ca3af',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#3b82f6',
+                        borderWidth: '1px',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: '#374151',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      '&.Mui-focused': {
+                        color: '#3b82f6',
+                      },
+                    },
+                  }}
+                />
+              ) : (
+                <>
+                  <Text style={styles.label}>Search Users</Text>
+                  <Input
+                    placeholder="Search by name or email"
+                    value={searchTerm}
+                    onChangeText={setSearchTerm}
+                    icon={<MagnifyingGlass size={16} color="#64748b" />}
+                  />
+                </>
+              )}
             </View>
             <View style={styles.filterField}>
-              <Text style={styles.label}>Filter by Role</Text>
-              <Select
-                value={roleFilter}
-                onValueChange={setRoleFilter}
-                options={roleOptions}
-                placeholder="All Roles"
-              />
+              {Platform.OS === 'web' && MuiTextField && MuiMenuItem ? (
+                <MuiTextField
+                  select
+                  label="Filter by Role"
+                  value={roleFilter}
+                  onChange={(e: any) => setRoleFilter(e.target.value)}
+                  variant="outlined"
+                  size="small"
+                  fullWidth
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                  SelectProps={{
+                    displayEmpty: true,
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: '#ffffff',
+                      '& fieldset': {
+                        borderColor: '#d1d5db',
+                        borderRadius: '8px',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: '#9ca3af',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#3b82f6',
+                        borderWidth: '1px',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: '#374151',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      '&.Mui-focused': {
+                        color: '#3b82f6',
+                      },
+                    },
+                  }}
+                >
+                  {roleOptions.map((option) => (
+                    <MuiMenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MuiMenuItem>
+                  ))}
+                </MuiTextField>
+              ) : (
+                <>
+                  <Text style={styles.label}>Filter by Role</Text>
+                  <Select
+                    value={roleFilter}
+                    onValueChange={setRoleFilter}
+                    options={roleOptions}
+                    placeholder="All Roles"
+                  />
+                </>
+              )}
             </View>
           </View>
-          <View style={styles.filterRow}>
+          <View style={[styles.filterRow, Platform.OS === 'web' && { marginTop: 16 }]}>
             <View style={styles.filterField}>
-              <Text style={styles.label}>Filter by Cohort</Text>
-              <Select
-                value={cohortFilter}
-                onValueChange={setCohortFilter}
-                options={cohortOptions}
-                placeholder="All Cohorts"
-              />
+              {Platform.OS === 'web' && MuiTextField && MuiMenuItem ? (
+                <MuiTextField
+                  select
+                  label="Filter by Cohort"
+                  value={cohortFilter}
+                  onChange={(e: any) => setCohortFilter(e.target.value)}
+                  variant="outlined"
+                  size="small"
+                  fullWidth
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                  SelectProps={{
+                    displayEmpty: true,
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: '#ffffff',
+                      '& fieldset': {
+                        borderColor: '#d1d5db',
+                        borderRadius: '8px',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: '#9ca3af',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#3b82f6',
+                        borderWidth: '1px',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: '#374151',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      '&.Mui-focused': {
+                        color: '#3b82f6',
+                      },
+                    },
+                  }}
+                >
+                  {cohortOptions.map((option) => (
+                    <MuiMenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MuiMenuItem>
+                  ))}
+                </MuiTextField>
+              ) : (
+                <>
+                  <Text style={styles.label}>Filter by Cohort</Text>
+                  <Select
+                    value={cohortFilter}
+                    onValueChange={setCohortFilter}
+                    options={cohortOptions}
+                    placeholder="All Cohorts"
+                  />
+                </>
+              )}
             </View>
             <View style={styles.filterField} />
           </View>
         </CardContent>
       </Card>
+
+      {/* Success Banner */}
+      {successMessage && Platform.OS === 'web' && MuiAlert && (
+        <View style={styles.bannerContainer}>
+          <MuiAlert 
+            severity="success" 
+            onClose={onClearSuccess}
+            sx={{ 
+              marginBottom: 2,
+              '& .MuiAlert-message': {
+                fontSize: '16px',
+              }
+            }}
+          >
+            {successMessage}
+          </MuiAlert>
+        </View>
+      )}
 
       {/* Add User Button */}
       <View style={styles.addUserHeader}>
@@ -438,13 +630,6 @@ export function UserManagement({ onAddUser, onEditUser }: UserManagementProps) {
             <Text style={styles.pageTitle}>User Management</Text>
             <Text style={styles.pageSubtitle}>Manage users, roles, and cohorts in the system</Text>
           </View>
-          <Button
-            title="Export"
-            variant="outline"
-            size="sm"
-            icon={<Export size={16} color="#64748b" />}
-            onPress={() => console.log('Export data')}
-          />
         </View>
 
         {/* Users Content */}
@@ -537,6 +722,7 @@ const styles = StyleSheet.create({
   },
   filterField: {
     flex: 1,
+    ...(Platform.OS === 'web' && isTablet ? { marginRight: 16 } : {}),
   },
   label: {
     fontSize: 14,
@@ -546,6 +732,10 @@ const styles = StyleSheet.create({
   },
 
   // Add User Header
+  bannerContainer: {
+    marginTop: 16,
+    marginBottom: 8,
+  },
   addUserHeader: {
     flexDirection: 'row',
     justifyContent: 'flex-end',

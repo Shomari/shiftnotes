@@ -19,7 +19,6 @@ import { format } from 'date-fns';
 import { 
   Plus, 
   PencilSimple, 
-  Export,
   GraduationCap
 } from 'phosphor-react-native';
 
@@ -95,13 +94,6 @@ export function CohortManagement({ onAddCohort, onEditCohort }: CohortManagement
             <Text style={styles.pageTitle}>Cohort Management</Text>
             <Text style={styles.pageSubtitle}>Manage trainee cohorts and their members</Text>
           </View>
-          <Button
-            title="Export"
-            variant="outline"
-            size="sm"
-            icon={<Export size={16} color="#64748b" />}
-            onPress={() => console.log('Export cohorts')}
-          />
         </View>
 
         {/* Cohorts Section */}

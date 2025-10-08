@@ -727,6 +727,14 @@ export class ApiClient {
       method: 'POST',
     });
   }
+
+  // Support request
+  async submitSupportRequest(supportData: any): Promise<{ message: string; success: boolean; reference: string }> {
+    return this.request<{ message: string; success: boolean; reference: string }>('/support/submit/', {
+      method: 'POST',
+      body: JSON.stringify(supportData),
+    });
+  }
 }
 
 // Export singleton instance

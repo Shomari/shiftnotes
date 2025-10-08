@@ -13,6 +13,7 @@ import { Input } from './ui/Input';
 import { Select } from './ui/Select';
 import { Button } from './ui/Button';
 import { useAuth } from '../contexts/AuthContext';
+import { apiClient } from '../lib/api';
 
 interface SupportRequestFormData {
   subject: string;
@@ -93,13 +94,13 @@ export function SupportRequestForm({ onBack }: SupportRequestFormProps) {
 
       console.log('Support request to be submitted:', supportRequest);
       
-      // TODO: Replace with actual API call when backend is ready
-      // await apiClient.submitSupportRequest(supportRequest);
+      // Submit support request to backend
+      const response = await apiClient.submitSupportRequest(supportRequest);
       
-      // For now, just show success message
+      // Show success message with reference number
       const successMessage = Platform.OS === 'web' 
-        ? `Support Request Submitted!\n\nThank you for your request. We'll get back to you soon.\n\nReference: SR-${Date.now()}`
-        : `Support Request Submitted!\n\nThank you for your request. We'll get back to you soon.\n\nReference: SR-${Date.now()}`;
+        ? `Support Request Submitted!\n\nThank you for your request. We'll get back to you at ${user?.email} soon.\n\nReference: ${response.reference}`
+        : `Support Request Submitted!\n\nThank you for your request. We'll get back to you at ${user?.email} soon.\n\nReference: ${response.reference}`;
       
       if (Platform.OS === 'web') {
         window.alert(successMessage);

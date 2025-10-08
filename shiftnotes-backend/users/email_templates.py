@@ -119,8 +119,7 @@ def get_welcome_email_template(user_name, organization_name, reset_link):
             <p>If you have any questions or need assistance, please don't hesitate to reach out to your program administrator or our support team.</p>
             
             <p>Best regards,<br>
-            The EPAnotes Team<br>
-            <em>Powered by AptiTools</em></p>
+            The EPAnotes Team</p>
             
             <div class="footer">
                 <p><strong>Security Note:</strong> This password reset link will expire in 24 hours for your security.</p>
@@ -155,7 +154,6 @@ def get_welcome_email_template(user_name, organization_name, reset_link):
     
     Best regards,
     The EPAnotes Team
-    Powered by AptiTools
     
     Security Note: This password reset link will expire in 24 hours for your security.
     """

@@ -23,15 +23,10 @@ class EmailService:
         token = default_token_generator.make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         
-        # For development, use a simple frontend URL
-        # In production, this would be your actual frontend domain
-        if request:
-            domain = request.get_host()
-            protocol = 'https' if request.is_secure() else 'http'
-        else:
-            # Fallback for when no request context (e.g., management commands)
-            domain = getattr(settings, 'FRONTEND_DOMAIN', 'localhost:8081')
-            protocol = 'https' if domain != 'localhost:8081' else 'http'  # Use HTTPS for production domains
+        # Always use FRONTEND_DOMAIN setting for password reset links
+        # This ensures links go to the frontend app, not the API backend
+        domain = getattr(settings, 'FRONTEND_DOMAIN', 'localhost:8081')
+        protocol = 'https' if domain != 'localhost:8081' else 'http'  # Use HTTPS for production domains
         
         reset_url = f"{protocol}://{domain}/reset-password/{uid}/{token}/"
         return reset_url

@@ -2,6 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from users.views import UserViewSet, CohortViewSet
 from users.password_reset_views import request_password_reset, verify_reset_token, reset_password, resend_welcome_email
+from users.support_views import submit_support_request
 from organizations.views import OrganizationViewSet, ProgramViewSet, SiteViewSet
 from curriculum.views import EPACategoryViewSet, EPAViewSet, CoreCompetencyViewSet, SubCompetencyViewSet, SubCompetencyEPAViewSet
 from assessments.views import AssessmentViewSet
@@ -35,6 +36,8 @@ urlpatterns = [
     path('auth/verify-reset-token/<str:uidb64>/<str:token>/', verify_reset_token, name='verify_reset_token'),
     path('auth/reset-password/<str:uidb64>/<str:token>/', reset_password, name='reset_password'),
     path('auth/resend-welcome-email/', resend_welcome_email, name='resend_welcome_email'),
+    # Support endpoint
+    path('support/submit/', submit_support_request, name='submit_support_request'),
     # Analytics endpoints
     path('analytics/program-performance/', program_performance_data, name='program_performance_data'),
     path('analytics/faculty-dashboard/', faculty_dashboard_data, name='faculty_dashboard_data'),

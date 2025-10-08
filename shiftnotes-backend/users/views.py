@@ -23,6 +23,7 @@ class UserViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'email']
     ordering_fields = ['name', 'created_at', 'email']
     ordering = ['name']
+    pagination_class = None  # Disable pagination to return all users
     
     def get_serializer_class(self):
         if self.action == 'create':

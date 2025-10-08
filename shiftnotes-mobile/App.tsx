@@ -89,6 +89,7 @@ function AppContent() {
   const [selectedCohortId, setSelectedCohortId] = useState<string | null>(null);
   const [selectedFacultyId, setSelectedFacultyId] = useState<string | null>(null);
   const [previousRoute, setPreviousRoute] = useState<string>('my-assessments'); // Track where user came from
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   
   const { width } = Dimensions.get('window');
   const MOBILE_BREAKPOINT = 768;
@@ -233,7 +234,7 @@ function AppContent() {
       case 'support-request':
         return 'Support Request';
       default:
-        return 'AptiTools';
+        return 'EPAnotes';
     }
   };
 
@@ -269,7 +270,7 @@ function AppContent() {
           <MyAssessments onViewAssessment={handleViewAssessment} onEditAssessment={handleEditAssessment} onDiscardDraft={handleDiscardDraft} />
         );
       case 'user-management':
-        return <UserManagement onAddUser={handleAddUser} onEditUser={handleEditUser} />;
+        return <UserManagement onAddUser={handleAddUser} onEditUser={handleEditUser} successMessage={successMessage} onClearSuccess={() => setSuccessMessage(null)} />;
       case 'cohort-management':
         return <CohortManagement onAddCohort={handleAddCohort} onEditCohort={handleEditCohort} />;
       case 'faculty-dashboard':
@@ -288,9 +289,9 @@ function AppContent() {
       case 'edit-cohort':
         return selectedCohortId ? <EditCohort cohortId={selectedCohortId} onBack={() => setCurrentRoute('cohort-management')} /> : <CohortManagement onAddCohort={handleAddCohort} onEditCohort={handleEditCohort} />;
       case 'add-user':
-        return <AddUser onBack={() => setCurrentRoute('user-management')} />;
+        return <AddUser onBack={() => setCurrentRoute('user-management')} onSuccess={(msg) => setSuccessMessage(msg)} />;
       case 'edit-user':
-        return selectedUserId ? <EditUser userId={selectedUserId} onBack={() => setCurrentRoute('user-management')} /> : <UserManagement onAddUser={handleAddUser} onEditUser={handleEditUser} />;
+        return selectedUserId ? <EditUser userId={selectedUserId} onBack={() => setCurrentRoute('user-management')} /> : <UserManagement onAddUser={handleAddUser} onEditUser={handleEditUser} successMessage={successMessage} onClearSuccess={() => setSuccessMessage(null)} />;
       case 'epa-management':
         return <EPAManagement />;
       case 'category-management':

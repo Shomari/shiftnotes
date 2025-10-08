@@ -19,9 +19,15 @@ services:
       - .:/app
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
       - DEBUG=1
       - DATABASE_URL=postgresql://shiftnotes:shiftnotes123@db:5432/shiftnotes
+      - USE_REAL_EMAIL=${USE_REAL_EMAIL:-False}
+      - EMAIL_HOST=${EMAIL_HOST:-email-smtp.us-east-1.amazonaws.com}
+      - EMAIL_HOST_USER=${EMAIL_HOST_USER}
+      - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
     depends_on:
       - db
 
