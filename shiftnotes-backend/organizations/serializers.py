@@ -18,15 +18,12 @@ class OrganizationSerializer(serializers.ModelSerializer):
 
 class ProgramSerializer(serializers.ModelSerializer):
     org_name = serializers.CharField(source='org.name', read_only=True)
-    director_name = serializers.CharField(source='director_user.name', read_only=True)
-    coordinator_name = serializers.CharField(source='coordinator_user.name', read_only=True)
     
     class Meta:
         model = Program
         fields = [
-            'id', 'name', 'abbreviation', 'specialty', 'acgme_id',
-            'org', 'org_name', 'director_user', 'director_name', 
-            'coordinator_user', 'coordinator_name', 'created_at'
+            'id', 'name', 'abbreviation', 'specialty',
+            'org', 'org_name', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
 

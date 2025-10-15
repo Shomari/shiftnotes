@@ -16,28 +16,16 @@ class OrganizationAdmin(admin.ModelAdmin):
 
 @admin.register(Program)
 class ProgramAdmin(admin.ModelAdmin):
-    list_display = ['name', 'org', 'specialty', 'abbreviation', 'director_user', 'coordinator_user', 'created_at']
+    list_display = ['name', 'org', 'specialty', 'abbreviation', 'created_at']
     list_filter = ['org', 'specialty']
-    search_fields = ['name', 'abbreviation', 'specialty', 'acgme_id']
+    search_fields = ['name', 'abbreviation', 'specialty']
     ordering = ['org', 'name']
     
     fieldsets = [
         ('Basic Information', {
-            'fields': ['org', 'name', 'abbreviation', 'specialty', 'acgme_id']
-        }),
-        ('Leadership', {
-            'fields': ['director_user', 'coordinator_user'],
-            'description': 'Assign faculty members as program director and coordinator'
+            'fields': ['org', 'name', 'abbreviation', 'specialty']
         })
     ]
-    
-    # Filter director and coordinator to only show faculty users
-    def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        if db_field.name in ['director_user', 'coordinator_user']:
-            kwargs["queryset"] = db_field.related_model.objects.filter(
-                role__in=['faculty', 'leadership', 'admin']
-            )
-        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 @admin.register(Site)
 class SiteAdmin(admin.ModelAdmin):

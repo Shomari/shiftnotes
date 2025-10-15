@@ -81,7 +81,7 @@ class Command(BaseCommand):
     def create_programs(self, organization):
         """Create 3 medical training programs"""
         programs_data = [
-            {"name": "Emergency Medicine Residency", "abbreviation": "EM", "specialty": "Emergency Medicine", "acgme_id": "EM-001"},
+            {"name": "Emergency Medicine Residency", "abbreviation": "EM", "specialty": "Emergency Medicine"},
         ]
         
         programs = []

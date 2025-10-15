@@ -21,9 +21,6 @@ class Program(models.Model):
     name = models.CharField(max_length=255)
     abbreviation = models.CharField(max_length=10, blank=True)
     specialty = models.CharField(max_length=100)
-    acgme_id = models.CharField(max_length=20, blank=True)
-    director_user = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='directed_programs')
-    coordinator_user = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='coordinated_programs')
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:

@@ -1,5 +1,7 @@
 # EPAnotes Database Schema - Quick Reference
 
+**Last Verified:** October 2025 - Verified from production Django models
+
 ## Key Field Names for Analytics
 
 ⚠️ **IMPORTANT**: Assessment ratings are stored in `AssessmentEPA.entrustment_level` (NOT `milestone_level`)               
@@ -9,7 +11,12 @@
 - `trainee` (ForeignKey → User, related_name='assessments_received')                                                      
 - `evaluator` (ForeignKey → User, related_name='assessments_given')                                                       
 - `shift_date` (DateField)
+- `location` (CharField, optional)
 - `status` (CharField: 'draft', 'submitted', 'locked')
+- `private_comments` (TextField, optional)
+- `what_went_well` (TextField, optional) ← Moved from AssessmentEPA
+- `what_could_improve` (TextField, optional) ← Moved from AssessmentEPA
+- `acknowledged_by` (ManyToManyField → User, related_name='assessments_acknowledged')
 - `created_at` (DateTimeField)
 - `updated_at` (DateTimeField)
 
@@ -17,19 +24,21 @@
 - `assessment` (ForeignKey → Assessment, related_name='assessment_epas')                                                  
 - `epa` (ForeignKey → EPA)
 - `entrustment_level` (IntegerField, choices 1-5) ← **THIS IS THE RATING FIELD**                                          
-- `what_went_well` (TextField)
-- `what_could_improve` (TextField)
+- `created_at` (DateTimeField)
+
+**Note:** Feedback fields (`what_went_well`, `what_could_improve`) are on the Assessment model, not AssessmentEPA
 
 ### User Model (`users` table)
 - `id` (UUIDField, primary key)
-- `email` (EmailField, unique)
+- `email` (EmailField, unique) ← USERNAME_FIELD
 - `name` (CharField)
 - `role` (CharField: 'trainee', 'faculty', 'admin', 'leadership', 'system-admin')                                         
-- `organization` (ForeignKey → Organization)
+- `organization` (ForeignKey → Organization, nullable for superusers)
 - `program` (ForeignKey → Program, NOT ManyToManyField anymore)                                                           
+- `cohort` (ForeignKey → Cohort, required for trainees)
 - `department` (CharField, optional)
 - `start_date` (DateField, optional)
-- `deactivated_at` (DateTimeField, optional) ← **NEW: If not null, user is deactivated**                                  
+- `deactivated_at` (DateTimeField, optional) ← **If not null, user is deactivated**                                  
 - `created_at` (DateTimeField)
 - `updated_at` (DateTimeField)
 
@@ -37,7 +46,9 @@
 - `id` (UUIDField, primary key)
 - `name` (CharField)
 - `abbreviation` (CharField)
+- `specialty` (CharField)
 - `org` (ForeignKey → Organization)
+- `created_at` (DateTimeField)
 
 ### CoreCompetency Model (`core_competencies` table)
 - `id` (UUIDField, primary key)
@@ -50,7 +61,9 @@
 - `program` (ForeignKey → Program)
 - `core_competency` (ForeignKey → CoreCompetency, related_name='sub_competencies')                                        
 - `code` (CharField) ← e.g., "PC1"
-- `title` (CharField) ← e.g., "History Taking & Physical Examination"                                                     
+- `title` (CharField) ← e.g., "History Taking & Physical Examination"
+- `milestone_level_1` through `milestone_level_5` (TextField) ← Milestone descriptions for each level
+- `epas` (ManyToManyField → EPA, through='SubCompetencyEPA')                                                     
 
 ## Analytics Query Patterns
 
