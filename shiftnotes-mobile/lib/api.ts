@@ -170,31 +170,82 @@ export interface ApiResponse<T> {
   [key: string]: any;
 }
 
-// Storage for authentication token
+// Storage for authentication token (in-memory cache)
 let authToken: string | null = null;
+
+// Detect platform
+const isWeb = typeof window !== 'undefined' && window.localStorage;
+const isNative = typeof window === 'undefined' || !window.localStorage;
+
+// Import AsyncStorage for React Native (will be undefined on web)
+let AsyncStorage: any = null;
+if (isNative) {
+  try {
+    AsyncStorage = require('@react-native-async-storage/async-storage').default;
+  } catch (e) {
+    console.warn('AsyncStorage not available, tokens will not persist on mobile');
+  }
+}
 
 /**
  * Storage utility for persisting auth token
+ * Uses localStorage for web, AsyncStorage for React Native mobile
  */
 export const TokenStorage = {
   async setToken(token: string): Promise<void> {
     authToken = token;
-    // In a real app, you'd want to use SecureStore
-    // import * as SecureStore from 'expo-secure-store';
-    // await SecureStore.setItemAsync('auth_token', token);
+    try {
+      if (isWeb) {
+        // Web: use localStorage
+        localStorage.setItem('auth_token', token);
+      } else if (AsyncStorage) {
+        // Mobile: use AsyncStorage
+        await AsyncStorage.setItem('auth_token', token);
+      }
+    } catch (error) {
+      console.error('Failed to save token to storage:', error);
+    }
   },
 
   async getToken(): Promise<string | null> {
+    // Return cached token if available
     if (authToken) return authToken;
-    // In a real app, retrieve from SecureStore
-    // return await SecureStore.getItemAsync('auth_token');
+    
+    try {
+      let storedToken: string | null = null;
+      
+      if (isWeb) {
+        // Web: retrieve from localStorage
+        storedToken = localStorage.getItem('auth_token');
+      } else if (AsyncStorage) {
+        // Mobile: retrieve from AsyncStorage
+        storedToken = await AsyncStorage.getItem('auth_token');
+      }
+      
+      if (storedToken) {
+        authToken = storedToken; // Cache it in memory
+        return storedToken;
+      }
+    } catch (error) {
+      console.error('Failed to retrieve token from storage:', error);
+    }
+    
     return null;
   },
 
   async removeToken(): Promise<void> {
     authToken = null;
-    // In a real app, remove from SecureStore
-    // await SecureStore.deleteItemAsync('auth_token');
+    try {
+      if (isWeb) {
+        // Web: remove from localStorage
+        localStorage.removeItem('auth_token');
+      } else if (AsyncStorage) {
+        // Mobile: remove from AsyncStorage
+        await AsyncStorage.removeItem('auth_token');
+      }
+    } catch (error) {
+      console.error('Failed to remove token from storage:', error);
+    }
   }
 };
 
@@ -498,6 +549,23 @@ export class ApiClient {
     const url = `/cohorts/${params.toString() ? '?' + params.toString() : ''}`;
     const response = await this.request<ApiResponse<any[]>>(url);
     return response.results || [];
+  }
+
+  async getCohort(cohortId: string): Promise<ApiCohort> {
+    return this.request<ApiCohort>(`/cohorts/${cohortId}/`);
+  }
+
+  async updateCohort(cohortId: string, data: Partial<ApiCohort>): Promise<ApiCohort> {
+    return this.request<ApiCohort>(`/cohorts/${cohortId}/`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteCohort(cohortId: string): Promise<void> {
+    return this.request<void>(`/cohorts/${cohortId}/`, {
+      method: 'DELETE',
+    });
   }
 
   async getCohortUsers(cohortId: string): Promise<ApiResponse<ApiUser>> {

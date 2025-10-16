@@ -70,7 +70,6 @@ const sampleCohorts = [
 
 interface CohortFormData {
   name: string;
-  startDate: string;
 }
 
 interface EditCohortProps {
@@ -86,7 +85,6 @@ export default function EditCohort({ cohortId, onBack }: EditCohortProps) {
   const [cohortData, setCohortData] = useState<ApiCohort | null>(null);
   const [formData, setFormData] = useState<CohortFormData>({
     name: '',
-    startDate: '',
   });
 
   useEffect(() => {
@@ -98,31 +96,12 @@ export default function EditCohort({ cohortId, onBack }: EditCohortProps) {
     
     setLoadingCohort(true);
     try {
-      // TODO: Replace with actual API call when available
-      // const cohortResponse = await apiClient.getCohort(cohortId);
+      const cohort = await apiClient.getCohort(cohortId);
       
-      // For now, use sample data
-      const foundCohort = sampleCohorts.find(c => c.id === cohortId);
-      
-      if (foundCohort) {
-        const cohort: ApiCohort = {
-          id: foundCohort.id,
-          name: foundCohort.name,
-          year: foundCohort.year,
-          start_date: foundCohort.startDate,
-          is_active: true,
-          trainee_count: foundCohort.trainees
-        };
-        
-        setCohortData(cohort);
-        setFormData({
-          name: cohort.name,
-          startDate: cohort.start_date || '',
-        });
-      } else {
-        Alert.alert('Error', 'Cohort not found');
-        if (onBack) onBack();
-      }
+      setCohortData(cohort);
+      setFormData({
+        name: cohort.name,
+      });
     } catch (error) {
       console.error('Error loading cohort:', error);
       Alert.alert('Error', 'Failed to load cohort data');
@@ -135,24 +114,18 @@ export default function EditCohort({ cohortId, onBack }: EditCohortProps) {
   const handleSave = async () => {
     // Validation
     if (!formData.name) {
-      Alert.alert('Error', 'Please fill in all required fields');
+      Alert.alert('Error', 'Please enter a cohort name');
       return;
     }
 
     setLoading(true);
     try {
-      // Derive year from start date if provided
-      const year = formData.startDate ? new Date(formData.startDate).getFullYear() : new Date().getFullYear();
-      
       const cohortUpdateData = {
-        ...formData,
-        year: year,
+        name: formData.name,
       };
 
       console.log('Updating cohort:', cohortId, cohortUpdateData);
-      
-      // TODO: Replace with actual API call when available
-      // await apiClient.updateCohort(cohortId, cohortUpdateData);
+      await apiClient.updateCohort(cohortId, cohortUpdateData);
       
       // Simulate API call success and reload data
       await loadCohort();
@@ -246,71 +219,9 @@ export default function EditCohort({ cohortId, onBack }: EditCohortProps) {
                 <Input
                   value={formData.name}
                   onChangeText={(text) => setFormData({ ...formData, name: text })}
-                  placeholder="PGY-1 2024"
+                  placeholder="Class of 2026"
                   style={styles.input}
                 />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Start Date</Text>
-                {Platform.OS === 'web' ? (
-                  // Web: Use react-datepicker
-                  DatePicker ? (
-                    <View style={styles.datePickerContainer}>
-                      <DatePicker
-                        selected={formData.startDate ? new Date(formData.startDate) : null}
-                        onChange={(date: Date | null) => {
-                          if (date) {
-                            setFormData({ ...formData, startDate: date.toISOString().split('T')[0] });
-                          } else {
-                            setFormData({ ...formData, startDate: '' });
-                          }
-                        }}
-                        dateFormat="MM/dd/yyyy"
-                        placeholderText="Select start date"
-                        popperClassName="date-picker-popper"
-                        wrapperClassName="date-picker-wrapper"
-                        withPortal={true}
-                        portalId="react-datepicker-portal"
-                        isClearable
-                        customInput={
-                          <input
-                            style={{
-                              width: '100%',
-                              padding: '12px 16px',
-                              border: '1px solid #d1d5db',
-                              borderRadius: '8px',
-                              fontSize: '16px',
-                              backgroundColor: '#ffffff',
-                              color: '#374151',
-                              height: '48px',
-                              cursor: 'pointer',
-                              boxSizing: 'border-box',
-                            }}
-                          />
-                        }
-                      />
-                    </View>
-                  ) : (
-                    // Fallback to Input if DatePicker fails to load
-                    <Input
-                      value={formData.startDate}
-                      onChangeText={(text) => setFormData({ ...formData, startDate: text })}
-                      placeholder="mm/dd/yyyy"
-                      icon={<Calendar size={16} color="#64748b" />}
-                      style={styles.input}
-                    />
-                  )
-                ) : (
-                  // Mobile: Use regular Input
-                  <Input
-                    value={formData.startDate}
-                    onChangeText={(text) => setFormData({ ...formData, startDate: text })}
-                    placeholder="mm/dd/yyyy"
-                    icon={<Calendar size={16} color="#64748b" />}
-                    style={styles.input}
-                  />
-                )}
               </View>
             </CardContent>
           </Card>

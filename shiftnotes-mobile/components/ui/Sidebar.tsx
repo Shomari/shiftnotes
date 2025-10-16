@@ -26,6 +26,7 @@ interface SidebarProps {
   currentRoute: string;
   userRole?: string;
   isPermanent?: boolean; // For desktop layout
+  programName?: string; // Program name to display
 }
 
 const getNavigationItems = (userRole?: string): NavigationItem[] => {
@@ -161,7 +162,7 @@ const getNavigationItems = (userRole?: string): NavigationItem[] => {
   return baseItems;
 };
 
-export function Sidebar({ isOpen, onClose, onNavigate, currentRoute, userRole, isPermanent = false }: SidebarProps) {
+export function Sidebar({ isOpen, onClose, onNavigate, currentRoute, userRole, isPermanent = false, programName }: SidebarProps) {
   const [mailboxCount, setMailboxCount] = useState<number>(0);
   
   // Load mailbox count for leadership users
@@ -200,7 +201,7 @@ export function Sidebar({ isOpen, onClose, onNavigate, currentRoute, userRole, i
     <View style={[styles.sidebar, shouldShowPermanent && styles.sidebarPermanent]}>
       {/* Sidebar Header */}
       <View style={styles.sidebarHeader}>
-        <Text style={styles.sidebarTitle}>Navigation</Text>
+        <Text style={styles.sidebarTitle}>{programName || 'Navigation'}</Text>
         {!shouldShowPermanent && (
           <Pressable onPress={onClose} style={styles.closeButton}>
             <Text style={styles.closeText}>✕</Text>
@@ -339,6 +340,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#1f2937',
+    textAlign: 'center',
+    flex: 1,
   },
   closeButton: {
     padding: 4,

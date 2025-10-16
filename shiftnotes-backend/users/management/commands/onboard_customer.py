@@ -20,7 +20,9 @@ class Command(BaseCommand):
 
     def __init__(self):
         super().__init__()
-        self.project_root = Path(settings.BASE_DIR).parent
+        # CSV files should be in the backend directory (BASE_DIR)
+        # so they're accessible in Docker
+        self.project_root = Path(settings.BASE_DIR)
         
     def handle(self, *args, **options):
         self.stdout.write(self.style.SUCCESS('🏥 EPAnotes Customer Onboarding'))
@@ -362,26 +364,83 @@ class Command(BaseCommand):
         self.stdout.write(f'  ✓ Created {mapping_count} EPA-SubCompetency mappings')
         
     def get_or_create_organization(self):
-        """Get the first organization or prompt to create one"""
-        org = Organization.objects.first()
+        """Prompt user to create new organization or select existing"""
+        self.stdout.write('')
+        self.stdout.write(self.style.SUCCESS('🏥 Organization Setup'))
+        self.stdout.write('-' * 60)
         
-        if not org:
+        # Check if any organizations exist
+        existing_orgs = Organization.objects.all()
+        
+        if existing_orgs.exists():
+            # Show existing organizations
+            self.stdout.write('Existing organizations:')
+            for org in existing_orgs:
+                self.stdout.write(f'  • {org.name} (ID: {org.id})')
             self.stdout.write('')
-            self.stdout.write(self.style.WARNING('⚠️  No organization found in database.'))
-            org_name = input('Enter organization name: ').strip()
-            if not org_name:
-                org_name = "Default Organization"
+            self.stdout.write('Options:')
+            self.stdout.write('  (1) Use existing organization')
+            self.stdout.write('  (2) Create new organization')
+            self.stdout.write('')
             
-            org_slug = org_name.lower().replace(' ', '-')
-            org = Organization.objects.create(
-                name=org_name,
-                slug=org_slug,
-                address_line1=""
-            )
-            self.stdout.write(f'✅ Created organization: {org.name}')
+            while True:
+                choice = input('Enter choice [1 or 2]: ').strip()
+                if choice == '1':
+                    # Use existing
+                    org = self.select_existing_organization(existing_orgs)
+                    break
+                elif choice == '2':
+                    # Create new
+                    org = self.create_new_organization()
+                    break
+                else:
+                    self.stdout.write(self.style.ERROR('Invalid choice. Please enter 1 or 2.'))
         else:
-            self.stdout.write(f'🏥 Using organization: {org.name}')
+            # No organizations exist - must create
+            self.stdout.write(self.style.WARNING('No organizations found in database.'))
+            self.stdout.write('Creating new organization...')
+            self.stdout.write('')
+            org = self.create_new_organization()
         
+        return org
+    
+    def select_existing_organization(self, organizations):
+        """Prompt user to select an existing organization by ID"""
+        self.stdout.write('')
+        while True:
+            org_id = input('Enter organization ID: ').strip()
+            
+            try:
+                org = organizations.get(id=org_id)
+                self.stdout.write(f'✅ Selected organization: {org.name}')
+                return org
+            except Organization.DoesNotExist:
+                self.stdout.write(self.style.ERROR(f'Organization with ID "{org_id}" not found.'))
+                self.stdout.write('Available organizations:')
+                for o in organizations:
+                    self.stdout.write(f'  • {o.name} (ID: {o.id})')
+                self.stdout.write('')
+    
+    def create_new_organization(self):
+        """Prompt user to create a new organization"""
+        while True:
+            org_name = input('Organization Name (e.g., Johns Hopkins Medicine): ').strip()
+            if org_name:
+                break
+            self.stdout.write(self.style.ERROR('Organization name is required.'))
+        
+        # Optional address
+        address = input('Address (optional, press Enter to skip): ').strip()
+        
+        # Auto-generate slug from name
+        org_slug = org_name.lower().replace(' ', '-').replace('.', '')
+        
+        org = Organization.objects.create(
+            name=org_name,
+            slug=org_slug,
+            address_line1=address
+        )
+        self.stdout.write(f'✅ Created organization: {org.name}')
         return org
     
     def create_program(self, organization, program_data):

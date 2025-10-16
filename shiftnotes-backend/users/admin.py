@@ -3,12 +3,12 @@ from .models import User, Cohort
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
-    list_display = ['name', 'email', 'role', 'organization', 'created_at']
-    list_filter = ['role', 'organization']
+    list_display = ['name', 'email', 'role', 'organization', 'program', 'cohort', 'created_at']
+    list_filter = ['role', 'organization', 'program', 'cohort']
     search_fields = ['name', 'email']
     
     # Fields for adding new users (organization admins)
-    fields = ['email', 'name', 'role', 'organization']
+    fields = ['email', 'name', 'role', 'organization', 'program', 'cohort', 'department', 'start_date']
     
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)

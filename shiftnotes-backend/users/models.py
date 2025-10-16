@@ -131,12 +131,12 @@ class Cohort(models.Model):
     org = models.ForeignKey('organizations.Organization', on_delete=models.CASCADE, related_name='cohorts')
     program = models.ForeignKey('organizations.Program', on_delete=models.CASCADE, related_name='cohorts')
     name = models.CharField(max_length=255)
-    start_date = models.DateField()
-    end_date = models.DateField()
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
     
     class Meta:
         db_table = 'cohorts'
-        ordering = ['-start_date']
+        ordering = ['name']
         unique_together = ['program', 'name']
     
     def __str__(self):

@@ -19,51 +19,10 @@ import { Button } from '../ui/Button';
 import { Header } from '../ui/Header';
 import { AuthContext } from '../../contexts/AuthContext';
 import { apiClient } from '../../lib/api';
-import { ArrowLeft, Plus, Calendar } from 'phosphor-react-native';
-
-// Web-only imports for react-datepicker
-let DatePicker: any = null;
-if (Platform.OS === 'web') {
-  try {
-    DatePicker = require('react-datepicker').default;
-    require('react-datepicker/dist/react-datepicker.css');
-    
-    // Add custom styles for z-index fix
-    const style = document.createElement('style');
-    style.textContent = `
-      .react-datepicker-popper {
-        z-index: 99999 !important;
-      }
-      .react-datepicker {
-        z-index: 99999 !important;
-      }
-      .react-datepicker__portal {
-        z-index: 99999 !important;
-      }
-      .date-picker-popper {
-        z-index: 99999 !important;
-      }
-      .react-datepicker-wrapper {
-        width: 100%;
-        z-index: 10 !important;
-        position: relative !important;
-      }
-      .react-datepicker__input-container {
-        width: 100%;
-      }
-      .react-datepicker__input-container input {
-        width: 100% !important;
-      }
-    `;
-    document.head.appendChild(style);
-  } catch (e) {
-    console.warn('Failed to load react-datepicker:', e);
-  }
-}
+import { ArrowLeft, Plus } from 'phosphor-react-native';
 
 interface CohortFormData {
   name: string;
-  startDate: string;
 }
 
 interface AddCohortProps {
@@ -76,29 +35,30 @@ export default function AddCohort({ onBack }: AddCohortProps) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<CohortFormData>({
     name: '',
-    startDate: '',
   });
 
   const handleSave = async () => {
     // Validation
     if (!formData.name) {
-      Alert.alert('Error', 'Please fill in all required fields');
+      Alert.alert('Error', 'Please enter a cohort name');
+      return;
+    }
+
+    if (!user?.program) {
+      Alert.alert('Error', 'No program assigned to your account');
       return;
     }
 
     setLoading(true);
     try {
-      // Derive year from start date if provided
-      const year = formData.startDate ? new Date(formData.startDate).getFullYear() : new Date().getFullYear();
-      
       const cohortData = {
-        ...formData,
-        year: year,
-        // TODO: Replace with actual API call when available
-        // await apiClient.createCohort(cohortData);
+        name: formData.name,
+        org: user.organization,
+        program: user.program,
       };
 
       console.log('Creating cohort:', cohortData);
+      await apiClient.createCohort(cohortData);
       
       // Simulate API call success
       if (Platform.OS === 'web') {
@@ -162,68 +122,6 @@ export default function AddCohort({ onBack }: AddCohortProps) {
                   style={styles.input}
                 />
               </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Start Date</Text>
-                {Platform.OS === 'web' ? (
-                  // Web: Use react-datepicker
-                  DatePicker ? (
-                    <View style={styles.datePickerContainer}>
-                      <DatePicker
-                        selected={formData.startDate ? new Date(formData.startDate) : null}
-                        onChange={(date: Date | null) => {
-                          if (date) {
-                            setFormData({ ...formData, startDate: date.toISOString().split('T')[0] });
-                          } else {
-                            setFormData({ ...formData, startDate: '' });
-                          }
-                        }}
-                        dateFormat="MM/dd/yyyy"
-                        placeholderText="Select start date"
-                        popperClassName="date-picker-popper"
-                        wrapperClassName="date-picker-wrapper"
-                        withPortal={true}
-                        portalId="react-datepicker-portal"
-                        isClearable
-                        customInput={
-                          <input
-                            style={{
-                              width: '100%',
-                              padding: '12px 16px',
-                              border: '1px solid #d1d5db',
-                              borderRadius: '8px',
-                              fontSize: '16px',
-                              backgroundColor: '#ffffff',
-                              color: '#374151',
-                              height: '48px',
-                              cursor: 'pointer',
-                              boxSizing: 'border-box',
-                            }}
-                          />
-                        }
-                      />
-                    </View>
-                  ) : (
-                    // Fallback to Input if DatePicker fails to load
-                    <Input
-                      value={formData.startDate}
-                      onChangeText={(text) => setFormData({ ...formData, startDate: text })}
-                      placeholder="mm/dd/yyyy"
-                      icon={<Calendar size={16} color="#64748b" />}
-                      style={styles.input}
-                    />
-                  )
-                ) : (
-                  // Mobile: Use regular Input
-                  <Input
-                    value={formData.startDate}
-                    onChangeText={(text) => setFormData({ ...formData, startDate: text })}
-                    placeholder="mm/dd/yyyy"
-                    icon={<Calendar size={16} color="#64748b" />}
-                    style={styles.input}
-                  />
-                )}
-              </View>
             </CardContent>
           </Card>
 
@@ -283,11 +181,6 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 0,
-  },
-  datePickerContainer: {
-    position: 'relative',
-    zIndex: 1000,
-    isolation: 'isolate',
   },
   actions: {
     flexDirection: 'row',

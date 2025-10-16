@@ -22,13 +22,8 @@ class AssessmentViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
         user = self.request.user
         
-        # Security: filter by user's organization and program
-        if user.role == 'system-admin':
-            # System admins can see all submitted assessments + their own drafts
-            queryset = queryset.filter(
-                Q(status='submitted') | Q(status='draft', evaluator=user)
-            )
-        elif not user.program:
+        # Security: filter by user's program
+        if not user.program:
             # No program = no assessments
             return Assessment.objects.none()
         elif user.role in ['admin', 'leadership']:
@@ -39,7 +34,7 @@ class AssessmentViewSet(viewsets.ModelViewSet):
                 Q(status='submitted') | Q(status='draft', evaluator=user)
             )
         else:
-            # Faculty see submitted assessments they gave/received + their own drafts
+            # Faculty/trainees see submitted assessments they gave/received + their own drafts
             queryset = queryset.filter(
                 Q(trainee=user) | Q(evaluator=user)
             ).filter(
@@ -279,10 +274,10 @@ class AssessmentViewSet(viewsets.ModelViewSet):
         """Get assessments with private comments that haven't been read by current leadership user"""
         user = request.user
         
-        # Only leadership can access mailbox
-        if user.role not in ['leadership', 'admin', 'system-admin']:
+        # Only leadership and admins can access mailbox
+        if user.role not in ['leadership', 'admin']:
             return Response(
-                {'detail': 'Only leadership can access the mailbox.'},
+                {'detail': 'Only leadership and admins can access the mailbox.'},
                 status=status.HTTP_403_FORBIDDEN
             )
         
@@ -299,8 +294,8 @@ class AssessmentViewSet(viewsets.ModelViewSet):
             'assessment_epas__epa'
         ).order_by('-created_at')
         
-        # Filter by program if not system admin
-        if user.role != 'system-admin' and user.program:
+        # Filter by program
+        if user.program:
             assessments_queryset = assessments_queryset.filter(trainee__program=user.program)
         
         # Manual pagination implementation
@@ -334,10 +329,10 @@ class AssessmentViewSet(viewsets.ModelViewSet):
         """Get assessments with private comments that have been read by current leadership user"""
         user = request.user
         
-        # Only leadership can access mailbox
-        if user.role not in ['leadership', 'admin', 'system-admin']:
+        # Only leadership and admins can access mailbox
+        if user.role not in ['leadership', 'admin']:
             return Response(
-                {'detail': 'Only leadership can access the mailbox.'},
+                {'detail': 'Only leadership and admins can access the mailbox.'},
                 status=status.HTTP_403_FORBIDDEN
             )
         
@@ -353,8 +348,8 @@ class AssessmentViewSet(viewsets.ModelViewSet):
             'assessment_epas__epa'
         ).order_by('-created_at')
         
-        # Filter by program if not system admin
-        if user.role != 'system-admin' and user.program:
+        # Filter by program
+        if user.program:
             assessments_queryset = assessments_queryset.filter(trainee__program=user.program)
         
         # Manual pagination implementation
@@ -389,10 +384,10 @@ class AssessmentViewSet(viewsets.ModelViewSet):
         user = request.user
         assessment = self.get_object()
         
-        # Only leadership can mark as read
-        if user.role not in ['leadership', 'admin', 'system-admin']:
+        # Only leadership and admins can mark as read
+        if user.role not in ['leadership', 'admin']:
             return Response(
-                {'detail': 'Only leadership can mark assessments as read.'},
+                {'detail': 'Only leadership and admins can mark assessments as read.'},
                 status=status.HTTP_403_FORBIDDEN
             )
         
@@ -406,8 +401,8 @@ class AssessmentViewSet(viewsets.ModelViewSet):
         """Get count of unread assessments for current leadership user"""
         user = request.user
         
-        # Only leadership can access mailbox count
-        if user.role not in ['leadership', 'admin', 'system-admin']:
+        # Only leadership and admins can access mailbox count
+        if user.role not in ['leadership', 'admin']:
             return Response({'unread_count': 0})
         
         # Count assessments with private comments that current user hasn't acknowledged
@@ -419,8 +414,8 @@ class AssessmentViewSet(viewsets.ModelViewSet):
             acknowledged_by=user  # Exclude assessments already acknowledged by this user
         ).count()
         
-        # Filter by program if not system admin
-        if user.role != 'system-admin' and user.program:
+        # Filter by program
+        if user.program:
             unread_count = Assessment.objects.filter(
                 private_comments__isnull=False,
                 private_comments__gt='',

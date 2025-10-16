@@ -19,11 +19,20 @@ class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['role', 'organization', 'department']
+    filterset_fields = ['role', 'program', 'department']
     search_fields = ['name', 'email']
     ordering_fields = ['name', 'created_at', 'email']
     ordering = ['name']
     pagination_class = None  # Disable pagination to return all users
+    
+    def get_queryset(self):
+        """Filter users by the requesting user's program"""
+        # All users only see users from their program
+        if self.request.user.program:
+            return User.objects.filter(program=self.request.user.program)
+        
+        # If no program, return empty queryset
+        return User.objects.none()
     
     def get_serializer_class(self):
         if self.action == 'create':
@@ -129,18 +138,27 @@ class CohortViewSet(viewsets.ModelViewSet):
     serializer_class = CohortSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['org', 'program']
+    filterset_fields = ['program']
     ordering = ['-start_date']
+    
+    def get_queryset(self):
+        """Filter cohorts by the requesting user's program"""
+        # All users only see cohorts from their program
+        if self.request.user.program:
+            return Cohort.objects.filter(program=self.request.user.program)
+        
+        # If no program, return empty queryset
+        return Cohort.objects.none()
     
     @action(detail=True, methods=['get'])
     def users(self, request, pk=None):
         """Get all users (trainees) for a specific cohort"""
         cohort = self.get_object()
         
-        # Get users for this cohort, filtered by organization for security
+        # Get users for this cohort, filtered by program for security
         users = User.objects.filter(
             cohort=cohort,
-            organization=request.user.organization  # Security: only users from same org
+            program=request.user.program  # Security: only users from same program
         ).order_by('name')
         
         serializer = UserSerializer(users, many=True)

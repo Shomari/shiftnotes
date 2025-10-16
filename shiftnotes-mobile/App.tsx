@@ -96,6 +96,20 @@ function AppContent() {
   const isMobile = width <= MOBILE_BREAKPOINT;
   const showPermanentSidebar = !isMobile && isAuthenticated;
 
+  // Check URL for password reset parameters on mount (web only)
+  React.useEffect(() => {
+    if (Platform.OS === 'web') {
+      const path = window.location.pathname;
+      const resetPasswordMatch = path.match(/\/reset-password\/([^\/]+)\/([^\/]+)\/?/);
+      
+      if (resetPasswordMatch) {
+        const [, uidb64, token] = resetPasswordMatch;
+        setResetParams({ uidb64, token });
+        setAuthScreen('reset-password');
+      }
+    }
+  }, []);
+
   const handleMenuPress = () => {
     setSidebarOpen(true);
   };
@@ -354,6 +368,7 @@ function AppContent() {
                 currentRoute={currentRoute}
                 userRole={user?.role}
                 isPermanent={true}
+                programName={user?.program_name}
               />
             )}
             
@@ -384,6 +399,7 @@ function AppContent() {
                 currentRoute={currentRoute}
                 userRole={user?.role}
                 isPermanent={false}
+                programName={user?.program_name}
               />
             )}
           </View>

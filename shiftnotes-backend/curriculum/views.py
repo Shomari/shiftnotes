@@ -24,6 +24,15 @@ class EPACategoryViewSet(viewsets.ModelViewSet):
     filterset_fields = ['program']
     search_fields = ['title']
     ordering = ['title']
+    
+    def get_queryset(self):
+        """Filter EPA categories to only show items from the user's program"""
+        # All users only see EPA categories from their program
+        if self.request.user.program:
+            return EPACategory.objects.filter(program=self.request.user.program)
+        
+        # If no program, return empty queryset
+        return EPACategory.objects.none()
 
 class EPAViewSet(viewsets.ModelViewSet):
     queryset = EPA.objects.all()
@@ -34,6 +43,15 @@ class EPAViewSet(viewsets.ModelViewSet):
     search_fields = ['code', 'title', 'description']
     ordering = ['code']
     pagination_class = EPAPagination  # Use custom pagination for larger EPA sets
+    
+    def get_queryset(self):
+        """Filter EPAs to only show items from the user's program"""
+        # All users only see EPAs from their program
+        if self.request.user.program:
+            return EPA.objects.filter(program=self.request.user.program)
+        
+        # If no program, return empty queryset
+        return EPA.objects.none()
     
     def destroy(self, request, *args, **kwargs):
         """Override delete to prevent deletion if EPA has been used in assessments"""
@@ -60,6 +78,15 @@ class CoreCompetencyViewSet(viewsets.ModelViewSet):
     filterset_fields = ['program']
     search_fields = ['code', 'title']
     ordering = ['code']
+    
+    def get_queryset(self):
+        """Filter core competencies to only show items from the user's program"""
+        # All users only see core competencies from their program
+        if self.request.user.program:
+            return CoreCompetency.objects.filter(program=self.request.user.program)
+        
+        # If no program, return empty queryset
+        return CoreCompetency.objects.none()
 
 class SubCompetencyViewSet(viewsets.ModelViewSet):
     queryset = SubCompetency.objects.all()
@@ -69,6 +96,15 @@ class SubCompetencyViewSet(viewsets.ModelViewSet):
     filterset_fields = ['program', 'core_competency']
     search_fields = ['code', 'title']
     ordering = ['code']
+    
+    def get_queryset(self):
+        """Filter sub-competencies to only show items from the user's program"""
+        # All users only see sub-competencies from their program
+        if self.request.user.program:
+            return SubCompetency.objects.filter(program=self.request.user.program)
+        
+        # If no program, return empty queryset
+        return SubCompetency.objects.none()
 
 class SubCompetencyEPAViewSet(viewsets.ModelViewSet):
     queryset = SubCompetencyEPA.objects.all()
@@ -78,3 +114,12 @@ class SubCompetencyEPAViewSet(viewsets.ModelViewSet):
     filterset_fields = ['sub_competency', 'epa', 'sub_competency__program']
     search_fields = ['sub_competency__code', 'sub_competency__title', 'epa__code', 'epa__title']
     ordering = ['sub_competency__code', 'epa__code']
+    
+    def get_queryset(self):
+        """Filter sub-competency-EPA relationships to only show items from the user's program"""
+        # All users only see relationships from their program
+        if self.request.user.program:
+            return SubCompetencyEPA.objects.filter(sub_competency__program=self.request.user.program)
+        
+        # If no program, return empty queryset
+        return SubCompetencyEPA.objects.none()

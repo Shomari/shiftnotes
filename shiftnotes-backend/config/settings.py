@@ -162,7 +162,10 @@ DEFAULT_FROM_EMAIL = 'EPAnotes Team <support@epanotes.com>'
 EMAIL_SUBJECT_PREFIX = '[EPAnotes] '
 
 # Frontend domain for password reset links
-FRONTEND_DOMAIN = 'app.epanotes.com'  # Production frontend domain
+if DEBUG:
+    FRONTEND_DOMAIN = config('FRONTEND_DOMAIN', default='localhost:8081')
+else:
+    FRONTEND_DOMAIN = 'app.epanotes.com'  # Production frontend domain
 
 # SMTP Configuration with Amazon SES
 # Set this to True to test real email sending in development

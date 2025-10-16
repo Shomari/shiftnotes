@@ -154,8 +154,8 @@ def resend_welcome_email(request):
     from rest_framework.permissions import IsAuthenticated
     from django.contrib.auth.decorators import user_passes_test
     
-    # Check if user is admin
-    if not request.user.is_authenticated or request.user.role not in ['admin', 'system-admin']:
+    # Check if user is admin (only program coordinators can trigger password resets)
+    if not request.user.is_authenticated or request.user.role != 'admin':
         return Response(
             {'error': 'Permission denied'}, 
             status=status.HTTP_403_FORBIDDEN
@@ -171,6 +171,13 @@ def resend_welcome_email(request):
     
     try:
         user = User.objects.get(pk=user_id)
+        
+        # Security: ensure admin can only resend email to users in their program
+        if not request.user.program or user.program != request.user.program:
+            return Response(
+                {'error': 'User not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
         
         # Send welcome email
         email_sent = EmailService.send_welcome_email(user, request)

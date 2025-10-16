@@ -534,8 +534,8 @@ def competency_grid_data(request):
     except User.DoesNotExist:
         return JsonResponse({'error': 'Trainee not found'}, status=404)
     
-    # Security: ensure user can access this trainee's data
-    if request.user.organization != trainee.organization:
+    # Security: ensure user can access this trainee's data (program-level isolation)
+    if request.user.program != trainee.program:
         return JsonResponse({'error': 'Access denied'}, status=403)
     
     # Parse date filters

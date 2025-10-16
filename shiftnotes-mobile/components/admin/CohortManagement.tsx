@@ -51,29 +51,19 @@ export function CohortManagement({ onAddCohort, onEditCohort }: CohortManagement
     try {
       setLoading(true);
       
-      // For now, using sample data. Replace with actual API call when available.
-      // const cohortsResponse = await apiClient.getCohorts();
+      // Load cohorts from API
+      const cohortsResponse = await apiClient.getCohorts();
       
-      // Keep using sample data as fallback
-      setCohorts(sampleCohorts.map(c => ({
-        id: c.id,
-        name: c.name,
-        year: c.year,
-        start_date: c.startDate,
-        is_active: true,
-        trainee_count: c.trainees
-      })));
+      console.log('Cohorts API response:', cohortsResponse);
+      if (cohortsResponse && Array.isArray(cohortsResponse)) {
+        setCohorts(cohortsResponse);
+      } else {
+        console.warn('No cohorts found in API response');
+        setCohorts([]);
+      }
     } catch (error) {
       console.error('Error loading cohorts:', error);
-      // Keep using sample data as fallback
-      setCohorts(sampleCohorts.map(c => ({
-        id: c.id,
-        name: c.name,
-        year: c.year,
-        start_date: c.startDate,
-        is_active: true,
-        trainee_count: c.trainees
-      })));
+      setCohorts([]);
     } finally {
       setLoading(false);
     }
@@ -127,9 +117,6 @@ export function CohortManagement({ onAddCohort, onEditCohort }: CohortManagement
               </View>
             </CardHeader>
             <CardContent>
-              <Text style={styles.cohortDetails}>
-                Start Date: {cohort.start_date ? format(new Date(cohort.start_date), 'M/d/yyyy') : 'N/A'}
-              </Text>
               <Text style={styles.cohortDetails}>Trainees: {cohort.trainee_count || 0}</Text>
             </CardContent>
           </Card>

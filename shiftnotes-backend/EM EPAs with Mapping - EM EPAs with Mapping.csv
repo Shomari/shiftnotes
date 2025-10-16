@@ -1,0 +1,23 @@
+EPA Code,Title,PC1,PC2,PC3,PC4,PC5,PC6,PC7,PC8,MK1,MK2,SBP1,SBP2,SBP3,SBP4,PBLI1,PBLI2,P1,P2,P3,ICS1,ICS2,ICS3
+EPA1,Initiate treatment for a patient requiring emergent/immediate intervention.,1,1,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0
+EPA2,Lead the resuscitation of a critically ill or injured patient.,1,1,1,1,0,1,0,0,1,1,0,0,0,0,0,0,0,0,0,1,1,0
+EPA3,Obtain and interpret a focused history using data from all necessary sources.,0,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,1,0,0
+EPA4,Perform and interpret a focused physical examination.,0,1,0,1,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0
+EPA5,Create and prioritize a differential diagnosis.,0,1,1,1,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0
+EPA6,Order and interpret diagnostic tests.,0,0,1,1,0,0,0,0,1,1,0,0,0,0,1,0,0,0,0,0,0,0
+EPA7,Apply best available evidence to guide patient care.,0,0,0,0,0,0,0,0,1,1,1,0,0,0,1,0,0,0,0,0,0,0
+EPA8,Manage clinical or diagnostic uncertainty when caring for patients.,0,0,1,1,1,1,0,0,1,1,0,0,0,0,1,0,0,0,0,1,1,0
+EPA9,Utilize observation and reassessment to guide decision making.,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0
+EPA10,Develop and implement an appropriate disposition and aftercare plan.,0,0,0,0,0,1,0,0,0,1,0,0,1,1,0,0,0,0,0,1,0,1
+EPA11,Perform the diagnostic and therapeutic procedures of an emergency physician.,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,1,1,0
+EPA12,Provide invasive and noninvasive airway management.,1,0,0,0,1,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0
+EPA13,Perform and interpret point‐of‐care ultrasound.,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+EPA14,Perform procedural sedation.,0,0,0,0,1,1,0,1,1,1,0,0,0,0,0,0,0,0,0,1,1,0
+EPA15,Implement pharmacologic and therapeutic management plans.,0,0,0,0,1,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0
+EPA16,Provide palliative and end‐of‐life care for patients and their families.,0,0,0,0,1,1,0,0,0,1,0,0,1,0,0,0,1,1,0,1,1,0
+EPA17,Document the EE encounter.,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,1,0,0,0,1
+EPA18,Communicate with other health care professionals about patient care.,0,0,0,0,0,0,0,0,0,0,1,0,1,1,0,0,1,1,0,0,1,1
+EPA19,"Communicate with the patient, family, and caregivers.",0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,1,0,0
+EPA20,Provide supervision or consultation for other health care professionals.,0,0,0,0,0,0,0,0,0,1,1,0,0,1,0,0,0,0,0,0,1,1
+EPA21,Manage the ED flow to optimize patient care.,0,0,0,0,0,1,1,0,0,0,0,0,1,1,0,0,0,1,0,0,1,1
+EPA22,Fulfill professional obligations and adhere to professional standards.,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0

@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Alert,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { Card, CardContent } from '../ui/Card';
 import { Input } from '../ui/Input';
@@ -25,6 +26,7 @@ export function ResetPasswordScreen({ uidb64, token, onSuccess, onBack }: ResetP
   const [isVerifying, setIsVerifying] = useState(true);
   const [tokenValid, setTokenValid] = useState(false);
   const [userInfo, setUserInfo] = useState<{ name: string; email: string } | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
   useEffect(() => {
     verifyToken();
@@ -53,18 +55,40 @@ export function ResetPasswordScreen({ uidb64, token, onSuccess, onBack }: ResetP
   };
 
   const handleResetPassword = async () => {
+    // Clear previous errors
+    setErrorMessage('');
+    
+    // Validation
     if (!password || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in both password fields');
+      const msg = 'Please fill in both password fields';
+      setErrorMessage(msg);
+      if (Platform.OS === 'web') {
+        window.alert(msg);
+      } else {
+        Alert.alert('Error', msg);
+      }
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      const msg = 'Passwords do not match';
+      setErrorMessage(msg);
+      if (Platform.OS === 'web') {
+        window.alert(msg);
+      } else {
+        Alert.alert('Error', msg);
+      }
       return;
     }
 
     if (password.length < 8) {
-      Alert.alert('Error', 'Password must be at least 8 characters long');
+      const msg = 'Password must be at least 8 characters long';
+      setErrorMessage(msg);
+      if (Platform.OS === 'web') {
+        window.alert(msg);
+      } else {
+        Alert.alert('Error', msg);
+      }
       return;
     }
 
@@ -84,18 +108,31 @@ export function ResetPasswordScreen({ uidb64, token, onSuccess, onBack }: ResetP
       const data = await response.json();
 
       if (response.ok) {
-        Alert.alert(
-          'Success!', 
-          'Your password has been reset successfully. You can now log in with your new password.',
-          [{ text: 'OK', onPress: onSuccess }]
-        );
+        const successMsg = 'Your password has been reset successfully. You can now log in with your new password.';
+        if (Platform.OS === 'web') {
+          window.alert(successMsg);
+          onSuccess();
+        } else {
+          Alert.alert('Success!', successMsg, [{ text: 'OK', onPress: onSuccess }]);
+        }
       } else {
-        const errorMessage = Array.isArray(data.error) ? data.error.join(', ') : data.error;
-        Alert.alert('Error', errorMessage || 'Failed to reset password');
+        const errMsg = Array.isArray(data.error) ? data.error.join(', ') : data.error;
+        setErrorMessage(errMsg || 'Failed to reset password');
+        if (Platform.OS === 'web') {
+          window.alert(errMsg || 'Failed to reset password');
+        } else {
+          Alert.alert('Error', errMsg || 'Failed to reset password');
+        }
       }
     } catch (error) {
       console.error('Password reset error:', error);
-      Alert.alert('Error', 'Network error. Please try again.');
+      const errMsg = 'Network error. Please try again.';
+      setErrorMessage(errMsg);
+      if (Platform.OS === 'web') {
+        window.alert(errMsg);
+      } else {
+        Alert.alert('Error', errMsg);
+      }
     } finally {
       setIsLoading(false);
     }
