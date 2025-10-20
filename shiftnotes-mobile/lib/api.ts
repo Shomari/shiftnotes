@@ -154,6 +154,7 @@ export interface ApiAssessment {
   average_entrustment?: number;
   acknowledged_at?: string;
   created_at?: string;
+  can_delete?: boolean;
 }
 
 export interface LoginResponse {

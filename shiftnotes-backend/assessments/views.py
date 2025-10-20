@@ -6,7 +6,8 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q
 from django.http import JsonResponse
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
-from datetime import datetime
+from django.utils import timezone
+from datetime import datetime, timedelta
 from .models import Assessment, AssessmentEPA
 from .serializers import AssessmentSerializer, AssessmentCreateSerializer
 
@@ -78,6 +79,55 @@ class AssessmentViewSet(viewsets.ModelViewSet):
             return AssessmentCreateSerializer
         return AssessmentSerializer
 
+    def destroy(self, request, *args, **kwargs):
+        """
+        Delete an assessment with validation:
+        - Only the evaluator (creator) can delete their own assessment
+        - Assessment must be less than 7 days old
+        """
+        assessment = self.get_object()
+        user = request.user
+        
+        # Check if user is the evaluator
+        if assessment.evaluator != user:
+            return Response(
+                {
+                    'detail': 'You can only delete assessments you created.',
+                    'error_code': 'not_evaluator'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Check if assessment is less than 7 days old
+        assessment_age = timezone.now() - assessment.created_at
+        max_age_days = 7
+        
+        if assessment_age > timedelta(days=max_age_days):
+            days_old = assessment_age.days
+            return Response(
+                {
+                    'detail': f'Cannot delete assessment. It is {days_old} days old. Only assessments less than {max_age_days} days old can be deleted.',
+                    'error_code': 'too_old',
+                    'days_old': days_old,
+                    'max_age_days': max_age_days
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # All checks passed, delete the assessment
+        assessment_id = str(assessment.id)
+        trainee_name = assessment.trainee.name
+        
+        # Perform the deletion
+        self.perform_destroy(assessment)
+        
+        return Response(
+            {
+                'detail': f'Assessment for {trainee_name} deleted successfully.',
+                'deleted_id': assessment_id
+            },
+            status=status.HTTP_200_OK
+        )
 
     @action(detail=False, methods=['get'])
     def my_assessments(self, request):

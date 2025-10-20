@@ -12,6 +12,7 @@ import {
   Pressable,
   Dimensions,
   Alert,
+  Platform,
 } from 'react-native';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Button } from './ui/Button';
@@ -38,6 +39,7 @@ export function AssessmentDetail({ assessmentId, onBack }: AssessmentDetailProps
   const { user } = useAuth();
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadAssessmentDetail();
@@ -68,6 +70,60 @@ export function AssessmentDetail({ assessmentId, onBack }: AssessmentDetailProps
       onBack();
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (Platform.OS === 'web') {
+      // Web platform - use window.confirm
+      const confirmed = window.confirm(
+        'Are you sure you want to delete this assessment? This action cannot be undone.'
+      );
+      
+      if (!confirmed) return;
+      
+      try {
+        setDeleting(true);
+        await apiClient.deleteAssessment(assessmentId);
+        alert('Assessment deleted successfully');
+        onBack();
+      } catch (error: any) {
+        console.error('Error deleting assessment:', error);
+        const errorMessage = error.response?.data?.detail || 'Failed to delete assessment. Please try again.';
+        alert(errorMessage);
+      } finally {
+        setDeleting(false);
+      }
+    } else {
+      // Mobile platform - use Alert.alert
+      Alert.alert(
+        'Delete Assessment',
+        'Are you sure you want to delete this assessment? This action cannot be undone.',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                setDeleting(true);
+                await apiClient.deleteAssessment(assessmentId);
+                Alert.alert('Success', 'Assessment deleted successfully');
+                onBack();
+              } catch (error: any) {
+                console.error('Error deleting assessment:', error);
+                const errorMessage = error.response?.data?.detail || 'Failed to delete assessment. Please try again.';
+                Alert.alert('Error', errorMessage);
+              } finally {
+                setDeleting(false);
+              }
+            },
+          },
+        ]
+      );
     }
   };
 
@@ -157,6 +213,17 @@ export function AssessmentDetail({ assessmentId, onBack }: AssessmentDetailProps
             style={styles.backButton}
           />
           <Text style={styles.pageTitle}>Assessment Details</Text>
+          {assessment.can_delete && (
+            <Button
+              title="Delete"
+              onPress={handleDelete}
+              variant="outline"
+              size="sm"
+              loading={deleting}
+              disabled={deleting}
+              style={styles.deleteButton}
+            />
+          )}
         </View>
         <Text style={styles.pageSubtitle}>
           {user?.role === 'trainee' 
@@ -357,6 +424,11 @@ const styles = StyleSheet.create({
   },
   backButton: {
     marginRight: 12,
+  },
+  deleteButton: {
+    marginLeft: 'auto',
+    backgroundColor: '#fee2e2',
+    borderColor: '#ef4444',
   },
   pageTitle: {
     fontSize: isTablet ? 24 : 20,
