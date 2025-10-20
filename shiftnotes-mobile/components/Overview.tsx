@@ -12,11 +12,23 @@ import {
   Pressable,
   Dimensions,
   Alert,
+  Platform,
 } from 'react-native';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Button } from './ui/Button';
 import { apiClient, ApiAssessment } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+
+// MUI imports for web only
+let MuiAlert: any = null;
+if (Platform.OS === 'web') {
+  try {
+    const muiMaterial = require('@mui/material');
+    MuiAlert = muiMaterial.Alert;
+  } catch (e) {
+    console.warn('Failed to load MUI Alert component:', e);
+  }
+}
 
 const { width } = Dimensions.get('window');
 const isTablet = width > 768;
@@ -28,9 +40,11 @@ interface OverviewProps {
     role: string;
   };
   user?: any; // User object from AuthContext
+  successMessage?: string | null;
+  onClearSuccess?: () => void;
 }
 
-export function Overview({ onNewAssessment, userInfo, user: userProp }: OverviewProps) {
+export function Overview({ onNewAssessment, userInfo, user: userProp, successMessage, onClearSuccess }: OverviewProps) {
   const { user: authUser } = useAuth();
   const user = userProp || authUser;
   const [assessments, setAssessments] = useState<ApiAssessment[]>([]);
@@ -145,6 +159,24 @@ export function Overview({ onNewAssessment, userInfo, user: userProp }: Overview
             />
           )}
         </View>
+
+        {/* Success Banner */}
+        {successMessage && Platform.OS === 'web' && MuiAlert && (
+          <View style={styles.bannerContainer}>
+            <MuiAlert 
+              severity="success" 
+              onClose={onClearSuccess}
+              sx={{ 
+                marginBottom: 2,
+                '& .MuiAlert-message': {
+                  fontSize: '16px',
+                }
+              }}
+            >
+              {successMessage}
+            </MuiAlert>
+          </View>
+        )}
 
         {/* Cards Section */}
         <View style={[styles.cardsContainer, isTablet && styles.cardsContainerTablet]}>
@@ -285,6 +317,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
+  },
+  bannerContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
   welcomeTitle: {
     fontSize: isTablet ? 24 : 20,

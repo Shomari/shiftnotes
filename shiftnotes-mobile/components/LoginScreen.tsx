@@ -1,6 +1,12 @@
 /**
  * Login Screen component for EPAnotes Mobile
  * Integrates with Django API authentication
+ * 
+ * Demo Accounts (for testing/reference):
+ * - Coordinator: admin@demo.com (password: password123)
+ * - Faculty: faculty@demo.com (password: password123)
+ * - Trainee: trainee@demo.com (password: password123)
+ * - Leadership: leadership@demo.com (password: password123)
  */
 
 import React, { useState } from 'react';
@@ -22,19 +28,6 @@ import { useAuth } from '../contexts/AuthContext';
 const { width } = Dimensions.get('window');
 const isTablet = width > 768;
 
-interface DemoAccount {
-  role: string;
-  name: string;
-  email: string;
-}
-
-const demoAccounts: DemoAccount[] = [
-  { role: 'Coordinator', name: 'Dr. Sarah Chen', email: 'admin@demo.com' },
-  { role: 'Faculty', name: 'Dr. Michael Rodriguez', email: 'faculty@demo.com' },
-  { role: 'Trainee', name: 'Dr. Alex Martinez', email: 'trainee@demo.com' },
-  { role: 'Leadership', name: 'Dr. Amanda Thompson', email: 'leadership@demo.com' },
-];
-
 interface LoginScreenProps {
   onNavigateToForgotPassword?: () => void;
 }
@@ -55,19 +48,6 @@ export function LoginScreen({ onNavigateToForgotPassword }: LoginScreenProps = {
     } catch (error) {
       console.error('Login error:', error);
       Alert.alert('Login Failed', 'Invalid email or password. Please try again.');
-    }
-  };
-
-  const handleDemoAccountClick = async (account: DemoAccount) => {
-    setEmail(account.email);
-    setPassword('password123');
-    
-    // Auto-login for all demo accounts
-    try {
-      await login(account.email, 'password123');
-    } catch (error) {
-      console.error('Demo login error:', error);
-      Alert.alert('Login Failed', 'Demo login failed. Please try again.');
     }
   };
 
@@ -149,31 +129,6 @@ export function LoginScreen({ onNavigateToForgotPassword }: LoginScreenProps = {
             >
               <Text style={styles.forgotPasswordText}>Forgot your password?</Text>
             </Pressable>
-
-            {/* Demo Accounts Section */}
-            <View style={styles.demoSection}>
-              <View style={styles.divider} />
-              <Text style={styles.demoTitle}>Demo Accounts - Click to auto-login</Text>
-              
-              <View style={styles.demoGrid}>
-                {demoAccounts.map((account) => (
-                  <Pressable
-                    key={account.role}
-                    style={[styles.demoButton, isLoading && styles.disabledButton]}
-                    onPress={() => handleDemoAccountClick(account)}
-                    disabled={isLoading}
-                  >
-                    <Text style={[styles.demoButtonText, isLoading && styles.disabledText]}>
-                      {account.role}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-              
-              <Text style={styles.demoPassword}>
-                Password: "password123" for all demo accounts
-              </Text>
-            </View>
           </CardContent>
         </Card>
       </ScrollView>
@@ -263,55 +218,5 @@ const styles = StyleSheet.create({
     color: '#3b82f6',
     fontSize: 14,
     fontWeight: '500',
-  },
-
-  // Demo Section
-  demoSection: {
-    alignItems: 'center',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#e5e7eb',
-    width: '100%',
-    marginBottom: 20,
-  },
-  demoTitle: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  demoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 12,
-    marginBottom: 16,
-  },
-  demoButton: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: '#ffffff',
-    minWidth: 120,
-    alignItems: 'center',
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  demoButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
-  },
-  disabledText: {
-    color: '#9ca3af',
-  },
-  demoPassword: {
-    fontSize: 12,
-    color: '#9ca3af',
-    textAlign: 'center',
   },
 });

@@ -86,12 +86,19 @@ export default function EditUser({ userId, onBack }: EditUserProps) {
   }, [formData.role, user?.program]);
 
   const loadUser = async () => {
-    if (!userId) return;
+    if (!userId) {
+      if (onBack) onBack();
+      return;
+    }
     
     setLoadingUser(true);
     try {
       const usersResponse = await apiClient.getUsers();
-      const foundUser = usersResponse.results?.find(u => u.id === userId);
+      
+      // Handle both response formats: direct array or wrapped in results
+      const usersList = Array.isArray(usersResponse) ? usersResponse : (usersResponse.results || []);
+      
+      const foundUser = usersList.find(u => u.id === userId);
       
       if (foundUser) {
         setUserData(foundUser);

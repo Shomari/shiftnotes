@@ -69,6 +69,18 @@ docker-compose -f docker-compose.prod.yml build --no-cache
 # Start services
 docker-compose -f docker-compose.prod.yml up -d
 
+# Wait for services to be ready
+echo '⏳ Waiting for services to start...'
+sleep 10
+
+# Run migrations
+echo '🔄 Running database migrations...'
+docker-compose -f docker-compose.prod.yml exec -T web python manage.py migrate
+
+# Collect static files
+echo '📦 Collecting static files...'
+docker-compose -f docker-compose.prod.yml exec -T web python manage.py collectstatic --noinput
+
 # Show final status
 echo '✅ Deployment complete!'
 echo '📊 Final disk usage:'

@@ -157,35 +157,6 @@ class Command(BaseCommand):
         confirm = input('Create this program? (yes/no): ').strip().lower()
         return confirm == 'yes'
     
-    def get_or_create_organization(self):
-        """Get the first organization or create a default one"""
-        org = Organization.objects.first()
-        if not org:
-            org = Organization.objects.create(
-                name="Default Organization",
-                slug="default-org",
-                address_line1=""
-            )
-            self.stdout.write(f'🏥 Created default organization: {org.name}')
-        else:
-            self.stdout.write(f'🏥 Using organization: {org.name}')
-        return org
-    
-    def create_program(self, organization, program_data):
-        """Create the program"""
-        self.stdout.write('')
-        self.stdout.write(self.style.SUCCESS('🚀 Creating Program...'))
-        
-        program = Program.objects.create(
-            org=organization,
-            name=program_data['name'],
-            abbreviation=program_data['abbreviation'],
-            specialty=program_data['specialty']
-        )
-        
-        self.stdout.write(f'✅ Created program: {program.name} ({program.abbreviation})')
-        return program
-    
     def create_em_curriculum(self, program):
         """Create Emergency Medicine curriculum from CSV files"""
         self.stdout.write('')
@@ -433,14 +404,23 @@ class Command(BaseCommand):
         address = input('Address (optional, press Enter to skip): ').strip()
         
         # Auto-generate slug from name
-        org_slug = org_name.lower().replace(' ', '-').replace('.', '')
+        base_slug = org_name.lower().replace(' ', '-').replace('.', '').replace(',', '')
+        org_slug = base_slug
+        
+        # Ensure slug is unique by appending a number if needed
+        counter = 1
+        while Organization.objects.filter(slug=org_slug).exists():
+            org_slug = f"{base_slug}-{counter}"
+            counter += 1
+            if counter > 1:
+                self.stdout.write(self.style.WARNING(f'  ⚠️  Slug "{base_slug}" already exists, using "{org_slug}"'))
         
         org = Organization.objects.create(
             name=org_name,
             slug=org_slug,
             address_line1=address
         )
-        self.stdout.write(f'✅ Created organization: {org.name}')
+        self.stdout.write(f'✅ Created organization: {org.name} (slug: {org_slug})')
         return org
     
     def create_program(self, organization, program_data):

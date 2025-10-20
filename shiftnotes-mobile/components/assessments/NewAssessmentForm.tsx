@@ -91,7 +91,7 @@ interface EpaSlot {
 }
 
 interface NewAssessmentFormProps {
-  onNavigate: (routeId: string) => void;
+  onNavigate: (routeId: string, successMsg?: string) => void;
   assessmentId?: string; // Optional - if provided, form will load and edit existing assessment
 }
 
@@ -557,33 +557,22 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
           ]);
         }
       } else {
-        // For final submissions, show full success flow and navigate
-        // For web environment, use a different approach
-        if (Platform.OS === 'web') {
-          console.log('Web platform detected, using confirm instead of Alert');
-          const message = 'Assessment submitted successfully! The trainee will be notified.';
-          
-          if ((window as any).confirm(`Success! 🎉\n\n${message}\n\nClick OK to continue.`)) {
-            console.log('Web confirm Continue button pressed');
-            // Clear form data
-            reset();
-            setAssessmentSlots([{ key: generateUniqueKey(), epaId: null }]);
-            setEpaAssessments({});
+        // For final submissions, show success notification and navigate
+        console.log('Assessment submitted successfully');
+        
+        // Clear form data
+        reset();
+        setAssessmentSlots([{ key: generateUniqueKey(), epaId: null }]);
+        setEpaAssessments({});
 
-            console.log('About to navigate to overview...');
-            console.log('onNavigate function:', onNavigate);
-            // Small delay for better UX, then navigate
-            setTimeout(() => {
-              console.log('Calling onNavigate with overview');
-              try {
-                onNavigate('overview');
-                console.log('onNavigate called successfully');
-              } catch (error) {
-                console.error('Error calling onNavigate:', error);
-              }
-            }, 500);
-          }
+        const successMessage = '✅ Assessment submitted successfully! The trainee will be notified.';
+
+        if (Platform.OS === 'web') {
+          // Navigate to overview with success message
+          console.log('Navigating to overview with success message...');
+          onNavigate('overview', successMessage);
         } else {
+          // Use native Alert for mobile
           Alert.alert(
             'Success! 🎉',
             'Assessment submitted successfully! The trainee will be notified.',
@@ -592,23 +581,7 @@ export function NewAssessmentForm({ onNavigate, assessmentId }: NewAssessmentFor
                 text: 'Continue',
                 onPress: () => {
                   console.log('Success alert Continue button pressed');
-                  // Clear form data
-                  reset();
-                  setAssessmentSlots([{ key: generateUniqueKey(), epaId: null }]);
-                  setEpaAssessments({});
-                  
-                  console.log('About to navigate to overview...');
-                  console.log('onNavigate function:', onNavigate);
-                  // Small delay for better UX, then navigate
-                  setTimeout(() => {
-                    console.log('Calling onNavigate with overview');
-                    try {
-                      onNavigate('overview');
-                      console.log('onNavigate called successfully');
-                    } catch (error) {
-                      console.error('Error calling onNavigate:', error);
-                    }
-                  }, 500);
+                  onNavigate('overview');
                 },
               },
             ]

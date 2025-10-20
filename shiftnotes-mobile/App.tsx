@@ -90,6 +90,7 @@ function AppContent() {
   const [selectedFacultyId, setSelectedFacultyId] = useState<string | null>(null);
   const [previousRoute, setPreviousRoute] = useState<string>('my-assessments'); // Track where user came from
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [assessmentSuccessMessage, setAssessmentSuccessMessage] = useState<string | null>(null);
   
   const { width } = Dimensions.get('window');
   const MOBILE_BREAKPOINT = 768;
@@ -118,8 +119,11 @@ function AppContent() {
     setSidebarOpen(false);
   };
 
-  const handleNavigate = (routeId: string) => {
+  const handleNavigate = (routeId: string, successMsg?: string) => {
     setCurrentRoute(routeId);
+    if (successMsg) {
+      setAssessmentSuccessMessage(successMsg);
+    }
     // Only close sidebar on mobile
     if (isMobile) {
       setSidebarOpen(false);
@@ -257,7 +261,7 @@ function AppContent() {
     
     switch (currentRoute) {
       case 'overview':
-        return <Overview onNewAssessment={handleNewAssessment} userInfo={userInfo} user={user} />;
+        return <Overview onNewAssessment={handleNewAssessment} userInfo={userInfo} user={user} successMessage={assessmentSuccessMessage} onClearSuccess={() => setAssessmentSuccessMessage(null)} />;
       case 'mailbox':
         return <Mailbox onViewAssessment={handleViewAssessment} />;
       case 'new-assessment':

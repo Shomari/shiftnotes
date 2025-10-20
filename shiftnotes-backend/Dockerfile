@@ -30,7 +30,7 @@ COPY . /app/
 RUN rm -rf /app/venv /app/__pycache__ /app/*/__pycache__ /app/*/*/__pycache__
 
 # Create directories for logs and static files
-RUN mkdir -p /app/logs /app/static
+RUN mkdir -p /app/logs /app/staticfiles
 
 # Expose port
 EXPOSE 8000

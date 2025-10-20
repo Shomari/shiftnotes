@@ -157,6 +157,21 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+# WhiteNoise configuration for serving static files
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# CSRF Configuration
+CSRF_TRUSTED_ORIGINS = [
+    'https://api.epanotes.com',
+    'https://app.epanotes.com',
+    'http://localhost:8081',
+    'http://localhost:3000',
+]
+CSRF_COOKIE_SECURE = not DEBUG  # Use secure cookies in production
+CSRF_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SECURE = not DEBUG  # Use secure cookies in production
+SESSION_COOKIE_SAMESITE = 'Lax'
+
 # Email Configuration
 DEFAULT_FROM_EMAIL = 'EPAnotes Team <support@epanotes.com>'
 EMAIL_SUBJECT_PREFIX = '[EPAnotes] '

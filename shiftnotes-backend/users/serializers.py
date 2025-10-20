@@ -35,10 +35,32 @@ class UserCreateSerializer(serializers.ModelSerializer):
 class CohortSerializer(serializers.ModelSerializer):
     org_name = serializers.CharField(source='org.name', read_only=True)
     program_name = serializers.CharField(source='program.name', read_only=True)
+    trainee_count = serializers.SerializerMethodField()
+    year = serializers.SerializerMethodField()
+    is_active = serializers.SerializerMethodField()
     
     class Meta:
         model = Cohort
         fields = [
             'id', 'name', 'start_date', 'end_date', 
-            'org', 'org_name', 'program', 'program_name'
+            'org', 'org_name', 'program', 'program_name', 
+            'trainee_count', 'year', 'is_active'
         ]
+    
+    def get_trainee_count(self, obj):
+        """Count the number of trainees in this cohort"""
+        return User.objects.filter(cohort=obj, role='trainee').count()
+    
+    def get_year(self, obj):
+        """Extract year from start_date"""
+        if obj.start_date:
+            return obj.start_date.year
+        return None
+    
+    def get_is_active(self, obj):
+        """Determine if cohort is active based on end_date"""
+        from django.utils import timezone
+        if obj.end_date:
+            return obj.end_date >= timezone.now().date()
+        # If no end_date, consider it active
+        return True

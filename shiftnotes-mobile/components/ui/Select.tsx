@@ -19,6 +19,7 @@ let FormControl: any = null;
 let InputLabel: any = null;
 let MuiSelect: any = null;
 let MenuItem: any = null;
+let Typography: any = null;
 
 if (Platform.OS === 'web') {
   try {
@@ -27,6 +28,7 @@ if (Platform.OS === 'web') {
     InputLabel = mui.InputLabel;
     MuiSelect = mui.Select;
     MenuItem = mui.MenuItem;
+    Typography = mui.Typography;
   } catch (e) {
     console.warn('Failed to load Material-UI:', e);
   }
@@ -108,9 +110,12 @@ export function Select({
           MenuProps={{
             PaperProps: {
               sx: {
-                maxHeight: 300,
+                maxHeight: 400,
                 marginTop: '4px',
                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                '& .MuiList-root': {
+                  padding: '8px 0',
+                },
               }
             },
             anchorOrigin: {
@@ -155,8 +160,10 @@ export function Select({
               key={option.value} 
               value={option.value}
               sx={{
-                fontSize: '16px',
-                padding: '8px 16px',
+                padding: '12px 16px',
+                whiteSpace: 'normal',
+                minHeight: '48px',
+                display: 'block',
                 '&:hover': {
                   backgroundColor: '#f3f4f6',
                 },
@@ -168,16 +175,32 @@ export function Select({
                 },
               }}
             >
-              <div>
-                <div style={{ color: '#374151', fontWeight: '500' }}>
-                  {option.label}
-                </div>
-                {option.subtitle && (
-                  <div style={{ fontSize: '14px', color: '#6b7280', marginTop: '2px' }}>
-                    {option.subtitle}
-                  </div>
-                )}
-              </div>
+              <Typography
+                sx={{
+                  fontSize: '16px',
+                  fontWeight: '500',
+                  color: '#374151',
+                  whiteSpace: 'normal',
+                  wordBreak: 'break-word',
+                  lineHeight: 1.5,
+                }}
+              >
+                {option.label}
+              </Typography>
+              {option.subtitle && (
+                <Typography
+                  sx={{
+                    fontSize: '14px',
+                    color: '#6b7280',
+                    marginTop: '4px',
+                    whiteSpace: 'normal',
+                    wordBreak: 'break-word',
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {option.subtitle}
+                </Typography>
+              )}
             </MenuItem>
           ))}
         </MuiSelect>
@@ -302,7 +325,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 0,
     borderBottomLeftRadius: 8,
     borderBottomRightRadius: 8,
-    maxHeight: 200,
+    maxHeight: 300,
     zIndex: 1000,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -311,26 +334,30 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   dropdownScroll: {
-    maxHeight: 200,
+    maxHeight: 300,
   },
   option: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#f3f4f6',
+    minHeight: 56,
   },
   selectedOption: {
     backgroundColor: '#eff6ff',
   },
   optionContent: {
     flex: 1,
+    paddingRight: 8,
   },
   optionText: {
     fontSize: 16,
     color: '#374151',
     fontWeight: '500',
+    flexWrap: 'wrap',
+    lineHeight: 22,
   },
   selectedOptionText: {
     color: '#3b82f6',
@@ -340,11 +367,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6b7280',
     marginTop: 2,
+    lineHeight: 20,
+    flexWrap: 'wrap',
   },
   checkmark: {
     fontSize: 16,
     color: '#3b82f6',
     fontWeight: 'bold',
     marginLeft: 8,
+    marginTop: 2,
   },
 });
