@@ -13,7 +13,12 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.aptitools.epanotes",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -35,8 +40,11 @@
       "dir": "auto",
       "preferRelatedApplications": false
     },
-    "plugins": [
-      "expo-router"
-    ]
+    "extra": {
+      "eas": {
+        "projectId": "20854761-fe81-480d-b99a-6af767c01e5a"
+      }
+    },
+    "owner": "xeroshogun"
   }
 }
