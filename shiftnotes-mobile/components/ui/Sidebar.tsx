@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, Text, Pressable, StyleSheet, Modal, TouchableWithoutFeedback, Dimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiClient } from '../../lib/api';
 
 const { width } = Dimensions.get('window');
@@ -164,6 +165,7 @@ const getNavigationItems = (userRole?: string): NavigationItem[] => {
 
 export function Sidebar({ isOpen, onClose, onNavigate, currentRoute, userRole, isPermanent = false, programName }: SidebarProps) {
   const [mailboxCount, setMailboxCount] = useState<number>(0);
+  const insets = useSafeAreaInsets();
   
   // Load mailbox count for leadership users
   useEffect(() => {
@@ -200,7 +202,7 @@ export function Sidebar({ isOpen, onClose, onNavigate, currentRoute, userRole, i
   const SidebarContent = () => (
     <View style={[styles.sidebar, shouldShowPermanent && styles.sidebarPermanent]}>
       {/* Sidebar Header */}
-      <View style={styles.sidebarHeader}>
+      <View style={[styles.sidebarHeader, { paddingTop: insets.top + 20 }]}>
         <Text style={styles.sidebarTitle}>{programName || 'Navigation'}</Text>
         {!shouldShowPermanent && (
           <Pressable onPress={onClose} style={styles.closeButton}>
