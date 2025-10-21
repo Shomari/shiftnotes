@@ -266,7 +266,7 @@ export default function EditUser({ userId, onBack }: EditUserProps) {
         }}
       />
       
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {/* Status Card */}
         <Card style={styles.statusCard}>
           <CardContent>

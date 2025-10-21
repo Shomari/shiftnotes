@@ -6,6 +6,7 @@ import {
   Alert,
   ScrollView,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Card, CardContent } from '../ui/Card';
 import { Input } from '../ui/Input';
@@ -184,14 +185,19 @@ export function ResetPasswordScreen({ uidb64, token, onSuccess, onBack }: ResetP
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-      <View style={styles.header}>
-        <View style={styles.logo}>
-          <Text style={styles.logoIcon}>🔐</Text>
+    <KeyboardAvoidingView 
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
+      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <View style={styles.header}>
+          <View style={styles.logo}>
+            <Text style={styles.logoIcon}>🔐</Text>
+          </View>
+          <Text style={styles.appName}>Reset Password</Text>
+          <Text style={styles.tagline}>Set your new password</Text>
         </View>
-        <Text style={styles.appName}>Reset Password</Text>
-        <Text style={styles.tagline}>Set your new password</Text>
-      </View>
 
       <Card style={styles.card}>
         <CardContent>
@@ -252,6 +258,7 @@ export function ResetPasswordScreen({ uidb64, token, onSuccess, onBack }: ResetP
         </CardContent>
       </Card>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
