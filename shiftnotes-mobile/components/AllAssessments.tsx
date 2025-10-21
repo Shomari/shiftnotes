@@ -288,8 +288,7 @@ export function AllAssessments({ onViewAssessment, onEditAssessment }: AllAssess
                   </View>
                 )}
                 <View style={styles.filtersHeaderSpacer} />
-                <Text style={styles.clickHint}>Click to {filtersExpanded ? 'collapse' : 'expand'}</Text>
-                <Text style={styles.resultsCountInHeader}>
+                <Text style={styles.resultsCountInHeader} numberOfLines={1} ellipsizeMode="tail">
                   {filteredAssessments.length} results
                 </Text>
                 <View style={styles.expandArrowContainer}>
@@ -611,6 +610,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748b',
     marginRight: 8,
+    flexShrink: 1,
     fontWeight: '500',
   },
   expandArrowContainer: {

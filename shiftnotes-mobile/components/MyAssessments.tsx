@@ -363,8 +363,7 @@ export function MyAssessments({ onViewAssessment, onEditAssessment, onDiscardDra
                   </View>
                 )}
                 <View style={styles.filtersHeaderSpacer} />
-                <Text style={styles.clickHint}>Click to {filtersExpanded ? 'collapse' : 'expand'}</Text>
-                <Text style={styles.resultsCountInHeader}>
+                <Text style={styles.resultsCountInHeader} numberOfLines={1} ellipsizeMode="tail">
                   {totalCount} total, {filteredAssessments.length} on page
                 </Text>
                 <View style={styles.expandArrowContainer}>
@@ -693,6 +692,7 @@ const styles = StyleSheet.create({
     color: '#64748b',
     marginRight: 8,
     fontWeight: '500',
+    flexShrink: 1,
   },
   expandArrowContainer: {
     backgroundColor: '#f3f4f6',

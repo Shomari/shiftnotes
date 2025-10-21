@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Alert,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
@@ -127,7 +128,12 @@ export function SupportRequestForm({ onBack }: SupportRequestFormProps) {
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <KeyboardAvoidingView 
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <Card style={styles.headerCard}>
         <CardHeader>
           <CardTitle>🛟 Support Request</CardTitle>
@@ -323,6 +329,7 @@ export function SupportRequestForm({ onBack }: SupportRequestFormProps) {
         </CardContent>
       </Card>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
