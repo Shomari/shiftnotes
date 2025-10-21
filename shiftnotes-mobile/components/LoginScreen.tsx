@@ -19,6 +19,8 @@ import {
   Dimensions,
   Alert,
   Image,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Card, CardContent } from './ui/Card';
 import { Input } from './ui/Input';
@@ -52,11 +54,16 @@ export function LoginScreen({ onNavigateToForgotPassword }: LoginScreenProps = {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
       <ScrollView 
         style={styles.scrollView} 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {/* Logo and Header */}
         <View style={styles.header}>
@@ -132,7 +139,7 @@ export function LoginScreen({ onNavigateToForgotPassword }: LoginScreenProps = {
           </CardContent>
         </Card>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -154,18 +161,18 @@ const styles = StyleSheet.create({
   // Header
   header: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
   },
   logo: {
-    width: 320,
-    height: 320,
+    width: 200,
+    height: 200,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
   },
   logoImage: {
-    width: 240,
-    height: 240,
+    width: 160,
+    height: 160,
   },
   tagline: {
     fontSize: 24,
