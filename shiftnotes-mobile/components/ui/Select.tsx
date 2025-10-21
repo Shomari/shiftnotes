@@ -12,6 +12,8 @@ import {
   StyleSheet,
   Dimensions,
   Platform,
+  Modal,
+  TouchableWithoutFeedback,
 } from 'react-native';
 
 // Web-only Material-UI imports
@@ -233,39 +235,56 @@ export function Select({
         <Text style={[styles.chevron, isOpen && styles.chevronOpen]}>▼</Text>
       </Pressable>
 
-      {isOpen && (
-        <View style={styles.dropdown} ref={dropdownRef}>
-          <ScrollView style={styles.dropdownScroll} showsVerticalScrollIndicator={false}>
-            {options.map((option) => (
-              <Pressable
-                key={option.value}
-                style={[
-                  styles.option,
-                  option.value === value && styles.selectedOption,
-                ]}
-                onPress={() => handleValueChange(option.value)}
-              >
-                <View style={styles.optionContent}>
-                  <Text 
-                    style={[
-                      styles.optionText,
-                      option.value === value && styles.selectedOptionText,
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                  {option.subtitle && (
-                    <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
-                  )}
+      <Modal
+        visible={isOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsOpen(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setIsOpen(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>{placeholder}</Text>
+                  <Pressable onPress={() => setIsOpen(false)} style={styles.closeButton}>
+                    <Text style={styles.closeButtonText}>✕</Text>
+                  </Pressable>
                 </View>
-                {option.value === value && (
-                  <Text style={styles.checkmark}>✓</Text>
-                )}
-              </Pressable>
-            ))}
-          </ScrollView>
-        </View>
-      )}
+                <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+                  {options.map((option) => (
+                    <Pressable
+                      key={option.value}
+                      style={[
+                        styles.option,
+                        option.value === value && styles.selectedOption,
+                      ]}
+                      onPress={() => handleValueChange(option.value)}
+                    >
+                      <View style={styles.optionContent}>
+                        <Text 
+                          style={[
+                            styles.optionText,
+                            option.value === value && styles.selectedOptionText,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                        {option.subtitle && (
+                          <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
+                        )}
+                      </View>
+                      {option.value === value && (
+                        <Text style={styles.checkmark}>✓</Text>
+                      )}
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </View>
   );
 }
@@ -294,8 +313,6 @@ const styles = StyleSheet.create({
   },
   triggerActive: {
     borderColor: '#3b82f6',
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
   },
   triggerText: {
     fontSize: 16,
@@ -314,27 +331,56 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '180deg' }],
   },
   
-  dropdown: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
+  // Modal styles for mobile dropdown
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
     backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#3b82f6',
-    borderTopWidth: 0,
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 8,
-    maxHeight: 300,
-    zIndex: 1000,
+    borderRadius: 12,
+    width: '100%',
+    maxWidth: 500,
+    maxHeight: '80%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 10,
   },
-  dropdownScroll: {
-    maxHeight: 300,
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1f2937',
+    flex: 1,
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 16,
+    backgroundColor: '#f3f4f6',
+  },
+  closeButtonText: {
+    fontSize: 20,
+    color: '#6b7280',
+    lineHeight: 20,
+  },
+  modalScroll: {
+    maxHeight: '100%',
   },
   option: {
     flexDirection: 'row',
