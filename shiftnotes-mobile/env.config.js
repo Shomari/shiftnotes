@@ -32,7 +32,7 @@ const getCurrentEnv = () => {
   
   // If NODE_ENV is explicitly set, use it
   if (envName === 'development') {
-    return ENV.development;
+    return ENV.production;
   }
   if (envName === 'staging') {
     return ENV.staging;
@@ -43,7 +43,7 @@ const getCurrentEnv = () => {
   
   // Check if we're in React Native/Expo development mode
   if (typeof __DEV__ !== 'undefined' && __DEV__) {
-    return ENV.development;
+    return ENV.production;
   }
   
   // Default to production for safety
