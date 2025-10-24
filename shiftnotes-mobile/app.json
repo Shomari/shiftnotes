@@ -16,7 +16,6 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.aptitools.epanotes",
       "buildNumber": "9",
-      "icon": "./assets/icon.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
