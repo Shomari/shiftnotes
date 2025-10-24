@@ -19,8 +19,7 @@
     "production": {
       "autoIncrement": false,
       "ios": {
-        "simulator": false,
-        "buildNumber": "9"
+        "simulator": false
       }
     }
   },
