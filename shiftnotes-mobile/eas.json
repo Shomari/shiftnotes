@@ -1,7 +1,6 @@
 {
   "cli": {
-    "version": ">= 13.2.1",
-    "appVersionSource": "local"
+    "version": ">= 13.2.1"
   },
   "build": {
     "development": {
@@ -18,8 +17,10 @@
       }
     },
     "production": {
+      "autoIncrement": false,
       "ios": {
-        "simulator": false
+        "simulator": false,
+        "buildNumber": "9"
       }
     }
   },
