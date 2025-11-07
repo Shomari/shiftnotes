@@ -2,9 +2,9 @@
   "expo": {
     "name": "EPAnotes",
     "slug": "epanotes",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/square.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
