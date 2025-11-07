@@ -155,6 +155,7 @@ export interface ApiAssessment {
   acknowledged_at?: string;
   created_at?: string;
   can_delete?: boolean;
+  can_edit?: boolean;
 }
 
 export interface LoginResponse {

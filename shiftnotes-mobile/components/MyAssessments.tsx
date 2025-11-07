@@ -465,25 +465,25 @@ export function MyAssessments({ onViewAssessment, onEditAssessment, onDiscardDra
                     </Text>
                   </View>
                   <View style={styles.actionButtons}>
-                    {assessment.status === 'draft' && (
-                      <>
-                        <Button
-                          title="Edit"
-                          onPress={() => onEditAssessment?.(assessment.id!)}
-                          variant="default"
-                          size="sm"
-                          icon="✏️"
-                          style={styles.editButton}
-                        />
-                        <Button
-                          title="Discard"
-                          onPress={() => handleDiscardDraft(assessment.id!)}
-                          variant="outline"
-                          size="sm"
-                          icon="🗑️"
-                          style={styles.discardButton}
-                        />
-                      </>
+                    {assessment.can_edit && (
+                      <Button
+                        title="Edit"
+                        onPress={() => onEditAssessment?.(assessment.id!)}
+                        variant="default"
+                        size="sm"
+                        icon="✏️"
+                        style={styles.editButton}
+                      />
+                    )}
+                    {assessment.status === 'draft' && assessment.can_delete && (
+                      <Button
+                        title="Discard"
+                        onPress={() => handleDiscardDraft(assessment.id!)}
+                        variant="outline"
+                        size="sm"
+                        icon="🗑️"
+                        style={styles.discardButton}
+                      />
                     )}
                     <Button
                       title="View"

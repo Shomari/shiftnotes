@@ -38,6 +38,7 @@ class AssessmentSerializer(serializers.ModelSerializer):
     acknowledged_by_names = serializers.SerializerMethodField()
     is_read_by_current_user = serializers.SerializerMethodField()
     can_delete = serializers.SerializerMethodField()
+    can_edit = serializers.SerializerMethodField()
 
     class Meta:
         model = Assessment
@@ -47,7 +48,7 @@ class AssessmentSerializer(serializers.ModelSerializer):
             'what_went_well', 'what_could_improve',
             'acknowledged_by', 'acknowledged_by_names', 'is_read_by_current_user',
             'created_at', 'updated_at', 'assessment_epas', 'epa_count', 'average_entrustment',
-            'can_delete'
+            'can_delete', 'can_edit'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
@@ -71,6 +72,26 @@ class AssessmentSerializer(serializers.ModelSerializer):
     
     def get_can_delete(self, obj):
         """Check if current user can delete this assessment"""
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        request = self.context.get('request')
+        if not request or not request.user:
+            return False
+        
+        # Must be the evaluator (creator)
+        if obj.evaluator != request.user:
+            return False
+        
+        # Must be less than 7 days old
+        assessment_age = timezone.now() - obj.created_at
+        if assessment_age > timedelta(days=7):
+            return False
+        
+        return True
+    
+    def get_can_edit(self, obj):
+        """Check if current user can edit this assessment"""
         from django.utils import timezone
         from datetime import timedelta
         

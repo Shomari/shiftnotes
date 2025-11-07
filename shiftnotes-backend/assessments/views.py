@@ -79,6 +79,80 @@ class AssessmentViewSet(viewsets.ModelViewSet):
             return AssessmentCreateSerializer
         return AssessmentSerializer
 
+    def update(self, request, *args, **kwargs):
+        """
+        Update an assessment with validation:
+        - Only the evaluator (creator) can edit their own assessment
+        - Assessment must be less than 7 days old
+        """
+        assessment = self.get_object()
+        user = request.user
+        
+        # Check if user is the evaluator
+        if assessment.evaluator != user:
+            return Response(
+                {
+                    'detail': 'You can only edit assessments you created.',
+                    'error_code': 'not_evaluator'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Check if assessment is less than 7 days old
+        assessment_age = timezone.now() - assessment.created_at
+        max_age_days = 7
+        
+        if assessment_age > timedelta(days=max_age_days):
+            days_old = assessment_age.days
+            return Response(
+                {
+                    'detail': f'Cannot edit assessment. It is {days_old} days old. Only assessments less than {max_age_days} days old can be edited.',
+                    'error_code': 'too_old',
+                    'days_old': days_old,
+                    'max_age_days': max_age_days
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # All checks passed, proceed with update
+        return super().update(request, *args, **kwargs)
+    
+    def partial_update(self, request, *args, **kwargs):
+        """
+        Partially update an assessment with the same validation as full update
+        """
+        assessment = self.get_object()
+        user = request.user
+        
+        # Check if user is the evaluator
+        if assessment.evaluator != user:
+            return Response(
+                {
+                    'detail': 'You can only edit assessments you created.',
+                    'error_code': 'not_evaluator'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Check if assessment is less than 7 days old
+        assessment_age = timezone.now() - assessment.created_at
+        max_age_days = 7
+        
+        if assessment_age > timedelta(days=max_age_days):
+            days_old = assessment_age.days
+            return Response(
+                {
+                    'detail': f'Cannot edit assessment. It is {days_old} days old. Only assessments less than {max_age_days} days old can be edited.',
+                    'error_code': 'too_old',
+                    'days_old': days_old,
+                    'max_age_days': max_age_days
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # All checks passed, proceed with partial update
+        return super().partial_update(request, *args, **kwargs)
+
     def destroy(self, request, *args, **kwargs):
         """
         Delete an assessment with validation:
