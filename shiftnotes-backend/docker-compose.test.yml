@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  test-db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=shiftnotes_test
+      - POSTGRES_USER=shiftnotes_test
+      - POSTGRES_PASSWORD=testpass123
+    tmpfs:
+      - /var/lib/postgresql/data  # Use tmpfs for faster test DB
+    
+  test:
+    build: .
+    command: >
+      sh -c "
+        pip install --no-cache-dir -r requirements-test.txt &&
+        pytest --cov=. --cov-report=term-missing --cov-report=html --tb=short --color=yes
+      "
+    volumes:
+      - .:/app
+      - /app/htmlcov  # Mount coverage output
+    environment:
+      - DEBUG=1
+      - DATABASE_URL=postgresql://shiftnotes_test:testpass123@test-db:5432/shiftnotes_test
+      - SECRET_KEY=test-secret-key-for-testing-only
+      - USE_REAL_EMAIL=False
+    depends_on:
+      - test-db
+

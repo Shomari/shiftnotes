@@ -533,9 +533,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 16,
     marginTop: 16,
+    flexWrap: 'wrap',
+    alignItems: 'flex-end',
   },
   controlGroup: {
     flex: 1,
+    minWidth: 200,
   },
   controlLabel: {
     fontSize: 14,

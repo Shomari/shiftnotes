@@ -6,7 +6,7 @@ from users.support_views import submit_support_request
 from users.contact_views import submit_contact_form
 from organizations.views import OrganizationViewSet, ProgramViewSet, SiteViewSet
 from curriculum.views import EPACategoryViewSet, EPAViewSet, CoreCompetencyViewSet, SubCompetencyViewSet, SubCompetencyEPAViewSet
-from assessments.views import AssessmentViewSet
+from assessments.views import AssessmentViewSet, export_assessments, export_competency_grid
 from analytics.views import program_performance_data, faculty_dashboard_data, competency_progress_data, competency_grid_data, trainee_performance_data
 
 router = DefaultRouter()
@@ -47,4 +47,7 @@ urlpatterns = [
     path('analytics/competency-progress/', competency_progress_data, name='competency_progress_data'),
     path('analytics/competency-grid/', competency_grid_data, name='competency_grid_data'),
     path('analytics/trainee-performance/', trainee_performance_data, name='trainee_performance_data'),
+    # Export endpoints
+    path('exports/assessments/', export_assessments, name='export_assessments'),
+    path('exports/competency-grid/', export_competency_grid, name='export_competency_grid'),
 ]

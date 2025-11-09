@@ -9,11 +9,15 @@ import {
   ActivityIndicator,
   Platform,
   Pressable,
+  Modal,
+  TouchableOpacity,
 } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Button } from './ui/Button';
 import { Select } from './ui/Select';
 import { CustomDatePicker } from './ui/DatePicker';
+import { ExportButton } from './ui/ExportButton';
 import { ApiAssessment } from '../lib/api';
 import { apiClient } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -93,6 +97,11 @@ export function AllAssessments({ onViewAssessment, onEditAssessment }: AllAssess
   const [traineeOptions, setTraineeOptions] = useState<Array<{label: string, value: string}>>([]);
   const [facultyOptions, setFacultyOptions] = useState<Array<{label: string, value: string}>>([]);
   const [epaOptions, setEpaOptions] = useState<Array<{label: string, value: string}>>([]);
+  
+  // Export modal state
+  const [exportModalVisible, setExportModalVisible] = useState(false);
+  const [exportStartDate, setExportStartDate] = useState('');
+  const [exportEndDate, setExportEndDate] = useState('');
 
   // Fetch assessments when page or filters change
   useEffect(() => {
@@ -257,8 +266,24 @@ export function AllAssessments({ onViewAssessment, onEditAssessment }: AllAssess
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.pageTitle}>All Assessments</Text>
-        <Text style={styles.pageSubtitle}>View all assessments across the program</Text>
+        <View style={styles.headerContent}>
+          <View style={styles.headerText}>
+            <Text style={styles.pageTitle}>All Assessments</Text>
+            <Text style={styles.pageSubtitle}>View all assessments across the program</Text>
+          </View>
+          
+          {/* Export Button - Leadership Only */}
+          {user?.role === 'leadership' && (
+            <TouchableOpacity
+              style={styles.exportButton}
+              onPress={() => setExportModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <MaterialIcons name="file-download" size={18} color="#475569" />
+              <Text style={styles.exportButtonText}>Export</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -495,6 +520,79 @@ export function AllAssessments({ onViewAssessment, onEditAssessment }: AllAssess
           </View>
         )}
       </ScrollView>
+      
+      {/* Export Modal */}
+      <Modal
+        visible={exportModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setExportModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Export Assessments to CSV</Text>
+              <TouchableOpacity
+                onPress={() => setExportModalVisible(false)}
+                style={styles.modalCloseButton}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.modalBody}>
+              <Text style={styles.modalDescription}>
+                Select a date range to export assessments:
+              </Text>
+              
+              <View style={styles.modalDatePickers}>
+                <CustomDatePicker
+                  label="Start Date"
+                  value={exportStartDate}
+                  onChange={setExportStartDate}
+                  placeholder="Select start date"
+                />
+                
+                <CustomDatePicker
+                  label="End Date"
+                  value={exportEndDate}
+                  onChange={setExportEndDate}
+                  placeholder="Select end date"
+                />
+              </View>
+              
+              {traineeFilter && (
+                <Text style={styles.modalFilterNote}>
+                  📊 Current trainee filter will be applied
+                </Text>
+              )}
+            </View>
+            
+            <View style={styles.modalFooter}>
+              <Button
+                title="Cancel"
+                onPress={() => setExportModalVisible(false)}
+                variant="outline"
+                style={styles.modalCancelButton}
+              />
+              
+              <View style={styles.modalExportButtonWrapper}>
+                <ExportButton
+                  startDate={exportStartDate}
+                  endDate={exportEndDate}
+                  traineeId={traineeFilter || undefined}
+                  disabled={!exportStartDate || !exportEndDate}
+                  onExportComplete={() => {
+                    setExportModalVisible(false);
+                    setExportStartDate('');
+                    setExportEndDate('');
+                  }}
+                />
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -511,6 +609,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
   },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  headerText: {
+    flex: 1,
+    minWidth: 200,
+  },
   pageTitle: {
     fontSize: 24,
     fontWeight: '600',
@@ -520,6 +629,23 @@ const styles = StyleSheet.create({
   pageSubtitle: {
     fontSize: 16,
     color: '#64748b',
+  },
+  exportButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  exportButtonText: {
+    color: '#475569',
+    fontSize: 13,
+    fontWeight: '500',
   },
   scrollView: {
     flex: 1,
@@ -851,5 +977,84 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#374151',
+  },
+  
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    width: '100%',
+    maxWidth: 500,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    overflow: 'visible',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  modalCloseButton: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 16,
+    backgroundColor: '#f1f5f9',
+  },
+  modalCloseText: {
+    fontSize: 20,
+    color: '#64748b',
+    fontWeight: '600',
+  },
+  modalBody: {
+    padding: 20,
+    overflow: 'visible',
+  },
+  modalDescription: {
+    fontSize: 16,
+    color: '#475569',
+    marginBottom: 20,
+  },
+  modalDatePickers: {
+    gap: 16,
+  },
+  modalFilterNote: {
+    marginTop: 16,
+    fontSize: 14,
+    color: '#3b82f6',
+    fontStyle: 'italic',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
+  modalCancelButton: {
+    flex: 1,
+  },
+  modalExportButtonWrapper: {
+    flex: 1,
   },
 });

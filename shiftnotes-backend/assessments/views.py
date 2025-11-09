@@ -1,15 +1,18 @@
 from rest_framework import viewsets, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Q
-from django.http import JsonResponse
+from django.db.models import Q, Avg, Count
+from django.http import JsonResponse, HttpResponse
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.utils import timezone
 from datetime import datetime, timedelta
+import csv
 from .models import Assessment, AssessmentEPA
 from .serializers import AssessmentSerializer, AssessmentCreateSerializer
+from users.models import User
+from curriculum.models import CoreCompetency, EPA
 
 class AssessmentViewSet(viewsets.ModelViewSet):
     queryset = Assessment.objects.all()
@@ -548,3 +551,275 @@ class AssessmentViewSet(viewsets.ModelViewSet):
             ).exclude(acknowledged_by=user).count()
         
         return Response({'unread_count': unread_count})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def export_assessments(request):
+    """
+    Export assessments to CSV (Leadership/Admin only)
+    
+    Query params:
+    - start_date (required): YYYY-MM-DD
+    - end_date (required): YYYY-MM-DD  
+    - cohort_id (optional): Filter by cohort
+    - trainee_id (optional): Filter by specific trainee
+    
+    Returns:
+    - CSV file with one row per AssessmentEPA
+    """
+    
+    # 1. PERMISSION CHECK - Leadership/Admin only
+    if request.user.role not in ['leadership', 'admin', 'system-admin']:
+        return JsonResponse(
+            {'error': 'Only leadership and admin users can export data'},
+            status=403
+        )
+    
+    # 2. VALIDATE PARAMETERS
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
+    
+    if not start_date_str or not end_date_str:
+        return JsonResponse(
+            {'error': 'start_date and end_date are required parameters'},
+            status=400
+        )
+    
+    try:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse(
+            {'error': 'Invalid date format. Use YYYY-MM-DD'},
+            status=400
+        )
+    
+    # 3. BUILD QUERY - Program isolation
+    if not request.user.program:
+        return JsonResponse(
+            {'error': 'User not assigned to a program'},
+            status=400
+        )
+    
+    # Query AssessmentEPAs with all related data
+    assessment_epas = AssessmentEPA.objects.filter(
+        assessment__trainee__program=request.user.program,
+        assessment__shift_date__gte=start_date,
+        assessment__shift_date__lte=end_date,
+        assessment__status__in=['submitted', 'locked']  # Only completed assessments
+    ).select_related(
+        'assessment',
+        'assessment__trainee',
+        'assessment__trainee__cohort',
+        'assessment__evaluator',
+        'epa',
+        'epa__category'
+    ).order_by('assessment__shift_date', 'assessment__trainee__name')
+    
+    # Optional filters
+    cohort_id = request.GET.get('cohort_id')
+    if cohort_id:
+        assessment_epas = assessment_epas.filter(
+            assessment__trainee__cohort_id=cohort_id
+        )
+    
+    trainee_id = request.GET.get('trainee_id')
+    if trainee_id:
+        assessment_epas = assessment_epas.filter(
+            assessment__trainee_id=trainee_id
+        )
+    
+    # 4. GENERATE CSV
+    response = HttpResponse(content_type='text/csv')
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    response['Content-Disposition'] = f'attachment; filename="assessments_export_{timestamp}.csv"'
+    
+    writer = csv.writer(response)
+    
+    # Header row
+    writer.writerow([
+        'Trainee Name',
+        'Trainee Email',
+        'Cohort',
+        'Evaluator Name',
+        'Assessment Date',
+        'Location',
+        'EPA Code',
+        'EPA Title',
+        'EPA Category',
+        'Entrustment Level',
+        'What Went Well',
+        'What Could Improve',
+        'Private Comments',
+        'Assessment Created',
+    ])
+    
+    # Data rows
+    for assessment_epa in assessment_epas:
+        assessment = assessment_epa.assessment
+        writer.writerow([
+            assessment.trainee.name,
+            assessment.trainee.email,
+            assessment.trainee.cohort.name if assessment.trainee.cohort else '',
+            assessment.evaluator.name,
+            assessment.shift_date.strftime('%Y-%m-%d'),
+            assessment.location,
+            assessment_epa.epa.code,
+            assessment_epa.epa.title,
+            assessment_epa.epa.category.title if assessment_epa.epa.category else '',
+            assessment_epa.entrustment_level,
+            assessment.what_went_well,
+            assessment.what_could_improve,
+            assessment.private_comments,  # Leadership can see private comments
+            assessment.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+        ])
+    
+    return response
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def export_competency_grid(request):
+    """
+    Export program-wide competency grid to CSV (Leadership only)
+    
+    Query params:
+    - start_date (optional): YYYY-MM-DD
+    - end_date (optional): YYYY-MM-DD
+    - cohort_id (optional): Filter by cohort
+    
+    Returns:
+    - CSV file with one row per trainee-subcompetency combination
+    - Format: Trainee Name, Cohort, Core Competency, Sub-Competency, Avg Entrustment, Assessment Count
+    """
+    
+    # 1. PERMISSION CHECK - Leadership only
+    if request.user.role != 'leadership':
+        return JsonResponse(
+            {'error': 'Only leadership users can export competency grid data'},
+            status=403
+        )
+    
+    # 2. VALIDATE PROGRAM ASSIGNMENT
+    if not request.user.program:
+        return JsonResponse(
+            {'error': 'User not assigned to a program'},
+            status=400
+        )
+    
+    # 3. PARSE OPTIONAL PARAMETERS
+    start_date = None
+    end_date = None
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
+    
+    if start_date_str:
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return JsonResponse(
+                {'error': 'Invalid start_date format. Use YYYY-MM-DD'},
+                status=400
+            )
+    
+    if end_date_str:
+        try:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return JsonResponse(
+                {'error': 'Invalid end_date format. Use YYYY-MM-DD'},
+                status=400
+            )
+    
+    cohort_id = request.GET.get('cohort_id')
+    
+    # 4. GET ALL TRAINEES IN PROGRAM (with optional cohort filter)
+    trainees = User.objects.filter(
+        role='trainee',
+        program=request.user.program
+    ).order_by('name')
+    
+    if cohort_id:
+        trainees = trainees.filter(cohort_id=cohort_id)
+    
+    # 5. GET ALL COMPETENCIES FOR THIS PROGRAM
+    competencies = CoreCompetency.objects.filter(
+        program=request.user.program
+    ).prefetch_related(
+        'sub_competencies__sub_competency_epas__epa'
+    ).order_by('code')
+    
+    # 6. GENERATE CSV
+    response = HttpResponse(content_type='text/csv')
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    response['Content-Disposition'] = f'attachment; filename="competency_grid_export_{timestamp}.csv"'
+    
+    writer = csv.writer(response)
+    
+    # Header row
+    writer.writerow([
+        'Trainee Name',
+        'Cohort',
+        'Core Competency',
+        'Sub-Competency',
+        'Avg Entrustment',
+        'Assessment Count',
+    ])
+    
+    # 7. DATA ROWS - Loop through each trainee and their competency data
+    for trainee in trainees:
+        # Build assessment filter for this trainee
+        assessments_filter = Q(trainee=trainee, status='submitted')
+        
+        if start_date:
+            assessments_filter &= Q(shift_date__gte=start_date)
+        if end_date:
+            assessments_filter &= Q(shift_date__lte=end_date)
+        
+        trainee_assessments = Assessment.objects.filter(assessments_filter)
+        
+        # Get cohort name (may be None)
+        cohort_name = trainee.cohort.name if trainee.cohort else ''
+        
+        # Loop through all competencies
+        for competency in competencies:
+            # Loop through sub-competencies
+            for subcompetency in competency.sub_competencies.all().order_by('code'):
+                # Get all EPAs mapped to this sub-competency
+                mapped_epas = EPA.objects.filter(
+                    sub_competency_epas__sub_competency=subcompetency,
+                    program=request.user.program
+                ).distinct()
+                
+                # Get assessments for EPAs mapped to this sub-competency
+                subcompetency_assessments = trainee_assessments.filter(
+                    assessment_epas__epa__in=mapped_epas
+                ).distinct()
+                
+                # Calculate average entrustment level
+                avg_entrustment = subcompetency_assessments.aggregate(
+                    avg=Avg('assessment_epas__entrustment_level')
+                )['avg']
+                
+                # Count total assessment EPAs
+                total_epa_assessments = trainee_assessments.filter(
+                    assessment_epas__epa__in=mapped_epas
+                ).aggregate(
+                    count=Count('assessment_epas__id')
+                )['count'] or 0
+                
+                # Format values for CSV
+                avg_entrustment_display = round(avg_entrustment, 2) if avg_entrustment else ''
+                
+                # Write row (one row per trainee-subcompetency)
+                writer.writerow([
+                    trainee.name,
+                    cohort_name,
+                    competency.title,
+                    subcompetency.title,
+                    avg_entrustment_display,
+                    total_epa_assessments,
+                ])
+    
+    return response

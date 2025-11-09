@@ -805,6 +805,106 @@ export class ApiClient {
       body: JSON.stringify(supportData),
     });
   }
+
+  // CSV Export
+  async exportAssessments(params: {
+    start_date: string;
+    end_date: string;
+    cohort_id?: string;
+    trainee_id?: string;
+  }): Promise<Blob> {
+    const token = await TokenStorage.getToken();
+    
+    // Convert dates to YYYY-MM-DD format if they're ISO strings
+    const formatDate = (dateStr: string): string => {
+      // If it's already in YYYY-MM-DD format, return as-is
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        return dateStr;
+      }
+      // Otherwise, parse and format
+      const date = new Date(dateStr);
+      return date.toISOString().split('T')[0];
+    };
+    
+    const queryParams = new URLSearchParams();
+    queryParams.append('start_date', formatDate(params.start_date));
+    queryParams.append('end_date', formatDate(params.end_date));
+    if (params.cohort_id) queryParams.append('cohort_id', params.cohort_id);
+    if (params.trainee_id) queryParams.append('trainee_id', params.trainee_id);
+    
+    // API_BASE_URL already includes /api, so just append the endpoint path
+    const url = `${API_BASE_URL}/exports/assessments/?${queryParams.toString()}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Token ${token}`,
+      },
+    });
+    
+    if (!response.ok) {
+      // Try to parse error response, but handle non-JSON responses
+      let errorMessage = 'Export failed';
+      try {
+        const error = await response.json();
+        errorMessage = error.error || errorMessage;
+      } catch {
+        errorMessage = `Export failed with status ${response.status}`;
+      }
+      throw new Error(errorMessage);
+    }
+    
+    return response.blob();
+  }
+
+  // Competency Grid Export
+  async exportCompetencyGrid(params: {
+    start_date?: string;
+    end_date?: string;
+    cohort_id?: string;
+  }): Promise<Blob> {
+    const token = await TokenStorage.getToken();
+    
+    // Convert dates to YYYY-MM-DD format if they're ISO strings
+    const formatDate = (dateStr: string): string => {
+      // If it's already in YYYY-MM-DD format, return as-is
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        return dateStr;
+      }
+      // Otherwise, parse and format
+      const date = new Date(dateStr);
+      return date.toISOString().split('T')[0];
+    };
+    
+    const queryParams = new URLSearchParams();
+    if (params.start_date) queryParams.append('start_date', formatDate(params.start_date));
+    if (params.end_date) queryParams.append('end_date', formatDate(params.end_date));
+    if (params.cohort_id) queryParams.append('cohort_id', params.cohort_id);
+    
+    // API_BASE_URL already includes /api, so just append the endpoint path
+    const url = `${API_BASE_URL}/exports/competency-grid/?${queryParams.toString()}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Token ${token}`,
+      },
+    });
+    
+    if (!response.ok) {
+      // Try to parse error response, but handle non-JSON responses
+      let errorMessage = 'Export failed';
+      try {
+        const error = await response.json();
+        errorMessage = error.error || errorMessage;
+      } catch {
+        errorMessage = `Export failed with status ${response.status}`;
+      }
+      throw new Error(errorMessage);
+    }
+    
+    return response.blob();
+  }
 }
 
 // Export singleton instance

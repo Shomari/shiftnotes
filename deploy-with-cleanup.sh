@@ -15,6 +15,37 @@ KEY_PATH="~/.ssh/shiftnotes-key.pem"
 APP_DIR="~/app"
 
 echo "🚀 Starting EPAnotes Backend Deployment with Cleanup..."
+echo ""
+
+# Step 0: Run tests before deployment (optional - use Docker-based tests)
+echo "🧪 Running test suite before deployment..."
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Check if user wants to skip tests
+if [ "$SKIP_TESTS" = "true" ]; then
+    echo "⚠️  Skipping tests (SKIP_TESTS=true)"
+    echo ""
+else
+    # Run backend tests using Docker (more reliable than host-based tests)
+    cd shiftnotes-backend
+    echo "Running Docker-based tests..."
+    if ! bash run_tests_docker.sh; then
+        echo ""
+        echo "❌ DEPLOYMENT ABORTED: Tests failed!"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        echo "Please fix the failing tests before deploying."
+        echo "Or run with: SKIP_TESTS=true ./deploy-with-cleanup.sh"
+        exit 1
+    fi
+    cd ..
+
+    echo ""
+    echo "✅ All tests passed! Proceeding with deployment..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+fi
 
 # Step 1: Stop running containers
 echo "📦 Stopping running containers..."

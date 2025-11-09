@@ -111,6 +111,11 @@ export function CustomDatePicker({
                   },
                 },
               },
+              popper: {
+                sx: {
+                  zIndex: 10000,
+                },
+              },
             }}
           />
         </LocalizationProvider>
