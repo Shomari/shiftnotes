@@ -15,9 +15,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.aptitools.epanotes",
-      "buildNumber": "11",
+      "buildNumber": "12",
+      "displayName": "EPAnotes",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleDisplayName": "EPAnotes"
       }
     },
     "android": {
