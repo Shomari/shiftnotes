@@ -2,7 +2,7 @@
   "expo": {
     "name": "EPAnotes",
     "slug": "epanotes",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/square.png",
     "userInterfaceStyle": "light",
@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.aptitools.epanotes",
-      "buildNumber": "12",
+      "buildNumber": "14",
       "displayName": "EPAnotes",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
