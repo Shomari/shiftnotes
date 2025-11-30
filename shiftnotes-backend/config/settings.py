@@ -130,19 +130,32 @@ else:
         }
     }
 
-# Password validation
+# Password validation - Hospital Security Requirements (AU-07, AU-08)
 AUTH_PASSWORD_VALIDATORS = [
-    # {
-    #     'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    # },
-    # {
-    #     'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    # },
-    # {
-    #     'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    # },
+    {
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {
+            'min_length': 12,  # Hospital requirement: minimum 12 characters
+        }
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+    },
     {
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    },
+    # Custom complexity validator requiring uppercase, lowercase, digits, and special chars
+    {
+        'NAME': 'users.validators.ComplexityValidator',
+        'OPTIONS': {
+            'min_uppercase': 1,
+            'min_lowercase': 1,
+            'min_digits': 1,
+            'min_special': 1,
+        }
     },
 ]
 
@@ -236,7 +249,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Django REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.TokenAuthentication',
+        # Custom token auth with 15-minute session timeout (AU-15)
+        'users.authentication.ExpiringTokenAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -249,6 +263,9 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
 }
+
+# Session timeout configuration (AU-15)
+SESSION_TIMEOUT_MINUTES = 15  # Sessions expire after 15 minutes of inactivity
 
 # CORS Configuration
 CORS_ALLOWED_ORIGINS = [

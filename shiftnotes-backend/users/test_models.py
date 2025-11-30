@@ -6,7 +6,8 @@ from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from users.models import Cohort
+from users.models import Cohort, LoginAttempt
+from users.validators import ComplexityValidator
 from conftest import (
     OrganizationFactory, ProgramFactory, CohortFactory, UserFactory
 )
@@ -215,4 +216,168 @@ class TestCohortModel:
         from django.db import IntegrityError
         with pytest.raises(IntegrityError):
             CohortFactory(org=org, program=program, name='Class of 2024')
+
+
+@pytest.mark.django_db
+class TestLoginAttemptModel:
+    """Test LoginAttempt model functionality (AU-14)"""
+    
+    def test_create_successful_login_attempt(self):
+        """Test creating a successful login attempt record"""
+        org = OrganizationFactory()
+        program = ProgramFactory(org=org)
+        user = UserFactory(organization=org, program=program)
+        
+        attempt = LoginAttempt.objects.create(
+            email=user.email,
+            user=user,
+            success=True,
+            ip_address='192.168.1.1',
+            user_agent='Mozilla/5.0 Test Browser'
+        )
+        
+        assert attempt.email == user.email
+        assert attempt.user == user
+        assert attempt.success is True
+        assert attempt.ip_address == '192.168.1.1'
+        assert 'Mozilla' in attempt.user_agent
+        assert attempt.failure_reason == ''
+        assert attempt.timestamp is not None
+    
+    def test_create_failed_login_attempt(self):
+        """Test creating a failed login attempt record"""
+        attempt = LoginAttempt.objects.create(
+            email='nonexistent@example.com',
+            user=None,
+            success=False,
+            ip_address='10.0.0.1',
+            user_agent='Test Client',
+            failure_reason='Invalid credentials'
+        )
+        
+        assert attempt.email == 'nonexistent@example.com'
+        assert attempt.user is None
+        assert attempt.success is False
+        assert attempt.failure_reason == 'Invalid credentials'
+    
+    def test_login_attempt_string_representation(self):
+        """Test __str__ method for LoginAttempt"""
+        attempt_success = LoginAttempt.objects.create(
+            email='test@example.com',
+            success=True
+        )
+        assert 'SUCCESS' in str(attempt_success)
+        assert 'test@example.com' in str(attempt_success)
+        
+        attempt_failed = LoginAttempt.objects.create(
+            email='failed@example.com',
+            success=False
+        )
+        assert 'FAILED' in str(attempt_failed)
+        assert 'failed@example.com' in str(attempt_failed)
+    
+    def test_login_attempts_ordered_by_timestamp_desc(self):
+        """Test that login attempts are ordered newest first"""
+        LoginAttempt.objects.create(email='first@example.com', success=True)
+        LoginAttempt.objects.create(email='second@example.com', success=True)
+        LoginAttempt.objects.create(email='third@example.com', success=True)
+        
+        attempts = list(LoginAttempt.objects.all())
+        assert attempts[0].email == 'third@example.com'
+        assert attempts[2].email == 'first@example.com'
+    
+    def test_login_attempt_user_set_null_on_delete(self):
+        """Test that user is set to NULL when user is deleted"""
+        org = OrganizationFactory()
+        program = ProgramFactory(org=org)
+        user = UserFactory(organization=org, program=program)
+        user_id = user.id
+        
+        attempt = LoginAttempt.objects.create(
+            email=user.email,
+            user=user,
+            success=True
+        )
+        attempt_id = attempt.id
+        
+        # Delete the user
+        user.delete()
+        
+        # Refresh the attempt from DB
+        attempt = LoginAttempt.objects.get(id=attempt_id)
+        assert attempt.user is None
+        assert attempt.email is not None  # Email is preserved
+
+
+@pytest.mark.django_db
+class TestPasswordComplexityValidator:
+    """Test password complexity validator (AU-08)"""
+    
+    def test_valid_password_passes(self):
+        """Test that a password meeting all requirements passes"""
+        validator = ComplexityValidator()
+        # Should not raise any exception
+        validator.validate('MySecure1Password!')
+    
+    def test_password_without_uppercase_fails(self):
+        """Test that password without uppercase fails"""
+        validator = ComplexityValidator()
+        with pytest.raises(ValidationError) as exc_info:
+            validator.validate('mysecure1password!')
+        assert 'uppercase' in str(exc_info.value).lower()
+    
+    def test_password_without_lowercase_fails(self):
+        """Test that password without lowercase fails"""
+        validator = ComplexityValidator()
+        with pytest.raises(ValidationError) as exc_info:
+            validator.validate('MYSECURE1PASSWORD!')
+        assert 'lowercase' in str(exc_info.value).lower()
+    
+    def test_password_without_digit_fails(self):
+        """Test that password without digit fails"""
+        validator = ComplexityValidator()
+        with pytest.raises(ValidationError) as exc_info:
+            validator.validate('MySecurePassword!')
+        assert 'digit' in str(exc_info.value).lower()
+    
+    def test_password_without_special_char_fails(self):
+        """Test that password without special character fails"""
+        validator = ComplexityValidator()
+        with pytest.raises(ValidationError) as exc_info:
+            validator.validate('MySecure1Password')
+        assert 'special' in str(exc_info.value).lower()
+    
+    def test_password_with_multiple_issues_reports_all(self):
+        """Test that all validation issues are reported"""
+        validator = ComplexityValidator()
+        with pytest.raises(ValidationError) as exc_info:
+            validator.validate('password')  # Missing uppercase, digit, special
+        errors = exc_info.value.messages
+        assert len(errors) >= 3
+    
+    def test_custom_requirements(self):
+        """Test validator with custom requirements"""
+        validator = ComplexityValidator(
+            min_uppercase=2,
+            min_lowercase=2,
+            min_digits=2,
+            min_special=2
+        )
+        
+        # This should fail - only 1 of each
+        with pytest.raises(ValidationError):
+            validator.validate('Aa1!')
+        
+        # This should pass - 2 of each
+        validator.validate('AAaa11!!')
+    
+    def test_get_help_text(self):
+        """Test help text generation"""
+        validator = ComplexityValidator()
+        help_text = validator.get_help_text()
+        
+        assert 'uppercase' in help_text.lower()
+        assert 'lowercase' in help_text.lower()
+        assert 'digit' in help_text.lower()
+        assert 'special' in help_text.lower()
 

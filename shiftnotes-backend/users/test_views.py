@@ -3,11 +3,18 @@ Tests for User API views and authentication
 """
 import pytest
 from django.urls import reverse
+from django.core.cache import cache
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from unittest.mock import patch, MagicMock
+from datetime import timedelta
 
-from users.models import User
+from users.models import User, LoginAttempt
+from users.lockout import (
+    check_login_attempts, record_failed_attempt, 
+    reset_login_attempts, get_remaining_attempts, LOCKOUT_THRESHOLD
+)
 from conftest import (
     OrganizationFactory, ProgramFactory, CohortFactory,
     UserFactory
@@ -56,7 +63,7 @@ class TestAuthenticationViews:
         assert 'error' in response.data
     
     def test_login_without_email(self, api_client):
-        """Test login without email"""
+        """Test login without email returns 400 Bad Request"""
         url = reverse('user-login')
         data = {
             'password': 'testpass123'
@@ -64,10 +71,11 @@ class TestAuthenticationViews:
         
         response = api_client.post(url, data, format='json')
         
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert 'error' in response.data
     
     def test_login_without_password(self, api_client):
-        """Test login without password"""
+        """Test login without password returns 400 Bad Request"""
         url = reverse('user-login')
         data = {
             'email': 'test@example.com'
@@ -75,7 +83,8 @@ class TestAuthenticationViews:
         
         response = api_client.post(url, data, format='json')
         
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert 'error' in response.data
     
     def test_logout(self, authenticated_client, trainee_user):
         """Test logout endpoint"""
@@ -361,4 +370,372 @@ class TestCohortViews:
         assert str(cohort1.id) in cohort_ids
         assert str(cohort2.id) in cohort_ids
         assert str(other_cohort.id) not in cohort_ids
+
+
+@pytest.mark.django_db
+class TestLoginAttemptLockout:
+    """Test login attempt lockout functionality (AU-13)"""
+    
+    def setup_method(self):
+        """Clear cache before each test"""
+        cache.clear()
+    
+    def test_lockout_after_five_failed_attempts(self, api_client):
+        """Test that account is locked after 5 failed attempts"""
+        org = OrganizationFactory()
+        program = ProgramFactory(org=org)
+        user = UserFactory(
+            email='lockout@example.com',
+            password='correctpass123',
+            organization=org,
+            program=program
+        )
+        
+        url = reverse('user-login')
+        
+        # Make 5 failed login attempts
+        for i in range(5):
+            response = api_client.post(url, {
+                'email': 'lockout@example.com',
+                'password': 'wrongpassword'
+            }, format='json')
+            assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        
+        # 6th attempt should be locked out (429 Too Many Requests)
+        response = api_client.post(url, {
+            'email': 'lockout@example.com',
+            'password': 'correctpass123'  # Even correct password should fail
+        }, format='json')
+        
+        assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+        assert 'locked' in response.data['error'].lower()
+    
+    def test_successful_login_resets_lockout_counter(self, api_client):
+        """Test that successful login resets the failed attempt counter"""
+        org = OrganizationFactory()
+        program = ProgramFactory(org=org)
+        user = UserFactory(
+            email='reset@example.com',
+            password='correctpass123',
+            organization=org,
+            program=program
+        )
+        
+        url = reverse('user-login')
+        
+        # Make 3 failed attempts
+        for i in range(3):
+            api_client.post(url, {
+                'email': 'reset@example.com',
+                'password': 'wrongpassword'
+            }, format='json')
+        
+        # Successful login
+        response = api_client.post(url, {
+            'email': 'reset@example.com',
+            'password': 'correctpass123'
+        }, format='json')
+        assert response.status_code == status.HTTP_200_OK
+        
+        # Counter should be reset - make 3 more failed attempts
+        for i in range(3):
+            api_client.post(url, {
+                'email': 'reset@example.com',
+                'password': 'wrongpassword'
+            }, format='json')
+        
+        # Should still be able to login (counter was reset)
+        response = api_client.post(url, {
+            'email': 'reset@example.com',
+            'password': 'correctpass123'
+        }, format='json')
+        assert response.status_code == status.HTTP_200_OK
+    
+    def test_lockout_shows_remaining_attempts_warning(self, api_client):
+        """Test that failed login shows remaining attempts warning"""
+        url = reverse('user-login')
+        
+        response = api_client.post(url, {
+            'email': 'attempts@example.com',
+            'password': 'wrongpassword'
+        }, format='json')
+        
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert 'attempts_warning' in response.data
+        assert 'remaining' in response.data['attempts_warning'].lower()
+
+
+@pytest.mark.django_db
+class TestLoginAttemptLogging:
+    """Test login attempt logging functionality (AU-14)"""
+    
+    def setup_method(self):
+        """Clear cache before each test"""
+        cache.clear()
+    
+    def test_successful_login_is_logged(self, api_client):
+        """Test that successful logins are recorded in LoginAttempt"""
+        org = OrganizationFactory()
+        program = ProgramFactory(org=org)
+        user = UserFactory(
+            email='logged@example.com',
+            password='testpass123',
+            organization=org,
+            program=program
+        )
+        
+        url = reverse('user-login')
+        response = api_client.post(url, {
+            'email': 'logged@example.com',
+            'password': 'testpass123'
+        }, format='json')
+        
+        assert response.status_code == status.HTTP_200_OK
+        
+        # Check LoginAttempt was created
+        attempt = LoginAttempt.objects.filter(email='logged@example.com').first()
+        assert attempt is not None
+        assert attempt.success is True
+        assert attempt.user == user
+        assert attempt.failure_reason == ''
+    
+    def test_failed_login_is_logged(self, api_client):
+        """Test that failed logins are recorded in LoginAttempt"""
+        url = reverse('user-login')
+        
+        response = api_client.post(url, {
+            'email': 'failed@example.com',
+            'password': 'wrongpassword'
+        }, format='json')
+        
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        
+        # Check LoginAttempt was created
+        attempt = LoginAttempt.objects.filter(email='failed@example.com').first()
+        assert attempt is not None
+        assert attempt.success is False
+        assert attempt.user is None
+        assert 'credentials' in attempt.failure_reason.lower()
+    
+    def test_lockout_attempt_is_logged(self, api_client):
+        """Test that lockout attempts are logged"""
+        url = reverse('user-login')
+        email = 'lockout-log@example.com'
+        
+        # Make 5 failed attempts to trigger lockout
+        for i in range(5):
+            api_client.post(url, {
+                'email': email,
+                'password': 'wrongpassword'
+            }, format='json')
+        
+        # Make another attempt while locked out
+        api_client.post(url, {
+            'email': email,
+            'password': 'whatever'
+        }, format='json')
+        
+        # Check that the lockout attempt was logged
+        lockout_attempt = LoginAttempt.objects.filter(
+            email=email,
+            failure_reason='Account locked out'
+        ).first()
+        assert lockout_attempt is not None
+        assert lockout_attempt.success is False
+    
+    def test_login_attempt_captures_ip_and_user_agent(self, api_client):
+        """Test that IP address and user agent are captured"""
+        org = OrganizationFactory()
+        program = ProgramFactory(org=org)
+        user = UserFactory(
+            email='metadata@example.com',
+            password='testpass123',
+            organization=org,
+            program=program
+        )
+        
+        url = reverse('user-login')
+        response = api_client.post(
+            url, 
+            {'email': 'metadata@example.com', 'password': 'testpass123'},
+            format='json',
+            HTTP_USER_AGENT='Test Browser/1.0'
+        )
+        
+        attempt = LoginAttempt.objects.filter(email='metadata@example.com').first()
+        assert attempt is not None
+        # IP address should be captured (may be None in test environment)
+        # User agent should be captured
+        assert 'Test Browser' in attempt.user_agent
+
+
+@pytest.mark.django_db
+class TestDeactivatedUserLogin:
+    """Test that deactivated users cannot login"""
+    
+    def setup_method(self):
+        """Clear cache before each test"""
+        cache.clear()
+    
+    def test_deactivated_user_cannot_login(self, api_client):
+        """Test that a deactivated user cannot login"""
+        org = OrganizationFactory()
+        program = ProgramFactory(org=org)
+        user = UserFactory(
+            email='deactivated@example.com',
+            password='testpass123',
+            organization=org,
+            program=program
+        )
+        
+        # Deactivate the user
+        user.deactivate()
+        
+        url = reverse('user-login')
+        response = api_client.post(url, {
+            'email': 'deactivated@example.com',
+            'password': 'testpass123'
+        }, format='json')
+        
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert 'deactivated' in response.data['error'].lower()
+    
+    def test_deactivated_login_is_logged(self, api_client):
+        """Test that deactivated user login attempts are logged"""
+        org = OrganizationFactory()
+        program = ProgramFactory(org=org)
+        user = UserFactory(
+            email='deact-log@example.com',
+            password='testpass123',
+            organization=org,
+            program=program
+        )
+        user.deactivate()
+        
+        url = reverse('user-login')
+        api_client.post(url, {
+            'email': 'deact-log@example.com',
+            'password': 'testpass123'
+        }, format='json')
+        
+        attempt = LoginAttempt.objects.filter(email='deact-log@example.com').first()
+        assert attempt is not None
+        assert attempt.success is False
+        assert 'deactivated' in attempt.failure_reason.lower()
+
+
+@pytest.mark.django_db
+class TestSessionTimeout:
+    """Test session timeout functionality (AU-15)"""
+    
+    def setup_method(self):
+        """Clear cache before each test"""
+        cache.clear()
+    
+    def test_active_session_works(self, authenticated_client, trainee_user):
+        """Test that an active session allows API access"""
+        url = reverse('user-me')
+        response = authenticated_client.get(url)
+        
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['email'] == trainee_user.email
+    
+    def test_session_timeout_after_inactivity(self, api_client):
+        """Test that session expires after 15 minutes of inactivity"""
+        org = OrganizationFactory()
+        program = ProgramFactory(org=org)
+        user = UserFactory(
+            email='timeout@example.com',
+            password='testpass123',
+            organization=org,
+            program=program
+        )
+        
+        # Login to get token
+        login_url = reverse('user-login')
+        response = api_client.post(login_url, {
+            'email': 'timeout@example.com',
+            'password': 'testpass123'
+        }, format='json')
+        
+        token = response.data['token']
+        
+        # Set the last activity time to 20 minutes ago
+        cache_key = f'token_last_activity_{token}'
+        cache.set(cache_key, timezone.now() - timedelta(minutes=20), 60 * 60)
+        
+        # Try to access protected endpoint
+        api_client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
+        url = reverse('user-me')
+        response = api_client.get(url)
+        
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert 'expired' in response.data['detail'].lower() or 'inactivity' in response.data['detail'].lower()
+
+
+@pytest.mark.django_db
+class TestLockoutHelperFunctions:
+    """Test lockout helper functions directly"""
+    
+    def setup_method(self):
+        """Clear cache before each test"""
+        cache.clear()
+    
+    def test_check_login_attempts_allows_fresh_user(self):
+        """Test that a new user is allowed to login"""
+        allowed, message = check_login_attempts('fresh@example.com')
+        assert allowed is True
+        assert message is None
+    
+    def test_check_login_attempts_blocks_after_threshold(self):
+        """Test that user is blocked after threshold is reached"""
+        email = 'blocked@example.com'
+        
+        # Record 5 failed attempts
+        for i in range(LOCKOUT_THRESHOLD):
+            record_failed_attempt(email)
+        
+        allowed, message = check_login_attempts(email)
+        assert allowed is False
+        assert 'locked' in message.lower()
+    
+    def test_record_failed_attempt_returns_remaining_count(self):
+        """Test that recording returns remaining attempts"""
+        email = 'count@example.com'
+        
+        result = record_failed_attempt(email)
+        assert '4' in result  # 5 - 1 = 4 remaining
+        
+        result = record_failed_attempt(email)
+        assert '3' in result  # 5 - 2 = 3 remaining
+    
+    def test_reset_login_attempts_clears_counter(self):
+        """Test that reset clears the attempt counter"""
+        email = 'reset@example.com'
+        
+        # Record some failed attempts
+        for i in range(3):
+            record_failed_attempt(email)
+        
+        # Verify attempts are recorded
+        assert get_remaining_attempts(email) == 2
+        
+        # Reset
+        reset_login_attempts(email)
+        
+        # Should be back to full attempts
+        assert get_remaining_attempts(email) == LOCKOUT_THRESHOLD
+    
+    def test_get_remaining_attempts(self):
+        """Test getting remaining attempts"""
+        email = 'remaining@example.com'
+        
+        # Initially should have full attempts
+        assert get_remaining_attempts(email) == LOCKOUT_THRESHOLD
+        
+        # After 2 failed attempts
+        record_failed_attempt(email)
+        record_failed_attempt(email)
+        
+        assert get_remaining_attempts(email) == LOCKOUT_THRESHOLD - 2
 

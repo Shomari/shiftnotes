@@ -82,8 +82,25 @@ export function ResetPasswordScreen({ uidb64, token, onSuccess, onBack }: ResetP
       return;
     }
 
-    if (password.length < 8) {
-      const msg = 'Password must be at least 8 characters long';
+    if (password.length < 12) {
+      const msg = 'Password must be at least 12 characters long';
+      setErrorMessage(msg);
+      if (Platform.OS === 'web') {
+        window.alert(msg);
+      } else {
+        Alert.alert('Error', msg);
+      }
+      return;
+    }
+
+    // Check for complexity requirements
+    const hasUppercase = /[A-Z]/.test(password);
+    const hasLowercase = /[a-z]/.test(password);
+    const hasDigit = /\d/.test(password);
+    const hasSpecial = /[^A-Za-z0-9]/.test(password);
+    
+    if (!hasUppercase || !hasLowercase || !hasDigit || !hasSpecial) {
+      const msg = 'Password must include uppercase, lowercase, a number, and a special character';
       setErrorMessage(msg);
       if (Platform.OS === 'web') {
         window.alert(msg);
@@ -236,9 +253,10 @@ export function ResetPasswordScreen({ uidb64, token, onSuccess, onBack }: ResetP
 
           <View style={styles.passwordRequirements}>
             <Text style={styles.requirementsTitle}>Password Requirements:</Text>
-            <Text style={styles.requirementItem}>• At least 8 characters long</Text>
+            <Text style={styles.requirementItem}>• At least 12 characters long</Text>
             <Text style={styles.requirementItem}>• Include uppercase and lowercase letters</Text>
             <Text style={styles.requirementItem}>• Include at least one number</Text>
+            <Text style={styles.requirementItem}>• Include at least one special character (!@#$%^&* etc.)</Text>
           </View>
 
           <View style={styles.buttonContainer}>

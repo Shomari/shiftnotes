@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser, UserManager
 from django.db import models
+from django.conf import settings
 import uuid
 
 class CustomUserManager(UserManager):
@@ -141,4 +142,56 @@ class Cohort(models.Model):
     
     def __str__(self):
         return f"{self.name} - {self.program.name}"
+
+
+class LoginAttempt(models.Model):
+    """
+    Track all login attempts for security audit purposes.
+    Implements hospital security requirement AU-14 (Login Attempt Logging).
     
+    Records successful and failed login attempts with metadata including
+    IP address, user agent, and timestamps for security monitoring.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    email = models.EmailField(db_index=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='login_attempts',
+        help_text='The user who attempted to login (null if user not found)'
+    )
+    success = models.BooleanField(
+        help_text='Whether the login attempt was successful'
+    )
+    ip_address = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+        help_text='IP address of the login attempt'
+    )
+    user_agent = models.TextField(
+        blank=True,
+        help_text='Browser/client user agent string'
+    )
+    timestamp = models.DateTimeField(auto_now_add=True)
+    failure_reason = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text='Reason for login failure (if applicable)'
+    )
+    
+    class Meta:
+        db_table = 'login_attempts'
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['email', '-timestamp']),
+            models.Index(fields=['user', '-timestamp']),
+            models.Index(fields=['-timestamp']),
+            models.Index(fields=['success', '-timestamp']),
+        ]
+    
+    def __str__(self):
+        status = 'SUCCESS' if self.success else 'FAILED'
+        return f"{status}: {self.email} at {self.timestamp}"
+

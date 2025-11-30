@@ -6,12 +6,27 @@ from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
-from .models import User, Cohort
+from .models import User, Cohort, LoginAttempt
 from .serializers import UserSerializer, UserCreateSerializer, CohortSerializer
 from .email_service import EmailService
+from .lockout import check_login_attempts, record_failed_attempt, reset_login_attempts
+from .authentication import clear_session_activity
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def get_client_ip(request):
+    """
+    Get the client's IP address from the request.
+    Handles proxy forwarding headers.
+    """
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0].strip()
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
 
 # Create your views here.
 
@@ -58,29 +73,117 @@ class UserViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['post'], permission_classes=[])
     def login(self, request):
+        """
+        Authenticate user with email and password.
+        
+        Implements security requirements:
+        - AU-13: Account lockout after 5 failed attempts
+        - AU-14: Login attempt logging for audit
+        """
         email = request.data.get('email')
         password = request.data.get('password')
+        ip_address = get_client_ip(request)
+        user_agent = request.META.get('HTTP_USER_AGENT', '')[:500]  # Limit length
         
-        if email and password:
-            user = authenticate(email=email, password=password)
-            if user:
-                token, created = Token.objects.get_or_create(user=user)
-                return Response({
-                    'token': token.key,
-                    'user': UserSerializer(user).data
-                })
+        if not email or not password:
+            return Response(
+                {'error': 'Email and password required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
-        return Response(
-            {'error': 'Invalid credentials'}, 
-            status=status.HTTP_401_UNAUTHORIZED
-        )
+        # Check if account is locked out (AU-13)
+        allowed, lockout_message = check_login_attempts(email)
+        if not allowed:
+            # Log the lockout attempt
+            LoginAttempt.objects.create(
+                email=email,
+                user=None,
+                success=False,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                failure_reason='Account locked out'
+            )
+            logger.warning(f"Blocked login attempt for locked account: {email} from {ip_address}")
+            return Response(
+                {'error': lockout_message},
+                status=status.HTTP_429_TOO_MANY_REQUESTS
+            )
+        
+        # Attempt authentication
+        user = authenticate(email=email, password=password)
+        
+        if user:
+            # Check if user is deactivated
+            if hasattr(user, 'deactivated_at') and user.deactivated_at is not None:
+                LoginAttempt.objects.create(
+                    email=email,
+                    user=user,
+                    success=False,
+                    ip_address=ip_address,
+                    user_agent=user_agent,
+                    failure_reason='Account deactivated'
+                )
+                logger.warning(f"Login attempt for deactivated account: {email} from {ip_address}")
+                return Response(
+                    {'error': 'Account has been deactivated. Please contact your administrator.'},
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+            
+            # Successful login
+            reset_login_attempts(email)  # Reset lockout counter
+            token, created = Token.objects.get_or_create(user=user)
+            
+            # Log successful login (AU-14)
+            LoginAttempt.objects.create(
+                email=email,
+                user=user,
+                success=True,
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+            logger.info(f"Successful login: {email} from {ip_address}")
+            
+            return Response({
+                'token': token.key,
+                'user': UserSerializer(user).data
+            })
+        else:
+            # Failed login - record attempt and check remaining
+            attempts_warning = record_failed_attempt(email)
+            
+            # Log failed login (AU-14)
+            LoginAttempt.objects.create(
+                email=email,
+                user=None,
+                success=False,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                failure_reason='Invalid credentials'
+            )
+            logger.warning(f"Failed login attempt: {email} from {ip_address}")
+            
+            return Response(
+                {
+                    'error': 'Invalid credentials',
+                    'attempts_warning': attempts_warning
+                },
+                status=status.HTTP_401_UNAUTHORIZED
+            )
     
     @action(detail=False, methods=['post'])
     def logout(self, request):
+        """
+        Log out the user by deleting their auth token.
+        Also clears the session activity cache for clean session management.
+        """
         try:
+            token_key = request.user.auth_token.key
+            clear_session_activity(token_key)  # Clear session timeout tracking
             request.user.auth_token.delete()
+            logger.info(f"User logged out: {request.user.email}")
             return Response({'message': 'Logged out successfully'})
-        except:
+        except Exception as e:
+            logger.error(f"Error during logout for {request.user.email}: {str(e)}")
             return Response({'error': 'Error logging out'})
     
     @action(detail=False, methods=['get'])
